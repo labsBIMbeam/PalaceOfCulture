@@ -18,10 +18,19 @@ export interface AvatarImport {
   clipUrls?: string[];
 }
 
+// Shared cozy-pose clips (sit/sleep), authored on the bullbear rig in Blender and bound by bone name
+// — all member models share that humanoid skeleton, so one file animates every avatar.
+const POSE_CLIPS = "/avatar/poses.glb";
+
 /** Build an import entry from the conventional idle/walk/run file trio under public/avatar/imported. */
 function rig(id: string, label: string): AvatarImport {
   const base = `/avatar/imported/${id}`;
-  return { id, label, modelUrl: `${base}.glb`, clipUrls: [`${base}-walk.glb`, `${base}-run.glb`] };
+  return {
+    id,
+    label,
+    modelUrl: `${base}.glb`,
+    clipUrls: [`${base}-walk.glb`, `${base}-run.glb`, POSE_CLIPS],
+  };
 }
 
 // The full 600 Billion council batch (www600-council-v1) — one rigged model per member, id = the

@@ -31,6 +31,9 @@ coverage/
 # Avatar assets (CC0 Quaternius packs/presets, VRM/FBX test assets) — fetched/dropped in, never committed
 apps/web/public/avatar/
 
+# Furniture assets (CC0 Kenney/Quaternius GLBs) — fetched/dropped in; keep CREDITS.md
+apps/web/public/furniture/*.glb
+
 # Media sample feeds (real PC2.0 RSS saved same-origin for the demo) — fetched, not committed
 apps/web/public/feeds/
 
