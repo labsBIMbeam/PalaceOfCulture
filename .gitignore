@@ -34,6 +34,12 @@ apps/web/public/avatar/
 # Furniture assets (CC0 Kenney/Quaternius GLBs) — fetched/dropped in; keep CREDITS.md
 apps/web/public/furniture/*.glb
 
+# Street building assets (CC-BY/CC0 GLBs) — fetched/dropped in; keep CREDITS.md
+apps/web/public/buildings/*.glb
+
+# Sky HDRI (CC0 Poly Haven puresky) — fetched/dropped in, never committed
+apps/web/public/sky/
+
 # Media sample feeds (real PC2.0 RSS saved same-origin for the demo) — fetched, not committed
 apps/web/public/feeds/
 

@@ -15,6 +15,8 @@ export function DecorPicker({
   selected,
   count,
   onPick,
+  onPlace,
+  onRotatePending,
   onClearPending,
   onRotate,
   onScale,
@@ -27,6 +29,8 @@ export function DecorPicker({
   selected: Selected;
   count: number;
   onPick: (defId: string) => void;
+  onPlace: () => void;
+  onRotatePending: (deltaRad: number) => void;
   onClearPending: () => void;
   onRotate: (deltaRad: number) => void;
   onScale: (factor: number) => void;
@@ -67,17 +71,38 @@ export function DecorPicker({
       </div>
 
       {pending ? (
-        <div className="decor-hint">
-          <span>
-            Placing <strong>{pending.label}</strong> — click the floor.
-          </span>
-          <button className="decor-mini" onClick={onClearPending} type="button">
-            Done
-          </button>
+        <div className="decor-controls">
+          <p className="decor-hint">
+            Placing <strong>{pending.label}</strong> — aim, rotate with Q / E, then Place.
+          </p>
+          <div className="decor-row">
+            <button
+              className="decor-btn"
+              onClick={() => onRotatePending(-Math.PI / 4)}
+              type="button"
+            >
+              ⟲ Turn
+            </button>
+            <button
+              className="decor-btn"
+              onClick={() => onRotatePending(Math.PI / 4)}
+              type="button"
+            >
+              Turn ⟳
+            </button>
+          </div>
+          <div className="decor-row">
+            <button className="decor-btn decor-btn--place" onClick={onPlace} type="button">
+              Place (F)
+            </button>
+            <button className="decor-btn" onClick={onClearPending} type="button">
+              Done
+            </button>
+          </div>
         </div>
       ) : (
         <p className="decor-hint decor-hint--idle">
-          Pick a piece, then click the floor. Click a placed piece to edit it.
+          Pick a piece, walk up and aim, then Place (F). Click a placed piece to edit it.
         </p>
       )}
 

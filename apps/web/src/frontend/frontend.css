@@ -1248,6 +1248,12 @@ input.compose-input::placeholder {
   color: var(--gold-soft);
 }
 
+/* Rendered growable preview (tree / ship) inside a lock thumb — transparent sprite on the tinted bg. */
+.growth-img {
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
+}
+
 .lock-thumb--gold {
   background: radial-gradient(80% 90% at 50% 28%, #d7a63a, #5d3d11);
 }
@@ -2382,6 +2388,18 @@ input.compose-input::placeholder {
 .decor-btn--danger:hover {
   border-color: var(--coral);
   background: rgba(232, 112, 79, 0.16);
+}
+
+/* Primary action in placement mode — filled gold so it reads as "drop it here". */
+.decor-btn--place {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #23140d;
+}
+
+.decor-btn--place:hover {
+  filter: brightness(1.06);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
 }
 
 .decor-media {

@@ -1,9 +1,17 @@
 import { KeyboardControls, OrbitControls, useKeyboardControls } from "@react-three/drei";
-import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CuboidCollider, Physics, type RapierRigidBody, RigidBody } from "@react-three/rapier";
 import Ecctrl from "ecctrl";
 import { Leva } from "leva";
-import { type RefObject, Suspense, useEffect, useRef, useState } from "react";
+import {
+  type MutableRefObject,
+  type RefObject,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
@@ -14,10 +22,13 @@ import { DecorPicker } from "../ui/DecorPicker";
 import { MediaPlayer } from "../ui/MediaPlayer";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
+import { LocktardStreet } from "./LocktardStreet";
 import { Palace } from "./Palace";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
+import { Atmosphere, PostFx } from "./SceneFx";
+import { StreetShops } from "./StreetShops";
 import { type PlacedItem, loadDecor, newUid, saveDecor } from "./decorStore";
-import { CATALOG, defById } from "./furnitureCatalog";
+import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
 import { INTERACTABLES, type Interactable } from "./interactables";
 
 type PalaceSceneProps = {
@@ -46,7 +57,7 @@ const ORBIT_POSITION = new THREE.Vector3(150, 110, 150);
 // +z, so the tree + spaceship sit ahead in view on spawn. Tune freely with RESERVED_CORNER.
 const SPAWN: [number, number, number] = [6, 4, 44];
 
-// drei KeyboardControls map — ecctrl reads these named actions.
+// drei KeyboardControls map — ecctrl reads these named actions. Full WASD; Decorate is on "B".
 const KEYBOARD_MAP = [
   { name: "forward", keys: ["ArrowUp", "KeyW"] },
   { name: "backward", keys: ["ArrowDown", "KeyS"] },
@@ -71,14 +82,60 @@ function OrbitView() {
   return <OrbitControls enableDamping makeDefault maxPolarAngle={Math.PI / 2.05} />;
 }
 
-/** Invisible floor catcher (decorate mode): clicks report the world point to place / move pieces. */
-function DecorGround({ onPlace }: { onPlace: (event: ThreeEvent<MouseEvent>) => void }) {
+const GHOST_ITEM: PlacedItem = {
+  uid: "ghost",
+  defId: "",
+  position: [0, 0, 0],
+  rotationY: 0,
+  scale: 1,
+};
+const NOOP = () => {};
+
+/**
+ * First-person placement preview: a live ghost of the piece being placed, sitting where the camera's
+ * centre ray meets the floor in front of the player. Walk/look to aim it; its world position is
+ * written to `posRef` so the Place control can drop the real piece there. No top-down clicking.
+ */
+function PlacementGhost({
+  def,
+  posRef,
+  bodyRef,
+  yaw,
+}: {
+  def: DecorDef;
+  posRef: MutableRefObject<[number, number, number] | null>;
+  bodyRef: RefObject<RapierRigidBody>;
+  yaw: number;
+}) {
+  const camera = useThree((state) => state.camera);
+  const group = useRef<THREE.Group>(null);
+  const dir = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    const node = group.current;
+    if (!node) return;
+    // Place a fixed distance in front of the player, on the floor, in the direction the camera faces.
+    // Robust regardless of camera pitch (a screen-centre floor ray misses when you look near level).
+    camera.getWorldDirection(dir);
+    dir.y = 0;
+    if (dir.lengthSq() < 1e-6) return;
+    dir.normalize();
+    const body = bodyRef.current;
+    const base = body ? body.translation() : camera.position;
+    const x = base.x + dir.x * 2.8;
+    const z = base.z + dir.z * 2.8;
+    node.position.set(x, 0, z);
+    posRef.current = [x, 0, z];
+  });
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: r3f mesh in the canvas, not a DOM element
-    <mesh onClick={onPlace} position={[0, 0.001, 0]} rotation-x={-Math.PI / 2}>
-      <planeGeometry args={[700, 700]} />
-      <meshBasicMaterial depthWrite={false} opacity={0} transparent />
-    </mesh>
+    <group ref={group} rotation-y={yaw}>
+      <Suspense fallback={null}>
+        <DecorItem def={def} editing={false} item={GHOST_ITEM} onSelect={NOOP} selected={false} />
+      </Suspense>
+      <mesh position={[0, 0.03, 0]} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[0.7, 0.95, 40]} />
+        <meshBasicMaterial color="#f3d27a" opacity={0.7} side={THREE.DoubleSide} transparent />
+      </mesh>
+    </group>
   );
 }
 
@@ -104,6 +161,10 @@ function SeatedView({ at }: { at: [number, number, number] }) {
  * jump (our own, since ecctrl's canJump is unreliable on the invisible floor) and (b) interact
  * proximity — the nearest interactable within range, reported up only when it changes.
  */
+// Bloom + vignette. Off by default: it's wired and standard, but the preview GPU can't be
+// screenshot-verified here — flip to true and confirm on real hardware (set false again if a weak
+// GPU shows a blank scene).
+const POSTFX_ENABLED = false;
 const USE_RADIUS = 2.6; // metres: how close you must be to a chair/bed for the "Sit"/"Sleep" prompt
 const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the bed's default scale
 
@@ -217,19 +278,33 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
   };
   const selectedItem = items.find((item) => item.uid === selectedUid) ?? null;
   const selectedDef = selectedItem ? defById(selectedItem.defId) : undefined;
+  const pendingDef = pendingDefId ? defById(pendingDefId) : undefined;
 
-  // Floor click: stamp the pending piece, else move the selected piece, else clear the selection.
-  const onGroundClick = (event: ThreeEvent<MouseEvent>) => {
-    event.stopPropagation();
-    const point: [number, number, number] = [event.point.x, 0, event.point.z];
-    if (pendingDefId) {
-      addItem(pendingDefId, point);
-      setPendingDefId(null);
-    } else if (selectedUid) {
-      updateItem(selectedUid, { position: point });
-    } else {
-      setSelectedUid(null);
-    }
+  // Live `items` through a ref, so handlers bound once (Place key, interact key) don't see a stale list.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  // First-person placement: the ghost writes its floor position here each frame; Place drops the
+  // pending piece there. Keeps `pendingDefId` set so you can walk on and stamp several. Reads through
+  // refs so the Place key handler (bound once) and the button both see live state.
+  const ghostRef = useRef<[number, number, number] | null>(null);
+  const pendingRef = useRef<string | null>(null);
+  pendingRef.current = pendingDefId;
+  // Rotation applied to the ghost (and the piece it drops). Kept across placements so you can stamp a
+  // row at the same facing; ref so the Place key handler reads it live.
+  const [ghostYaw, setGhostYaw] = useState(0);
+  const ghostYawRef = useRef(0);
+  ghostYawRef.current = ghostYaw;
+  const rotateGhost = (delta: number) => setGhostYaw((yaw) => yaw + delta);
+  const placeAtGhost = () => {
+    const defId = pendingRef.current;
+    const point = ghostRef.current;
+    if (!defId || !point) return;
+    const uid = newUid();
+    persistItems([
+      ...itemsRef.current,
+      { uid, defId, position: point, rotationY: ghostYawRef.current, scale: 1 },
+    ]);
   };
 
   const [activeInteract, setActiveInteract] = useState<Interactable | null>(null);
@@ -251,11 +326,6 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
     const pose = defById(item.defId)?.pose;
     return pose ? [{ uid: item.uid, position: item.position, pose }] : [];
   });
-
-  // The interact key handler is bound once per mode; read the latest items through a ref, not a stale
-  // render closure.
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
 
   const enterPose = (point: PosePoint) => {
     const item = itemsRef.current.find((entry) => entry.uid === point.uid);
@@ -301,12 +371,44 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
     };
   }, [mode]);
 
+  // Decorate mode: F places the pending piece at the ghost; Q/E rotate it before dropping. (Buttons
+  // in the picker do the same.)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: bound once per mode; placeAtGhost reads live state via refs
+  useEffect(() => {
+    if (mode !== "decorate") return;
+    const onDecorateKey = (event: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (event.code === "KeyF") placeAtGhost();
+      else if (event.code === "KeyQ") setGhostYaw((yaw) => yaw - Math.PI / 4);
+      else if (event.code === "KeyE") setGhostYaw((yaw) => yaw + Math.PI / 4);
+    };
+    window.addEventListener("keydown", onDecorateKey);
+    return () => window.removeEventListener("keydown", onDecorateKey);
+  }, [mode]);
+
+  // "B" (build) toggles Decorate from anywhere in the engine (uses only stable setters, so a
+  // once-bound listener is safe). Ignored while typing in chat. Not D — that's WASD right-strafe.
+  useEffect(() => {
+    const onDecorateKey = (event: KeyboardEvent) => {
+      if (event.code !== "KeyB") return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      setMode((value) => (value === "decorate" ? "walk" : "decorate"));
+      setPendingDefId(null);
+      setSelectedUid(null);
+      setPosed(null);
+    };
+    window.addEventListener("keydown", onDecorateKey);
+    return () => window.removeEventListener("keydown", onDecorateKey);
+  }, []);
+
   // Make jump reliable in walk mode. In the browser, Space's default is to scroll the page or "click"
   // the focused HUD button (which toggles you back to Overview and reads as "jump is broken"). So while
   // walking we claim Space for jumping: blur the focused button on entry, and preventDefault every Space
   // keydown (except when typing in chat). drei's KeyboardControls still receives the event → ecctrl jumps.
   useEffect(() => {
-    if (mode !== "walk") return;
+    if (mode !== "walk" && mode !== "decorate") return;
     (document.activeElement as HTMLElement | null)?.blur();
     const claimSpaceForJump = (event: KeyboardEvent) => {
       if (event.code !== "Space") return;
@@ -328,7 +430,7 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
   const title = target === "hq" ? "Palace of Culture HQ" : "Home Plot";
   const subtitle =
     mode === "decorate"
-      ? "decorate — place furniture, frames & screens"
+      ? "decorate — walk up, aim, and place"
       : mode === "walk"
         ? "third-person — walk the palace"
         : target === "hq"
@@ -336,7 +438,7 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
           : "3D engine — private plot";
 
   const toggleDecorate = () => {
-    setMode((value) => (value === "decorate" ? "orbit" : "decorate"));
+    setMode((value) => (value === "decorate" ? "walk" : "decorate"));
     setPendingDefId(null);
     setSelectedUid(null);
     setPosed(null);
@@ -346,10 +448,11 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
     <div className="engine-shell">
       <KeyboardControls map={KEYBOARD_MAP}>
         <Canvas camera={{ position: [150, 110, 150], fov: 42, near: 0.5, far: 6000 }} shadows>
-          <color args={["#efe6d2"]} attach="background" />
-          <fog args={["#efe6d2", 400, 1500]} attach="fog" />
-          <ambientLight intensity={0.55} />
-          <hemisphereLight args={["#fff2d6", "#9a8a62", 0.6]} />
+          {/* Sky (in <Atmosphere/>) is the background now. No fog — it sits in front of the sky dome
+              and washes it out to a flat colour. */}
+          <ambientLight intensity={0.4} />
+          {/* sky-tinted fill (cheap stand-in for IBL): cool sky above, warm bounce below */}
+          <hemisphereLight args={["#bcd4e6", "#b09a6a", 0.7]} />
           <directionalLight
             castShadow
             color="#ffe6ad"
@@ -362,6 +465,7 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
             shadow-camera-top={200}
             shadow-mapSize={[2048, 2048]}
           />
+          <Atmosphere />
           <Suspense fallback={null}>
             <Physics timeStep="vary">
               <Palace />
@@ -372,9 +476,10 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
                 {/* Thick (10 m) so the capsule can't tunnel through it on spawn/respawn. Top at y=0. */}
                 <CuboidCollider args={[300, 5, 300]} position={[0, -5, 0]} />
               </RigidBody>
-              {/* Walking: the controller. Parked while posed (re-spawns at the piece on get-up, so
-                  `position` is keyed to force a fresh mount when standPos changes). */}
-              {mode === "walk" && !posed ? (
+              {/* Walking (and decorating, which is walk + a build overlay): the controller. Parked
+                  while posed (re-spawns at the piece on get-up, so `position` is keyed to force a
+                  fresh mount when standPos changes). */}
+              {(mode === "walk" || mode === "decorate") && !posed ? (
                 <Ecctrl
                   camInitDis={-7}
                   camMaxDis={-14}
@@ -410,6 +515,8 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
               </group>
             ) : null}
             <PlotAssets accent={accent} />
+            <LocktardStreet />
+            <StreetShops />
             {/* Home plot only: your personal Tree, grown in 3D to its current age (Tamagotchi). */}
             {target === "home" ? (
               <GrowingTree position={[-7, 0, 40]} progress={homeProgress} />
@@ -431,8 +538,15 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
                 );
               })}
             </group>
-            {mode === "decorate" ? <DecorGround onPlace={onGroundClick} /> : null}
-            {mode === "walk" && !posed ? (
+            {mode === "decorate" && pendingDef ? (
+              <PlacementGhost
+                bodyRef={playerBody}
+                def={pendingDef}
+                posRef={ghostRef}
+                yaw={ghostYaw}
+              />
+            ) : null}
+            {(mode === "walk" || mode === "decorate") && !posed ? (
               <WalkSystems
                 bodyRef={playerBody}
                 onActive={setActiveInteract}
@@ -441,8 +555,9 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
               />
             ) : null}
           </Suspense>
-          {mode !== "walk" ? <OrbitView /> : null}
+          {mode === "orbit" ? <OrbitView /> : null}
           {mode === "walk" && posed ? <SeatedView at={posed.position} /> : null}
+          {POSTFX_ENABLED ? <PostFx /> : null}
         </Canvas>
       </KeyboardControls>
       <Leva hidden />
@@ -472,7 +587,7 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
           ) : null}
           <button className="nav-pill nav-pill--engine" onClick={toggleDecorate} type="button">
             <Icon name="brush" size={16} />
-            <span>{mode === "decorate" ? "Done" : "Decorate"}</span>
+            <span>{mode === "decorate" ? "Done (B)" : "Decorate (B)"}</span>
           </button>
         </div>
       </div>
@@ -488,7 +603,7 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
           <span>
             {posed
               ? "E (or the button) to get up"
-              : "WASD / arrows to move · Shift to run · Space to jump · E to sit / interact"}
+              : "Move WASD / arrows · Shift run · Space jump · E sit/interact · B build"}
           </span>
         </div>
       ) : null}
@@ -536,6 +651,8 @@ export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
             setPendingDefId(defId);
             setSelectedUid(null);
           }}
+          onPlace={placeAtGhost}
+          onRotatePending={rotateGhost}
           onRotate={(delta) => {
             if (selectedItem)
               updateItem(selectedItem.uid, { rotationY: selectedItem.rotationY + delta });
