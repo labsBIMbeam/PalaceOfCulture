@@ -3,12 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": { "600b-assets": "src/cli.ts" },
+  "bin": {
+    "600b-assets": "src/cli.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/node": "^20.16.0",
     "typescript": "^5.6.3"
   }
 }
