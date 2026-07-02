@@ -165,16 +165,19 @@ them too). Worlds own switching: on `Game.mode_changed` they toggle Player vs Ma
 - `palace_world.gd`: instantiates `res://assets/palace.glb`, generates trimesh collisions on
   its MeshInstance3Ds, invisible floor plane at y=0 (600×600), BuildSystem
   (allow_blocks = false) fed from Store palace decor, Player at (6, 2, 44).
-- `main.gd`: owns UI layers + world swapping per Game.space; boots to menu.
-- `tests/smoke.gd` (`extends SceneTree`): headless smoke — asserts autoload APIs, builds each
-  world, places/absorbs a block via Economy+BuildSystem, queues a craft, saves+reloads a
-  home, then `quit(0)`; any failure prints `SMOKE FAIL: <reason>` and `quit(1)`.
+- `main.gd`: owns UI layers + world swapping per Game.space; boots to menu. If
+  `OS.get_cmdline_user_args()` contains `--smoke`, it instead instantiates `tests/smoke.gd`,
+  calls `run()`, and quits with the returned exit code (so autoloads are fully up).
+- `tests/smoke.gd` (`extends Node`, `func run() -> int`): headless smoke — asserts autoload
+  APIs, builds each world, places/absorbs a block via Economy+BuildSystem, queues a craft,
+  saves+reloads a home. Failure prints `SMOKE FAIL: <reason>` and returns 1; success prints
+  `SMOKE OK` and returns 0.
 
 ## Verification
 
 ```
 G:\Tools\Godot\Godot_v4.7-stable_win64_console.exe --headless --path G:\Github\PalaceOfCulture\godot --import
-G:\Tools\Godot\Godot_v4.7-stable_win64_console.exe --headless --path G:\Github\PalaceOfCulture\godot -s res://tests/smoke.gd
+G:\Tools\Godot\Godot_v4.7-stable_win64_console.exe --headless --path G:\Github\PalaceOfCulture\godot -- --smoke
 ```
 
-Clean = no `SCRIPT ERROR` / `Parse Error` / `SMOKE FAIL` on stderr/stdout.
+Clean = no `SCRIPT ERROR` / `Parse Error` / `SMOKE FAIL` on stderr/stdout and `SMOKE OK` printed.
