@@ -22,19 +22,27 @@ export interface AvatarImport {
 // — all member models share that humanoid skeleton, so one file animates every avatar.
 const POSE_CLIPS = "/avatar/poses.glb";
 
-/** Build an import entry from the conventional idle/walk/run file trio under public/avatar/imported. */
+/**
+ * Build an import entry for a model under public/avatar/imported. The model GLB now carries
+ * idle + walk + run baked in as named clips (the Meshy → rig → retarget pipeline emits one file),
+ * so the only extra clip file is the shared sit/sleep poses GLB. (Older trio files
+ * `${id}-walk.glb` / `${id}-run.glb` are no longer required.)
+ */
 function rig(id: string, label: string): AvatarImport {
   const base = `/avatar/imported/${id}`;
   return {
     id,
     label,
     modelUrl: `${base}.glb`,
-    clipUrls: [`${base}-walk.glb`, `${base}-run.glb`, POSE_CLIPS],
+    clipUrls: [POSE_CLIPS],
   };
 }
 
-// The full 600 Billion council batch (www600-council-v1) — one rigged model per member, id = the
-// lowercased member name. `placeholder` is the shared stand-in for anyone without a model.
+// The full 600 Billion council batch — one rigged model per member, id = the lowercased member name.
+// `placeholder` is the shared stand-in for anyone without a model.
+// Models aj…tonichina below (minus the five excluded) use the new Meshy 3D meshes re-rigged onto the
+// shared humanoid skeleton (idle/walk/run baked in); the excluded five (arbadacarba, blackcoffee,
+// darren, mhb, snick) plus `p` keep their previous rigged mesh, repackaged to the same single-file form.
 const MEMBER_MODEL_IDS = [
   "aj",
   "arbadacarba",
@@ -45,18 +53,24 @@ const MEMBER_MODEL_IDS = [
   "dni",
   "essex",
   "flx",
+  "gadaj",
   "jedai",
+  "leon",
   "longy",
+  "madmunkey",
   "mhb",
   "michael1011",
+  "morgs",
   "nc",
   "nind",
   "p",
+  "proton",
   "rootzoll",
   "sat",
   "shillie",
   "snick",
   "tobo",
+  "tonichina",
 ] as const;
 
 export const AVATAR_IMPORTS: ReadonlyArray<AvatarImport> = [
