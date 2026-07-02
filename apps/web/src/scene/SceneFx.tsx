@@ -15,18 +15,26 @@ import * as THREE from "three";
 // sample than a float HDR background, which matters for the mobile 30 FPS budget.
 const SKY_IMG = "/sky/puresky.jpg";
 
-/** Installs the equirectangular sky as a wrap-around background (moves with the camera). Restores the
- *  previous background on unmount. */
+/** Installs the equirectangular sky as the wrap-around background AND a low-intensity image-based
+ *  light (so PBR skins/buildings catch the sky's ambient + soft reflections instead of reading flat).
+ *  Intensity is kept modest so the scene's own directional/ambient lights still dominate. Restores the
+ *  previous background/environment on unmount. */
 function Skybox() {
   const scene = useThree((state) => state.scene);
   const texture = useLoader(THREE.TextureLoader, SKY_IMG);
   useEffect(() => {
     texture.mapping = THREE.EquirectangularReflectionMapping;
     texture.colorSpace = THREE.SRGBColorSpace;
-    const previous = scene.background;
+    const prevBg = scene.background;
+    const prevEnv = scene.environment;
+    const prevIntensity = scene.environmentIntensity;
     scene.background = texture;
+    scene.environment = texture;
+    scene.environmentIntensity = 0.4;
     return () => {
-      scene.background = previous;
+      scene.background = prevBg;
+      scene.environment = prevEnv;
+      scene.environmentIntensity = prevIntensity;
     };
   }, [scene, texture]);
   return null;
