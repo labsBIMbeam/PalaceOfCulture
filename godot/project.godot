@@ -1,0 +1,29 @@
+; Engine configuration format. Generated fields are added by the editor; keep this minimal.
+; Godot 4.7 · GL Compatibility renderer (web-first + mobile 30 fps budget, see BUILD-BRIEF).
+
+config_version=5
+
+[application]
+
+config/name="Palace of Culture — Homebuilder"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+Catalog="*res://scripts/catalog.gd"
+Economy="*res://scripts/economy.gd"
+Store="*res://scripts/store.gd"
+Game="*res://scripts/game.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

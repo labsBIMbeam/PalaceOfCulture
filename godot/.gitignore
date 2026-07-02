@@ -1,0 +1,4 @@
+# Godot generated caches (never commit)
+.godot/
+*.translation
+export_presets.cfg
