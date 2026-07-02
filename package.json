@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "600 Billion — The Palace of Culture. Web-first stylized 3D social MMO built on Bitcoin timelocks.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "packageManager": "pnpm@9.12.0",
   "engines": {
     "node": ">=20"

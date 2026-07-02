@@ -49,18 +49,28 @@ export function AvatarView({
   config,
   bodyRef,
   locomotion = true,
+  pose,
 }: {
   config: AvatarConfig;
   bodyRef?: RefObject<RapierRigidBody | null>;
   locomotion?: boolean;
+  /** Hold a cozy pose (sit/sleep) instead of speed-driven locomotion. */
+  pose?: "sit" | "sleep";
 }) {
   const url = config.modelUrl || presetUrl(config);
   if (!url) return <CharacterModel config={config} />;
-  // Imported models carry their locomotion clips in extra GLBs; skip them for a static preview.
+  // Imported models carry their locomotion + pose clips in extra GLBs; skip them for a static preview.
   const clipUrls = locomotion ? findImport(config.modelUrl)?.clipUrls : undefined;
   return (
     <Suspense fallback={null}>
-      <RiggedAvatar bodyRef={bodyRef} clipUrls={clipUrls} config={config} key={url} url={url} />
+      <RiggedAvatar
+        bodyRef={bodyRef}
+        clipUrls={clipUrls}
+        config={config}
+        key={url}
+        pose={pose}
+        url={url}
+      />
     </Suspense>
   );
 }

@@ -59,7 +59,7 @@ function avatarFor(name: string, overrides?: Partial<AvatarConfig>): AvatarConfi
   };
 }
 
-// All 21 members from the 600.wtf roster (in org order).
+// The 600.wtf roster (in org order) + the model-only members added below.
 const SEEDS: ReadonlyArray<MemberSeed> = [
   { name: "dni", role: "CEO", nostr: "dni@600.wtf" },
   { name: "nind", role: "CCS", nostr: "n@600.wtf" },
@@ -82,6 +82,13 @@ const SEEDS: ReadonlyArray<MemberSeed> = [
   { name: "bam", role: "CMO", nostr: "bam@600.wtf" },
   { name: "mhb", role: "CRO", nostr: "mhb@600.wtf" },
   { name: "snick", role: "CWO", nostr: "snick@600.wtf" },
+  // Model-only members now in the game — roles/nostr are placeholders until the real 600.wtf entries land.
+  { name: "gadaj", role: "Council", nostr: "gadaj@600.wtf" },
+  { name: "leon", role: "Council", nostr: "leon@600.wtf" },
+  { name: "madmunkey", role: "Council", nostr: "madmunkey@600.wtf" },
+  { name: "morgs", role: "Council", nostr: "morgs@600.wtf" },
+  { name: "proton", role: "Council", nostr: "proton@600.wtf" },
+  { name: "tonichina", role: "Council", nostr: "tonichina@600.wtf" },
 ];
 
 export const MEMBERS: ReadonlyArray<Member> = SEEDS.map((seed) => ({
