@@ -151,7 +151,8 @@ func _refresh_queue() -> void:
 		var recipe: Dictionary = Catalog.get_recipe(String(entry.recipe_id))
 		var total := maxf(0.001, float(entry.total))
 		var label: Label = row.label
-		label.text = "%s — %s" % [recipe.display, _fmt_mmss(float(entry.remaining))]
+		var display := String(recipe.get("display", entry.recipe_id))  # stale save: id fallback
+		label.text = "%s — %s" % [display, _fmt_mmss(float(entry.remaining))]
 		var bar: ProgressBar = row.bar
 		bar.value = clampf(100.0 * (1.0 - float(entry.remaining) / total), 0.0, 100.0)
 

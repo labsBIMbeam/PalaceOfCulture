@@ -121,14 +121,19 @@ func _refresh_materials() -> void:
 	for id: String in _material_labels:
 		var label: Label = _material_labels[id]
 		var display := String(Catalog.MATERIALS[id].display)
-		label.text = "%s %d (+%.1f/min)" % [display, Economy.get_material(id), Economy.drip_rate(id)]
+		var rate := Economy.drip_rate(id)
+		if rate > 0.0:
+			label.text = "%s %d (+%.1f/min)" % [display, Economy.get_material(id), rate]
+		else:  # refined material (no drip entry): count only
+			label.text = "%s %d" % [display, Economy.get_material(id)]
 	var queue: Array = Economy.get_queue()
 	if queue.is_empty():
 		_queue_label.text = "craft queue idle"
 	else:
 		var head: Dictionary = queue[0]
 		var recipe: Dictionary = Catalog.get_recipe(String(head.recipe_id))
-		var line := "crafting %s %s" % [recipe.display, _fmt_mmss(float(head.remaining))]
+		var display := String(recipe.get("display", head.recipe_id))  # stale save: id fallback
+		var line := "crafting %s %s" % [display, _fmt_mmss(float(head.remaining))]
 		if queue.size() > 1:
 			line += " · +%d queued" % (queue.size() - 1)
 		_queue_label.text = line

@@ -32,11 +32,13 @@ const DRIP_PER_MINUTE := {"wood": 2.0, "stone": 1.0}  # THE balancing knob. Touc
 const ATTRACTION_SUSTAIN_SEC := 86400.0                # move-in condition hold time (24 h)
 
 ## MATERIALS: id -> {display: String, color: Color}
+##   wood + stone = raw (drip); boards = refined (no drip entry — milled from wood)
 ## OBJECTS: id -> {display, kind: "block"|"furniture", color: Color,
 ##                 size: Vector3 (metres, furniture only),
 ##                 specialty: {} or {material_id: multiplier} e.g. {"wood": 1.5},
 ##                 attracts: bool}
 ## RECIPES: id -> {display, output_id, output_count, cost: {material_id: int}, seconds: float}
+##   output_id may be an OBJECTS id (crafting) or a MATERIALS id (processing, e.g. mill_boards)
 func get_object(id: String) -> Dictionary
 func get_recipe(id: String) -> Dictionary
 func recipe_ids() -> Array[String]
@@ -45,11 +47,15 @@ func furniture_ids() -> Array[String]
 func make_material(color: Color) -> StandardMaterial3D  # toon-flat helper, cached
 ```
 
-Content v0 — blocks: `block_cream`, `block_gold`, `block_teal` (1×1×1 m). Furniture:
-`stool` (5 wood, 120 s), `lantern` (3w+2s, 300 s, needed for move-in), `sawbench`
-(8w, 600 s, specialty wood ×1.5), `kiln` (10s, 600 s, specialty stone ×1.5), `fountain`
-(12s+4w, 1200 s, attracts). Block recipes: `craft_block_<x>` → 9 blocks, 9 matching
-materials (gold/teal → stone, cream → wood), 60 s.
+Content v0 (Pokopia structure, shrunk to basics) — materials: `wood` + `stone` raw
+(drip), `boards` refined (Pokopia Small Log→Lumber analog; NO drip). Processing:
+`mill_boards` = 10 wood → 50 boards, 180 s (mirrors Pokopia's Chop batch 10 logs → 50
+lumber, request-then-wait via the craft queue). Blocks: `block_stone` (stone-grey-cream),
+`block_boards` (warm wood), 1×1×1 m; block recipes `craft_block_<x>` → 9 blocks for 9 of
+the base material, 60 s. Furniture: `stool` (5 wood, 120 s), `lantern` (2 boards+2 stone,
+300 s, needed for move-in), `sawbench` (8 wood, 600 s, specialty wood ×1.5, the thematic
+board maker — "Chop"), `kiln` (10 stone, 600 s, specialty stone ×1.5), `fountain`
+(12 stone+6 boards, 1200 s, attracts).
 
 ## Economy (economy.gd) — inventory, drip, craft queue, move-in
 
@@ -74,7 +80,9 @@ Drip + queue tick in `_process`; **offline catch-up**: Store persists `last_tick
 Economy applies elapsed time on load (drip + queue). Move-in v0: condition = ≥9 blocks AND
 ≥1 lantern placed (Home); sustained `ATTRACTION_SUSTAIN_SEC` (Economy times it from
 `notify_condition`) → grants `fountain` ×1 via `move_in_arrived` + inventory. New game
-starter kit: 60 wood, 40 stone, 18 `block_cream`.
+starter kit: 60 wood, 40 stone, 0 boards, 18 `block_stone`. Stale saves may reference
+removed ids (`block_cream`/`block_gold`/`block_teal`, old recipes): loaders and UI skip
+unknown ids gracefully — never crash.
 
 ## Store (store.gd) — local-first JSON persistence (user://)
 

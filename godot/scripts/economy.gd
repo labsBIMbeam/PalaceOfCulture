@@ -10,8 +10,8 @@ signal move_in_arrived(object_id: String)
 const AUTOSAVE_INTERVAL := 3.0
 const MOVE_IN_REWARD_ID := "fountain"  # v0: the single attractable object
 
-const STARTER_MATERIALS := {"wood": 60.0, "stone": 40.0}
-const STARTER_INVENTORY := {"block_cream": 18}
+const STARTER_MATERIALS := {"wood": 60.0, "stone": 40.0, "boards": 0.0}
+const STARTER_INVENTORY := {"block_stone": 18}
 
 var _materials: Dictionary = {}    # material_id -> float accumulator
 var _inventory: Dictionary = {}    # object_id -> int (crafted, not placed)
@@ -156,11 +156,17 @@ func _advance(seconds: float) -> void:
 
 
 func _complete_craft(recipe_id: String) -> void:
+	## Output lands in _materials for processing recipes (output_id is a
+	## material, e.g. mill_boards) and in _inventory for object recipes.
 	var recipe: Dictionary = Catalog.get_recipe(recipe_id)
 	if recipe.is_empty():
-		return
+		return  # recipe removed from Catalog since save — drop silently
 	var out_id := String(recipe["output_id"])
-	_inventory[out_id] = get_count(out_id) + int(recipe["output_count"])
+	var count := int(recipe["output_count"])
+	if Catalog.MATERIALS.has(out_id):
+		_materials[out_id] = float(_materials.get(out_id, 0.0)) + float(count)
+	else:
+		_inventory[out_id] = get_count(out_id) + count
 	craft_completed.emit(recipe_id)
 	_save_state()
 

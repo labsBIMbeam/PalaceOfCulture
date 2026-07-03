@@ -6,14 +6,21 @@ const COLOR_CREAM := Color("efe6d2")
 const COLOR_GOLD := Color("e7b23c")
 const COLOR_TEAL := Color("23806f")
 const COLOR_CORAL := Color("e8735a")
+const COLOR_STONEBLOCK := Color("c5beac")  # stone-grey-cream block look
+const COLOR_BOARDS := Color("b9814a")  # warm wood look (boards + board blocks)
 
+## Raw materials drip with real time — no farming, no gathering. Refined
+## materials (boards) have NO drip entry: they only come from processing recipes.
 const DRIP_PER_MINUTE := {"wood": 2.0, "stone": 1.0}  # THE balancing knob. Touch nothing else.
 const ATTRACTION_SUSTAIN_SEC := 86400.0  # move-in condition hold time (24 h)
 
 ## MATERIALS: id -> {display: String, color: Color}
+## wood + stone = raw (drip); boards = refined (milled from wood, Pokopia
+## Small Log -> Lumber analog; the Chop worker becomes our sawbench theme).
 const MATERIALS := {
 	"wood": {"display": "Wood", "color": COLOR_GOLD},
 	"stone": {"display": "Stone", "color": COLOR_TEAL},
+	"boards": {"display": "Boards", "color": COLOR_BOARDS},
 }
 
 ## OBJECTS: id -> {display, kind: "block"|"furniture", color: Color,
@@ -21,16 +28,12 @@ const MATERIALS := {
 ## attracts: bool (true = arrives via move-in attraction, never bought)}.
 ## Blocks are 1x1x1 m grid cells. Insertion order = hotbar order (blocks first).
 const OBJECTS := {
-	"block_cream": {
-		"display": "Cream Block", "kind": "block", "color": COLOR_CREAM,
+	"block_stone": {
+		"display": "Stone Block", "kind": "block", "color": COLOR_STONEBLOCK,
 		"specialty": {}, "attracts": false,
 	},
-	"block_gold": {
-		"display": "Gold Block", "kind": "block", "color": COLOR_GOLD,
-		"specialty": {}, "attracts": false,
-	},
-	"block_teal": {
-		"display": "Teal Block", "kind": "block", "color": COLOR_TEAL,
+	"block_boards": {
+		"display": "Board Block", "kind": "block", "color": COLOR_BOARDS,
 		"specialty": {}, "attracts": false,
 	},
 	"stool": {
@@ -42,7 +45,7 @@ const OBJECTS := {
 		"size": Vector3(0.4, 1.4, 0.4), "specialty": {}, "attracts": false,
 	},
 	"sawbench": {
-		"display": "Sawbench", "kind": "furniture", "color": COLOR_GOLD,
+		"display": "Sawbench (Chop)", "kind": "furniture", "color": COLOR_BOARDS,
 		"size": Vector3(1.6, 1.0, 0.8), "specialty": {"wood": 1.5}, "attracts": false,
 	},
 	"kiln": {
@@ -56,18 +59,21 @@ const OBJECTS := {
 }
 
 ## RECIPES: id -> {display, output_id, output_count, cost: {material_id: int}, seconds: float}
+## output_id may be an OBJECTS id (crafting) or a MATERIALS id (processing).
+## mill_boards mirrors Pokopia's Chop hand-over batch: 10 logs -> 50 lumber (1:5),
+## request-then-wait, so it runs through the same timed craft queue.
 const RECIPES := {
-	"craft_block_cream": {
-		"display": "Cream Blocks x9", "output_id": "block_cream", "output_count": 9,
-		"cost": {"wood": 9}, "seconds": 60.0,
+	"mill_boards": {
+		"display": "Boards x50 (Chop)", "output_id": "boards", "output_count": 50,
+		"cost": {"wood": 10}, "seconds": 180.0,
 	},
-	"craft_block_gold": {
-		"display": "Gold Blocks x9", "output_id": "block_gold", "output_count": 9,
+	"craft_block_stone": {
+		"display": "Stone Blocks x9", "output_id": "block_stone", "output_count": 9,
 		"cost": {"stone": 9}, "seconds": 60.0,
 	},
-	"craft_block_teal": {
-		"display": "Teal Blocks x9", "output_id": "block_teal", "output_count": 9,
-		"cost": {"stone": 9}, "seconds": 60.0,
+	"craft_block_boards": {
+		"display": "Board Blocks x9", "output_id": "block_boards", "output_count": 9,
+		"cost": {"boards": 9}, "seconds": 60.0,
 	},
 	"craft_stool": {
 		"display": "Stool", "output_id": "stool", "output_count": 1,
@@ -75,10 +81,10 @@ const RECIPES := {
 	},
 	"craft_lantern": {
 		"display": "Lantern", "output_id": "lantern", "output_count": 1,
-		"cost": {"wood": 3, "stone": 2}, "seconds": 300.0,
+		"cost": {"boards": 2, "stone": 2}, "seconds": 300.0,
 	},
 	"craft_sawbench": {
-		"display": "Sawbench", "output_id": "sawbench", "output_count": 1,
+		"display": "Sawbench (Chop)", "output_id": "sawbench", "output_count": 1,
 		"cost": {"wood": 8}, "seconds": 600.0,
 	},
 	"craft_kiln": {
@@ -87,7 +93,7 @@ const RECIPES := {
 	},
 	"craft_fountain": {
 		"display": "Fountain", "output_id": "fountain", "output_count": 1,
-		"cost": {"stone": 12, "wood": 4}, "seconds": 1200.0,
+		"cost": {"stone": 12, "boards": 6}, "seconds": 1200.0,
 	},
 }
 

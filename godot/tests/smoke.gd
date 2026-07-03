@@ -38,20 +38,24 @@ func _run_all() -> bool:
 	await get_tree().process_frame
 
 	for i in 9:
-		Economy.return_object("block_teal")  # public grant path for objects
-	var owned := Economy.get_count("block_teal")
+		Economy.return_object("block_stone")  # public grant path for objects
+	var owned := Economy.get_count("block_stone")
 	var cells: Array = home.build_system.footprint_cells(Vector3i(2, 0, 2))
 	if not _check(cells.size() == 9, "footprint_cells is not 3x3x1"):
 		return false
-	if not _check(home.build_system.place_blocks(cells, "block_teal") == 9, "place_blocks did not place 9"):
+	if not _check(home.build_system.place_blocks(cells, "block_stone") == 9, "place_blocks did not place 9"):
 		return false
 	if not _check(home.build_system.block_count() == 9, "block_count != 9 after place"):
 		return false
-	if not _check(Economy.get_count("block_teal") == owned - 9, "blocks not consumed from Economy"):
+	if not _check(Economy.get_count("block_stone") == owned - 9, "blocks not consumed from Economy"):
 		return false
 	if not _check(home.build_system.absorb_block(Vector3i(2, 0, 2)), "absorb_block refused"):
 		return false
-	if not _check(Economy.get_count("block_teal") == owned - 8, "absorbed block not returned"):
+	if not _check(Economy.get_count("block_stone") == owned - 8, "absorbed block not returned"):
+		return false
+	Economy.return_object("block_boards")
+	if not _check(home.build_system.place_blocks([Vector3i(5, 0, 5)], "block_boards") == 1,
+			"place_blocks refused block_boards"):
 		return false
 
 	# --- Craft queue ---
@@ -67,13 +71,38 @@ func _run_all() -> bool:
 	if not _check(String(tail.get("recipe_id", "")) == "craft_stool", "queue tail is not craft_stool"):
 		return false
 
-	# --- Save + reload the home blueprint ---
+	# --- Mill boards: processing recipe outputs a MATERIAL, never drips ---
+	if not _check(Economy.drip_rate("boards") == 0.0, "boards must not drip"):
+		return false
+	if not Economy.can_afford("mill_boards"):
+		Economy._materials["wood"] = 20.0  # test-only top-up; there is no public grant API
+	var boards_before := Economy.get_material("boards")
+	if not _check(Economy.queue_craft("mill_boards"), "queue mill_boards refused"):
+		return false
+	for entry: Dictionary in Economy._queue:  # test-only reach-in: expire all timers
+		entry["remaining"] = 0.0
+	Economy._advance(0.01)  # drains the whole queue (incl. the stool above)
+	if not _check(Economy.get_queue().is_empty(), "queue not drained after expiring timers"):
+		return false
+	if not _check(Economy.get_material("boards") == boards_before + 50,
+			"mill_boards did not add 50 boards"):
+		return false
+
+	# --- Save + reload the home blueprint (8 stone + 1 boards) ---
 	Store.save_home(HOME_NAME, home.build_system.to_data())
 	var loaded: Dictionary = Store.load_home(HOME_NAME)
-	if not _check((loaded.get("blocks", []) as Array).size() == 8, "reloaded home has wrong block count"):
+	if not _check((loaded.get("blocks", []) as Array).size() == 9, "reloaded home has wrong block count"):
 		return false
 	home.build_system.from_data(loaded)
-	if not _check(home.build_system.block_count() == 8, "from_data lost blocks"):
+	if not _check(home.build_system.block_count() == 9, "from_data lost blocks"):
+		return false
+
+	# --- Stale-save robustness: unknown object ids are skipped, never crash ---
+	home.build_system.from_data({
+		"blocks": [{"id": "block_teal", "cell": [9, 0, 9]}],
+		"decor": [{"id": "block_cream", "pos": [1.0, 0.0, 1.0], "rot_y": 0.0}],
+	})
+	if not _check(home.build_system.block_count() == 0, "stale block id not skipped"):
 		return false
 	home.queue_free()
 	await get_tree().process_frame
@@ -84,7 +113,7 @@ func _run_all() -> bool:
 	add_child(palace)
 	await get_tree().process_frame
 
-	if not _check(palace.build_system.place_blocks([Vector3i.ZERO], "block_teal") == 0, "palace accepted blocks"):
+	if not _check(palace.build_system.place_blocks([Vector3i.ZERO], "block_stone") == 0, "palace accepted blocks"):
 		return false
 	Economy.return_object("stool")
 	if not _check(palace.build_system.place_decor("stool", Vector3(10, 0, 10), 0.0), "palace place_decor refused"):

@@ -171,7 +171,7 @@ func from_data(data: Dictionary) -> void:
 	for entry in data.get("blocks", []):
 		var id: String = entry.get("id", "")
 		if not _item_for_block.has(id):
-			continue
+			continue  # stale save: block id no longer in Catalog — skip, never crash
 		var c: Array = entry.get("cell", [0, 0, 0])
 		_grid.set_cell_item(Vector3i(int(c[0]), int(c[1]), int(c[2])), _item_for_block[id])
 	for entry in data.get("decor", []):
@@ -184,7 +184,7 @@ func from_data(data: Dictionary) -> void:
 func _spawn_decor(object_id: String, pos: Vector3, rot_y: float) -> StaticBody3D:
 	var def: Dictionary = Catalog.get_object(object_id)
 	if def.is_empty():
-		return null
+		return null  # stale save: object id no longer in Catalog — skip, never crash
 	var size: Vector3 = def.get("size", Vector3.ONE)
 	var body := StaticBody3D.new()
 	body.set_meta("object_id", object_id)
