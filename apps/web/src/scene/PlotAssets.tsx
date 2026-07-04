@@ -1,9 +1,11 @@
 /**
  * The reserved-corner timelock shelf: a plinth holding the player's timelock assets, one slot per tier
- * (21D → 21Y, left to right). Two tiers have fixed hand-built forms — the Tree (21 months) and the
- * Spaceship (21 years); the three "special" tiers (21D/210D/210M) are team-authored assets handed to
- * holders as content (themes still open), shown here as sealed placeholders until built. Later those slots
- * may also take user-created content (the Roblox-style goal). Built from primitives like the character; decorative
+ * (21D → 21Y, left to right). Three tiers have canonical forms — the Siegelfliese (21 days,
+ * seal-patterned azulejo that also skins furniture; 3D form still to build, renders sealed for now),
+ * the Tree (21 months) and the Spaceship (21 years). The two open "special" tiers (2100H/210D) are
+ * team-authored assets handed to holders as content (themes open, see TIMELOCK-TIER-IDEAS.md),
+ * shown here as sealed placeholders. Later those slots may also take user-created content (the
+ * Roblox-style goal). Built from primitives like the character; decorative
  * for the pilot (not in the collider). Tier → form mapping lives in timelockAssets.ts. See plan / ADR 0001.
  */
 

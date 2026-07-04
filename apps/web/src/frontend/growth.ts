@@ -9,9 +9,9 @@ import type { Timelock } from "./types";
 /** Approx. days each tier locks for — the denominator for "how grown is it". */
 const TIER_DAYS: Record<TimelockTier, number> = {
   "21D": 21,
+  "2100H": 87.5, // 2100 hours
   "210D": 210,
   "21M": 639, // 21 months
-  "210M": 6391, // 210 months
   "21Y": 7670, // 21 years
 };
 

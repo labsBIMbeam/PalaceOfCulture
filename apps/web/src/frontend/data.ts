@@ -218,7 +218,7 @@ export const styleDrops: MarketItem[] = [
   },
 ];
 
-export const timelockTiers = ["21D", "210D", "21M", "210M", "21Y"] as const;
+export const timelockTiers = ["21D", "2100H", "210D", "21M", "21Y"] as const;
 
 // The Home "legendwall" — your committed timelocks. Days locked is the hero metric (not money).
 // Mock data for the pilot; the real source is the signed ownership chain (packages/ownership).
@@ -237,15 +237,15 @@ export const timelocks: Timelock[] = [
   },
   {
     id: "atlantic-skiff",
-    tier: "210M",
+    tier: "2100H",
     name: "Atlantic Skiff",
     grewInto: "Vehicle / seaworthy",
-    daysLocked: 1890,
+    daysLocked: 55,
     unlock: "block 1,021,400",
     status: "growing",
     icon: "car",
     tone: "coral",
-    detail: "A sapling that hardened into a hull. 63 months to go.",
+    detail: "A sapling that hardened into a hull. 33 days to go.",
   },
   {
     id: "cherry-grove",
