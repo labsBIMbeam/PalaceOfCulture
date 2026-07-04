@@ -160,8 +160,51 @@ func _run_all() -> bool:
 	if not await _check_social():
 		return false
 
+	# --- World map, intro, palace landmarks ---
+	if not await _check_world_screens():
+		return false
+
 	# --- Main menu: headless build + window-resize layout sanity ---
 	return await _check_menu_layout()
+
+
+## World map parses the shipped GeoJSON headless, the intro resolves instantly
+## without a display, and the palace world carries the two landmark sites.
+func _check_world_screens() -> bool:
+	var map: CanvasLayer = load("res://scripts/ui/world_map.gd").new()
+	add_child(map)
+	await get_tree().process_frame
+	map.open()
+	await get_tree().process_frame
+	if not _check(map._countries.size() > 100, "world map parsed %d countries" % map._countries.size()):
+		return false
+	if not _check(map._outlines.size() > 100, "world map projected no outlines"):
+		return false
+	map.close()
+	map.queue_free()
+
+	var intro: CanvasLayer = load("res://scripts/ui/intro_screen.gd").new()
+	add_child(intro)
+	await get_tree().process_frame
+	var done := [false]
+	intro.intro_done.connect(func() -> void: done[0] = true)
+	intro.open()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not _check(done[0], "intro did not resolve headless"):
+		return false
+	intro.queue_free()
+
+	var palace := PalaceWorldScript.new()
+	add_child(palace)
+	await get_tree().process_frame
+	var garden := palace.find_child("Baumgarten", true, false)
+	var pad := palace.find_child("Raketenbauplatz", true, false)
+	if not _check(garden != null and pad != null, "palace landmarks missing"):
+		return false
+	palace.queue_free()
+	await get_tree().process_frame
+	return true
 
 
 ## Instantiates the title screen headless and resizes the window across the

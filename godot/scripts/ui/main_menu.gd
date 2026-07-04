@@ -7,6 +7,8 @@ extends CanvasLayer
 ## rates, home count, RADIO [M] hint). The text IS the button — no boxed
 ## panels, no keyart. Coral marks ONLY the hosted-home star.
 
+signal world_map_requested
+
 const UITheme := preload("res://scripts/ui/ui_theme.gd")
 
 const CENTER_WIDTH := 560.0
@@ -203,6 +205,10 @@ func _build_center() -> void:
 	_palace_button.name = "PalaceButton"
 	_palace_button.pressed.connect(_on_palace_pressed)
 	actions.add_child(_palace_button)
+	var map_button := _terminal_button("[ WORLD MAP ]")
+	map_button.name = "MapButton"
+	map_button.pressed.connect(func() -> void: world_map_requested.emit())
+	actions.add_child(map_button)
 
 	column.add_child(_spacer(6))
 	var create_row := HBoxContainer.new()
