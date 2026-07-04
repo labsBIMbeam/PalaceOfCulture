@@ -3,8 +3,10 @@ extends CanvasLayer
 ## browse panel (Music / Podcasts / Live, fed by scripts/net/media_catalog.gd)
 ## plus a bottom-right now-playing card floating above the hotbar row (the
 ## hotbar is bottom-center, the chat dock bottom-left — the card avoids both).
-## Toggled by the `media_player` action (M —
-## self-registered in _enter_tree). Audio downloads once via HTTPRequest to
+## Toggled by the `media_player` action (M — self-registered in _enter_tree)
+## and available in EVERY space, the main menu included (main.gd keeps this
+## layer visible everywhere and lifts it above the menu backdrop there).
+## Audio downloads once via HTTPRequest to
 ## user://media_cache/<id>.mp3 and plays from cache; failures show a muted
 ## "offline" state and never crash. All network is skipped when headless.
 
@@ -105,8 +107,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or Game.space == Game.Space.MENU:
-		return  # main.gd shows the player only in HOME/PALACE
+	if not visible:
+		return  # Palace Radio works everywhere, the main menu included (M key)
 	if event.is_action_pressed("media_player"):
 		_toggle_panel()
 		get_viewport().set_input_as_handled()

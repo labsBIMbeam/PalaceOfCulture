@@ -156,7 +156,7 @@ func _refresh_materials() -> void:
 		(row.count as Label).text = str(Economy.get_material(id))
 		var rate := Economy.drip_rate(id)
 		# Refined materials (no drip entry) show the count only.
-		(row.rate as Label).text = ("+%.1f/min" % rate) if rate > 0.0 else ""
+		(row.rate as Label).text = ("+%.1f/day" % (rate * 1440.0)) if rate > 0.0 else ""
 	var queue: Array = Economy.get_queue()
 	if queue.is_empty():
 		_queue_label.text = "craft queue idle"
@@ -316,5 +316,10 @@ func _mono_label(value: String, font_size: int, color: Color) -> Label:
 
 
 func _fmt_mmss(seconds: float) -> String:
+	## Compact duration for month-scale crafts: 21d 4h · 3h 12m · 04:32 under an hour.
 	var s := maxi(0, int(ceilf(seconds)))
+	if s >= 86400:
+		return "%dd %dh" % [s / 86400, (s % 86400) / 3600]
+	if s >= 3600:
+		return "%dh %02dm" % [s / 3600, (s % 3600) / 60]
 	return "%02d:%02d" % [int(s / 60.0), s % 60]

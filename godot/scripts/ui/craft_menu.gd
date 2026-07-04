@@ -266,5 +266,10 @@ func _mono_label(value: String, font_size: int, color: Color) -> Label:
 
 
 func _fmt_mmss(seconds: float) -> String:
+	## Compact duration for month-scale crafts: 21d 4h · 3h 12m · 04:32 under an hour.
 	var s := maxi(0, int(ceilf(seconds)))
+	if s >= 86400:
+		return "%dd %dh" % [s / 86400, (s % 86400) / 3600]
+	if s >= 3600:
+		return "%dh %02dm" % [s / 3600, (s % 3600) / 60]
 	return "%02d:%02d" % [int(s / 60.0), s % 60]

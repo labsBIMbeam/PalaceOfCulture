@@ -11,8 +11,14 @@ const COLOR_BOARDS := Color("b9814a")  # warm wood look (boards + board blocks)
 
 ## Raw materials drip with real time — no farming, no gathering. Refined
 ## materials (boards) have NO drip entry: they only come from processing recipes.
-const DRIP_PER_MINUTE := {"wood": 2.0, "stone": 1.0}  # THE balancing knob. Touch nothing else.
+## Ultra-low time preference (2026-07-04): materials arrive per DAY, not per minute —
+## ≈21.6 wood / 10.8 stone a day. Time, never material, is the bottleneck. The unit
+## stays per-minute so consumers hold; testing compresses time via --timescale.
+const DRIP_PER_MINUTE := {"wood": 0.015, "stone": 0.0075}  # THE balancing knob. Touch nothing else.
 const ATTRACTION_SUSTAIN_SEC := 86400.0  # move-in condition hold time (24 h)
+
+const HOUR := 3600.0
+const DAY := 86400.0
 
 ## MATERIALS: id -> {display: String, color: Color}
 ## wood + stone = raw (drip); boards = refined (milled from wood, Pokopia
@@ -62,38 +68,41 @@ const OBJECTS := {
 ## output_id may be an OBJECTS id (crafting) or a MATERIALS id (processing).
 ## mill_boards mirrors Pokopia's Chop hand-over batch: 10 logs -> 50 lumber (1:5),
 ## request-then-wait, so it runs through the same timed craft queue.
+## Craft times are EXTREMELY slow on purpose — ultra-low time preference in the lock
+## numerology (2.1 h blocks … 21 DAYS for the stool, 42 for the fountain). A chair that
+## took a month is what makes it worthy Palace decor. The queue runs while offline.
 const RECIPES := {
 	"mill_boards": {
 		"display": "Boards x50 (Chop)", "output_id": "boards", "output_count": 50,
-		"cost": {"wood": 10}, "seconds": 180.0,
+		"cost": {"wood": 10}, "seconds": 21.0 * HOUR,
 	},
 	"craft_block_stone": {
 		"display": "Stone Blocks x9", "output_id": "block_stone", "output_count": 9,
-		"cost": {"stone": 9}, "seconds": 60.0,
+		"cost": {"stone": 9}, "seconds": 2.1 * HOUR,
 	},
 	"craft_block_boards": {
 		"display": "Board Blocks x9", "output_id": "block_boards", "output_count": 9,
-		"cost": {"boards": 9}, "seconds": 60.0,
+		"cost": {"boards": 9}, "seconds": 2.1 * HOUR,
 	},
 	"craft_stool": {
 		"display": "Stool", "output_id": "stool", "output_count": 1,
-		"cost": {"wood": 5}, "seconds": 120.0,
+		"cost": {"wood": 5}, "seconds": 21.0 * DAY,
 	},
 	"craft_lantern": {
 		"display": "Lantern", "output_id": "lantern", "output_count": 1,
-		"cost": {"boards": 2, "stone": 2}, "seconds": 300.0,
+		"cost": {"boards": 2, "stone": 2}, "seconds": 210.0 * HOUR,
 	},
 	"craft_sawbench": {
 		"display": "Sawbench (Chop)", "output_id": "sawbench", "output_count": 1,
-		"cost": {"wood": 8}, "seconds": 600.0,
+		"cost": {"wood": 8}, "seconds": 2.1 * DAY,
 	},
 	"craft_kiln": {
 		"display": "Kiln", "output_id": "kiln", "output_count": 1,
-		"cost": {"stone": 10}, "seconds": 600.0,
+		"cost": {"stone": 10}, "seconds": 2.1 * DAY,
 	},
 	"craft_fountain": {
 		"display": "Fountain", "output_id": "fountain", "output_count": 1,
-		"cost": {"stone": 12, "boards": 6}, "seconds": 1200.0,
+		"cost": {"stone": 12, "boards": 6}, "seconds": 42.0 * DAY,
 	},
 }
 

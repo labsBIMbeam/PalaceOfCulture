@@ -31,7 +31,7 @@ core scripts, each `extends Node`.
 ## Catalog (catalog.gd) — static data, no state
 
 ```gdscript
-const DRIP_PER_MINUTE := {"wood": 2.0, "stone": 1.0}  # THE balancing knob. Touch nothing else.
+const DRIP_PER_MINUTE := {"wood": 0.015, "stone": 0.0075}  # ≈21.6/10.8 per DAY. THE knob.
 const ATTRACTION_SUSTAIN_SEC := 86400.0                # move-in condition hold time (24 h)
 
 ## MATERIALS: id -> {display: String, color: Color}
@@ -51,14 +51,16 @@ func make_material(color: Color) -> StandardMaterial3D  # toon-flat helper, cach
 ```
 
 Content v0 (Pokopia structure, shrunk to basics) — materials: `wood` + `stone` raw
-(drip), `boards` refined (Pokopia Small Log→Lumber analog; NO drip). Processing:
-`mill_boards` = 10 wood → 50 boards, 180 s (mirrors Pokopia's Chop batch 10 logs → 50
-lumber, request-then-wait via the craft queue). Blocks: `block_stone` (stone-grey-cream),
-`block_boards` (warm wood), 1×1×1 m; block recipes `craft_block_<x>` → 9 blocks for 9 of
-the base material, 60 s. Furniture: `stool` (5 wood, 120 s), `lantern` (2 boards+2 stone,
-300 s, needed for move-in), `sawbench` (8 wood, 600 s, specialty wood ×1.5, the thematic
-board maker — "Chop"), `kiln` (10 stone, 600 s, specialty stone ×1.5), `fountain`
-(12 stone+6 boards, 1200 s, attracts).
+(drip), `boards` refined (Pokopia Small Log→Lumber analog; NO drip). **Ultra-low time
+preference (2026-07-04): craft times are month-scale in the lock numerology** — the wait
+is why a crafted piece is worthy Palace decor. Processing: `mill_boards` = 10 wood →
+50 boards, **21 h**. Blocks `block_stone`/`block_boards` ×9 for 9 base material, **2.1 h**.
+Furniture: `stool` (5 wood, **21 days** — the month chair), `lantern` (2 boards+2 stone,
+**210 h**, needed for move-in), `sawbench` (8 wood, **2.1 d**, specialty wood ×1.5, the
+thematic board maker — "Chop"), `kiln` (10 stone, **2.1 d**, ×1.5 stone), `fountain`
+(12 stone+6 boards, **42 d**, attracts). Dev testing: `-- --timescale=N` multiplies
+drip + queue speed (Economy.time_scale, default 1.0 = real time; move-in sustain stays
+wall-clock). Durations render as `21d 4h` / `3h 12m` / `04:32`; drip renders per day.
 
 ## Economy (economy.gd) — inventory, drip, craft queue, move-in
 
@@ -163,15 +165,22 @@ them too). Worlds own switching: on `Game.mode_changed` they toggle Player vs Ma
 
 All panels consume `scripts/ui/ui_theme.gd` (`const UITheme := preload(...)`) — static
 funcs `theme()` (cached global Theme), `panel_style(strong)` (fresh StyleBoxFlat per call),
-`flat_style(...)`, `font_display()/font_copy()/font_copy_bold()/font_mono()` (Cinzel /
+`flat_style(...)`, `mono_label(value, size, color)` (ready JetBrains-Mono data label),
+`glow_border(color, ...)` (focus-only glow stylebox — never ambient),
+`font_display()/font_copy()/font_copy_bold()/font_mono()` (Cinzel /
 Spectral / Spectral-SemiBold / JetBrains Mono) and the palette dict `UITheme.C` (keys:
-panel, panel_strong, border, border_strong, text, body, muted, gold, gold_bright, cream,
-coral, teal_light). Never mutate a stylebox obtained from `theme()`; build fresh ones.
+ink, panel, panel_ink, panel_strong, border, border_strong, text, body, muted, gold,
+gold_bright, cream, coral, teal_light — `ink` is the near-black menu backdrop tier).
+Never mutate a stylebox obtained from `theme()`; build fresh ones.
 
-Layer map: HUD + voice dock 10, chat panel 12, media player 15, craft menu 20, main menu 30.
+Layer map: HUD + voice dock 10, chat panel 12, media player 15, craft menu 20, main menu 30
+(in MENU space main.gd lifts the media player to 31 so Palace Radio draws above the menu).
 Screen estate: material rows top-left, mode button top-right, hotbar bottom-center, chat
-dock bottom-left (460×300), voice pill directly above it, media browse panel right (380 px),
-now-playing card bottom-right floating above the hotbar row.
+dock bottom-left (380×300 — clears the hotbar at the 1280-wide logical canvas), voice pill
+directly above it, media browse panel right (380 px), now-playing card bottom-right
+floating above the hotbar row. Responsive: 1280×720 base, `canvas_items` stretch +
+`expand` aspect (logical canvas is always ≥1280×720; corners stay anchored), window
+min size 960×540 set in main.gd.
 
 - `hud.gd`: top-left material rows "Wood 128 (+2.0/min)" (live), craft-queue mini status,
   bottom hotbar (9 slots: blocks first then owned furniture, counts, selected highlight,
@@ -179,9 +188,14 @@ now-playing card bottom-right floating above the hotbar row.
 - `craft_menu.gd`: toggled by `craft_menu` action; recipe list (name, cost colored by
   affordability, duration) + Queue button; running queue with progress bars; uses Economy
   signals. Pause game input while open (`get_viewport().set_input_as_handled()` style).
-- `main_menu.gd`: title "Palace of Culture — Homebuilder", tagline "money buys style — time
-  builds legend", home list (load/create/set-hosted marker ★), buttons: Enter Home,
-  Visit Palace. Title art backdrop, dark warm panel, gold accents.
+- `main_menu.gd`: cypherpunk title screen — near-black ink backdrop (`C.ink`) under a calm
+  "600" matrix rain (web MatrixField port: static faint zero-bed + 6-0-0 column-group
+  sweeps, pure `_draw`, GL-compat/web safe), massive Cinzel "600 BILLION" wordmark,
+  tagline, mono terminal home rows (hosted marker ★ = the ONLY coral), `[ ENTER HOME ]` /
+  `[ VISIT PALACE ]` / `[ CREATE ]` text-buttons with gold hover + focus glow, and a
+  mempool-style mono data strip (approx block height off wall time, drip rates, home
+  count, RADIO [M] hint, version). Static 5 % scanline shader overlay; no keyart, no
+  boxed panel. Grabs button focus on open (keyboard/gamepad first-class).
 - `chat_panel.gd`: WoW-style dock, tabs All/World/Plaza/Whisper with unread dots, BBCode
   scrollback, slash commands (`/w /p /world /me`), Enter (`chat_focus`) to talk, idle fade.
   Sets `Game.typing` on input focus enter/exit; owns its `chat_transport.gd` child.
@@ -224,8 +238,10 @@ swapping in the real backend never touches UI code.
   its MeshInstance3Ds, invisible floor plane at y=0 (600×600), BuildSystem
   (allow_blocks = false) fed from Store palace decor, Player at (6, 2, 44).
 - `main.gd`: owns ALL UI layers (HUD, craft menu, main menu, chat panel, voice transport +
-  dock, media player) + world swapping per Game.space; boots to menu. Social layers are
-  visible only in HOME/PALACE (hidden in MENU, media browse panel force-closed). Child add
+  dock, media player) + world swapping per Game.space; boots to menu; sets the window
+  min size (960×540). Chat + voice dock are visible only in HOME/PALACE; the media player
+  stays visible in EVERY space (Palace Radio works on the title screen — layer-hopped to
+  31 above the menu there) with its browse panel force-closed on each space swap. Child add
   order defines `_unhandled_input` priority (reverse): craft menu → media → chat → voice
   dock → HUD, so overlays swallow Esc/keys before the HUD acts on them. If
   `OS.get_cmdline_user_args()` contains `--smoke`, it instead instantiates `tests/smoke.gd`,
@@ -237,8 +253,11 @@ swapping in the real backend never touches UI code.
   keys), chat loopback (`send` → `message_received` with `self=true`, blank/unknown sends
   dropped), voice handshake (connecting → live in ~1 s, self in speakers), media catalog
   fields (`audio_url` + `value_recipient` on every item), and headless instantiation of
-  chat panel + voice dock + media player. Failure prints `SMOKE FAIL: <reason>` and
-  returns 1; success prints `SMOKE OK` and returns 0.
+  chat panel + voice dock + media player; finally a menu layout pass instantiates the
+  title screen headless, resizes the window to 960×540 and 1920×1080 and asserts the key
+  nodes (Root/MatrixRain/Title/HomeList/EnterButton/PalaceButton/DataStrip) survive.
+  Failure prints `SMOKE FAIL: <reason>` and returns 1; success prints `SMOKE OK` and
+  returns 0.
 
 ## Verification
 

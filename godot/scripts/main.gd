@@ -31,6 +31,10 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--smoke"):
 		_run_smoke()
 		return
+	# Responsive floor: layouts are audited down to 960x540. There is no project
+	# setting for a minimum window size — the docs say set it in code.
+	if DisplayServer.get_name() != "headless":
+		get_window().min_size = Vector2i(960, 540)
 	_main_menu = MainMenuScript.new()
 	_hud = HudScript.new()
 	_craft_menu = CraftMenuScript.new()
@@ -83,10 +87,15 @@ func _on_space_changed(space: int) -> void:
 	var in_world := space != Game.Space.MENU
 	_main_menu.visible = not in_world
 	_hud.visible = in_world
-	# Social layers exist only in HOME/PALACE — the menu stays a clean title card.
+	# Chat + voice are world-social and stay hidden in the menu. Palace Radio is
+	# available EVERYWHERE (the menu shows a RADIO [M] hint and music keeps
+	# playing across space swaps); its browse panel closes on every swap so each
+	# screen starts clean. On the title screen the radio hops above the menu's
+	# fullscreen backdrop (layer 30), back under the craft menu (20) in worlds.
 	_chat.visible = in_world
 	_voice_dock.visible = in_world
-	_media.visible = in_world
+	_media.visible = true
+	_media.layer = 15 if in_world else 31
+	_media.hide_panel()
 	if not in_world:
 		_craft_menu.visible = false
-		_media.hide_panel()

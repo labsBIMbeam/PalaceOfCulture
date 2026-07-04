@@ -1,5 +1,5 @@
 extends CanvasLayer
-## WoW-style chat dock (bottom-left, ~460x300): tabbed channels (All/World/Plaza/
+## WoW-style chat dock (bottom-left, ~380x300): tabbed channels (All/World/Plaza/
 ## Whisper), BBCode scrollback, slash commands and press-Enter-to-talk — but quiet:
 ## it fades to 55% after 6 s of silence so the world stays the hero. Talks only to
 ## the ChatTransport seam (scripts/net/chat_transport.gd), so the Nostr swap
@@ -17,7 +17,9 @@ const TABS: Array[Dictionary] = [
 ]
 const CHANNEL_LABEL := {"world": "World", "plaza": "Plaza", "whisper": "Whisper"}
 
-const DOCK_SIZE := Vector2(460, 300)
+# 380 wide so the dock clears the bottom-center hotbar (9x48 + gaps = 480 px,
+# starting at x=400 on the 1280-wide logical canvas) at every window size.
+const DOCK_SIZE := Vector2(380, 300)
 const MAX_LINES := 200
 const IDLE_AFTER_SEC := 6.0
 const IDLE_ALPHA := 0.55

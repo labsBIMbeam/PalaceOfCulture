@@ -1,8 +1,9 @@
 extends Node
 ## Headless smoke test (run via `-- --smoke`): asserts the autoload contract
 ## APIs exist, then exercises home building, crafting, blueprint persistence,
-## palace decoration and the social seams (theme, chat, voice, media) end to
-## end. Prints SMOKE OK / SMOKE FAIL: <reason>.
+## palace decoration, the social seams (theme, chat, voice, media) and a main
+## menu layout pass (build + window resize 960x540 / 1920x1080) end to end.
+## Prints SMOKE OK / SMOKE FAIL: <reason>.
 
 const HomeWorldScript := preload("res://scripts/world/home_world.gd")
 const PalaceWorldScript := preload("res://scripts/world/palace_world.gd")
@@ -13,6 +14,7 @@ const VoiceTransportScript := preload("res://scripts/net/voice_transport.gd")
 const VoiceDockScript := preload("res://scripts/ui/voice_dock.gd")
 const MediaCatalogScript := preload("res://scripts/net/media_catalog.gd")
 const MediaPlayerScript := preload("res://scripts/ui/media_player.gd")
+const MainMenuScript := preload("res://scripts/ui/main_menu.gd")
 
 const HOME_NAME := "smoke"
 
@@ -155,7 +157,39 @@ func _run_all() -> bool:
 	Game.space_changed.disconnect(on_space)
 
 	# --- Social seams: shared theme, chat, voice, media ---
-	return await _check_social()
+	if not await _check_social():
+		return false
+
+	# --- Main menu: headless build + window-resize layout sanity ---
+	return await _check_menu_layout()
+
+
+## Instantiates the title screen headless and resizes the window across the
+## supported range (960x540 floor, 1080p): the menu must build without script
+## errors and keep its key nodes alive at every size.
+func _check_menu_layout() -> bool:
+	var menu: CanvasLayer = MainMenuScript.new()
+	add_child(menu)
+	await get_tree().process_frame
+	for node_name: String in ["Root", "MatrixRain", "Title", "HomeList", "EnterButton",
+			"PalaceButton", "DataStrip"]:
+		if not _check(menu.find_child(node_name, true, false) != null,
+				"menu node %s missing" % node_name):
+			return false
+	var win := get_window()
+	if win != null:  # headless still has a root Window; resizing it is a safe no-op at OS level
+		var before: Vector2i = win.size
+		for dims: Vector2i in [Vector2i(960, 540), Vector2i(1920, 1080)]:
+			win.size = dims
+			await get_tree().process_frame
+			var ok := is_instance_valid(menu) and menu.find_child("Title", true, false) != null \
+					and menu.find_child("DataStrip", true, false) != null
+			if not _check(ok, "menu broke after resize to %s" % dims):
+				return false
+		win.size = before
+	menu.queue_free()
+	await get_tree().process_frame
+	return true
 
 
 ## Exercises the theme contract and the three net seams + their UI layers

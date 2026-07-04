@@ -5,9 +5,13 @@ extends RefCounted
 ## `control.theme = UITheme.theme()` on your root Control and use the helpers —
 ## do not hand-roll styleboxes that duplicate these tokens.
 
-## Named palette tokens. Keys: panel, panel_strong, border, border_strong,
-## text, body, muted, gold, gold_bright, cream, coral, teal_light.
+## Named palette tokens. Keys: ink, panel, panel_ink, panel_strong, border,
+## border_strong, text, body, muted, gold, gold_bright, cream, coral,
+## teal_light. `ink` is the near-black tier (menu backdrop — lifted off pure
+## #000 per CRT monitor-black guidance); `panel_ink` is darker than `panel`.
 const C := {
+	"ink": Color("#0a0705"),
+	"panel_ink": Color(0.043, 0.03, 0.019, 0.92),
 	"panel": Color(0.11, 0.075, 0.043, 0.88),
 	"panel_strong": Color(0.07, 0.047, 0.027, 0.95),
 	"border": Color(0.906, 0.698, 0.235, 0.30),
@@ -73,6 +77,35 @@ static func font_copy_bold() -> Font:
 ## JetBrains Mono — numbers, timestamps, counts, key hints.
 static func font_mono() -> Font:
 	return _font("res://assets/fonts/JetBrainsMono.ttf")
+
+
+## Ready-made JetBrains Mono label — data, timestamps, key hints, status
+## strips. Two-font discipline: mono owns data ONLY, never copy.
+static func mono_label(value: String, font_size: int, color: Color) -> Label:
+	var l := Label.new()
+	l.text = value
+	var mono := font_mono()
+	if mono != null:
+		l.add_theme_font_override("font", mono)
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", color)
+	return l
+
+
+## Focus/active glow stylebox: hairline border + soft outer glow at ~20 %
+## alpha, hollow center. Restraint rule: glow belongs to the focused or active
+## element ONLY — never use it as ambient decoration.
+static func glow_border(color: Color, radius: int = 6, glow_alpha: float = 0.2) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.draw_center = false
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.border_color = Color(color, 0.55)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(radius)
+	sb.shadow_color = Color(color, glow_alpha)
+	sb.shadow_size = 8
+	sb.set_content_margin_all(8.0)
+	return sb
 
 
 static func _font(path: String) -> Font:

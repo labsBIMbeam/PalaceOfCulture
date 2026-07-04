@@ -21,8 +21,16 @@ var _condition_since: float = 0.0  # unix time the move-in condition became met;
 var _dirty := false
 var _save_cooldown := 0.0
 
+## Dev-only acceleration for drip + craft queue: run with `-- --timescale=600` to
+## compress month-long waits while testing. Production is always real time (1.0).
+## The move-in sustain timer stays on the wall clock and is NOT scaled.
+var time_scale := 1.0
+
 
 func _ready() -> void:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--timescale="):
+			time_scale = maxf(1.0, float(arg.trim_prefix("--timescale=")))
 	var state: Dictionary = Store.load_state()
 	if state.is_empty():
 		_materials = STARTER_MATERIALS.duplicate()
@@ -32,14 +40,14 @@ func _ready() -> void:
 		var elapsed := Time.get_unix_time_from_system() \
 			- float(state.get("last_tick", Time.get_unix_time_from_system()))
 		if elapsed > 0.0:
-			_advance(elapsed)
+			_advance(elapsed * time_scale)
 			_check_move_in()
 	inventory_changed.emit()
 	_save_state()
 
 
 func _process(delta: float) -> void:
-	_advance(delta)
+	_advance(delta * time_scale)
 	_check_move_in()
 	_save_cooldown -= delta
 	if _dirty and _save_cooldown <= 0.0:
