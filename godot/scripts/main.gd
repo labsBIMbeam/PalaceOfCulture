@@ -1,17 +1,29 @@
 extends Node
-## App root (the only .tscn): owns the three UI layers, swaps the world child on
+## App root (the only .tscn): owns every UI layer (HUD, craft menu, main menu,
+## chat dock, voice dock, media player), swaps the world child on
 ## Game.space_changed and routes HUD hotbar selection into the active world's
 ## magnet. With `--smoke` in the user args it runs tests/smoke.gd headless instead.
 
 const HudScript := preload("res://scripts/ui/hud.gd")
 const CraftMenuScript := preload("res://scripts/ui/craft_menu.gd")
 const MainMenuScript := preload("res://scripts/ui/main_menu.gd")
+const ChatPanelScript := preload("res://scripts/ui/chat_panel.gd")
+const VoiceDockScript := preload("res://scripts/ui/voice_dock.gd")
+const VoiceTransportScript := preload("res://scripts/net/voice_transport.gd")
+const MediaPlayerScript := preload("res://scripts/ui/media_player.gd")
 const HomeWorldScript := preload("res://scripts/world/home_world.gd")
 const PalaceWorldScript := preload("res://scripts/world/palace_world.gd")
+
+## Display handle for chat/voice loopback (later: the per-seal npub profile name).
+const PLAYER_HANDLE := "Builder"
 
 var _hud: HudScript
 var _craft_menu: CraftMenuScript
 var _main_menu: MainMenuScript
+var _chat: ChatPanelScript
+var _voice_transport: VoiceTransportScript
+var _voice_dock: VoiceDockScript
+var _media: MediaPlayerScript
 var _world: Node3D
 
 
@@ -19,12 +31,28 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--smoke"):
 		_run_smoke()
 		return
+	_main_menu = MainMenuScript.new()
 	_hud = HudScript.new()
 	_craft_menu = CraftMenuScript.new()
-	_main_menu = MainMenuScript.new()
-	add_child(_hud)
-	add_child(_craft_menu)
+	_chat = ChatPanelScript.new()
+	_chat.local_handle = PLAYER_HANDLE
+	# Voice transport lives OUTSIDE the dock so one room transport can serve
+	# multiple UIs later (the chat panel, by contrast, owns its transport).
+	_voice_transport = VoiceTransportScript.new()
+	_voice_transport.local_handle = PLAYER_HANDLE
+	_voice_dock = VoiceDockScript.new()
+	_media = MediaPlayerScript.new()
+	# Add order sets _unhandled_input priority (reverse tree order): the craft
+	# menu swallows first while open, then the media browse panel, then chat —
+	# so the HUD only acts on Esc/hotbar keys when no overlay owns the input.
 	add_child(_main_menu)
+	add_child(_hud)
+	add_child(_voice_transport)
+	add_child(_voice_dock)
+	add_child(_chat)
+	add_child(_media)
+	add_child(_craft_menu)
+	_voice_dock.attach_transport(_voice_transport)
 	Game.space_changed.connect(_on_space_changed)
 	_on_space_changed(Game.space)  # boot to the menu
 
@@ -52,7 +80,13 @@ func _on_space_changed(space: int) -> void:
 		var mag: Object = _world.get("magnet")
 		if mag != null:
 			_hud.set_on_select(Callable(mag, "set_selected"))
-	_main_menu.visible = space == Game.Space.MENU
-	_hud.visible = space != Game.Space.MENU
-	if space == Game.Space.MENU:
+	var in_world := space != Game.Space.MENU
+	_main_menu.visible = not in_world
+	_hud.visible = in_world
+	# Social layers exist only in HOME/PALACE — the menu stays a clean title card.
+	_chat.visible = in_world
+	_voice_dock.visible = in_world
+	_media.visible = in_world
+	if not in_world:
 		_craft_menu.visible = false
+		_media.hide_panel()

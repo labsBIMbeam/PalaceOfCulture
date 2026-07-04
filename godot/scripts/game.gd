@@ -13,6 +13,11 @@ var space: int = Space.MENU
 var mode: int = Mode.WALK
 var current_home: String = ""
 
+## True while a UI text field owns the keyboard (chat panel sets this on focus
+## enter/exit). Gameplay input (player, magnet) early-returns while it is set so
+## WASD/Space never leak into the world mid-sentence.
+var typing := false
+
 
 func _enter_tree() -> void:
 	_register_actions()
@@ -77,6 +82,10 @@ func _register_actions() -> void:
 	_add_mouse_action("absorb", MOUSE_BUTTON_RIGHT)
 	for i: int in range(1, 10):
 		_add_key_action("hotbar_%d" % i, [KEY_0 + i])
+	# Social layers (the UI modules also register these defensively — same guard).
+	_add_key_action("chat_focus", [KEY_ENTER, KEY_KP_ENTER])
+	_add_key_action("media_player", [KEY_M])
+	_add_key_action("voice_toggle", [KEY_V])
 
 
 func _add_key_action(action: String, keys: Array[int]) -> void:

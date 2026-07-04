@@ -20,6 +20,9 @@ coral `#e8735a` (single accent). Toon low-poly: StandardMaterial3D, flat colors,
 | core | `scripts/catalog.gd`, `scripts/economy.gd`, `scripts/store.gd`, `scripts/game.gd` |
 | play | `scripts/player.gd`, `scripts/magnet_controller.gd`, `scripts/build_system.gd` |
 | ui | `scripts/ui/hud.gd`, `scripts/ui/craft_menu.gd`, `scripts/ui/main_menu.gd` |
+| theme | `scripts/ui/ui_theme.gd` (shared Theme/stylebox/font factory, static funcs) |
+| social ui | `scripts/ui/chat_panel.gd`, `scripts/ui/voice_dock.gd`, `scripts/ui/media_player.gd` |
+| net seams | `scripts/net/chat_transport.gd`, `scripts/net/voice_transport.gd`, `scripts/net/media_catalog.gd` |
 | world | `scripts/main.gd`, `scripts/world/home_world.gd`, `scripts/world/palace_world.gd`, `tests/smoke.gd` |
 
 Autoloads (project.godot, already wired): `Catalog`, `Economy`, `Store`, `Game` — the four
@@ -111,6 +114,7 @@ signal mode_changed(mode: int)
 var space: int
 var mode: int
 var current_home: String
+var typing: bool   # chat input owns the keyboard; player + magnet early-return on it
 func goto_menu() -> void; func goto_home(home_name: String) -> void; func goto_palace() -> void
 func toggle_mode() -> void   # ignored in MENU; in PALACE magnet = decorate-only (Game exposes
 func magnet_can_build() -> bool   # true only in HOME
@@ -121,7 +125,9 @@ Scene switching: main.gd listens to Game signals/calls and swaps world child nod
 in project.godot**: `move_forward/back/left/right` (WASD+arrows), `jump` (Space),
 `sprint` (Shift), `toggle_magnet` (B), `interact` (E), `craft_menu` (C), `hover_up` (Space),
 `hover_down` (Ctrl), `place` (mouse left), `absorb` (mouse right), `hotbar_1..hotbar_9`
-(number keys), `ui_cancel` stays built-in (Esc).
+(number keys), `chat_focus` (Enter/KP-Enter), `media_player` (M), `voice_toggle` (V),
+`ui_cancel` stays built-in (Esc). The social UI modules also register their own action
+defensively (`InputMap.has_action` guard), so ownership can move either way without conflict.
 
 ## BuildSystem (build_system.gd, `extends Node3D`) — one per world
 
@@ -155,15 +161,59 @@ them too). Worlds own switching: on `Game.mode_changed` they toggle Player vs Ma
 
 ## UI (all `extends CanvasLayer` / build Controls in code)
 
+All panels consume `scripts/ui/ui_theme.gd` (`const UITheme := preload(...)`) — static
+funcs `theme()` (cached global Theme), `panel_style(strong)` (fresh StyleBoxFlat per call),
+`flat_style(...)`, `font_display()/font_copy()/font_copy_bold()/font_mono()` (Cinzel /
+Spectral / Spectral-SemiBold / JetBrains Mono) and the palette dict `UITheme.C` (keys:
+panel, panel_strong, border, border_strong, text, body, muted, gold, gold_bright, cream,
+coral, teal_light). Never mutate a stylebox obtained from `theme()`; build fresh ones.
+
+Layer map: HUD + voice dock 10, chat panel 12, media player 15, craft menu 20, main menu 30.
+Screen estate: material rows top-left, mode button top-right, hotbar bottom-center, chat
+dock bottom-left (460×300), voice pill directly above it, media browse panel right (380 px),
+now-playing card bottom-right floating above the hotbar row.
+
 - `hud.gd`: top-left material rows "Wood 128 (+2.0/min)" (live), craft-queue mini status,
   bottom hotbar (9 slots: blocks first then owned furniture, counts, selected highlight,
-  number keys + click), top-right mode button (Walk ⟷ Magnet) + hints, Esc → menu.
+  number keys + click), top-right mode button (Walk ⟷ Magnet) + key hints, Esc → menu.
 - `craft_menu.gd`: toggled by `craft_menu` action; recipe list (name, cost colored by
   affordability, duration) + Queue button; running queue with progress bars; uses Economy
   signals. Pause game input while open (`get_viewport().set_input_as_handled()` style).
 - `main_menu.gd`: title "Palace of Culture — Homebuilder", tagline "money buys style — time
   builds legend", home list (load/create/set-hosted marker ★), buttons: Enter Home,
-  Visit Palace. Cream panel, gold accents.
+  Visit Palace. Title art backdrop, dark warm panel, gold accents.
+- `chat_panel.gd`: WoW-style dock, tabs All/World/Plaza/Whisper with unread dots, BBCode
+  scrollback, slash commands (`/w /p /world /me`), Enter (`chat_focus`) to talk, idle fade.
+  Sets `Game.typing` on input focus enter/exit; owns its `chat_transport.gd` child.
+- `voice_dock.gd`: slim pill — status dot (off/amber connecting/green live), Join/Leave,
+  mic mute (coral slash), speaker chips. `attach_transport()` wires it to a voice
+  transport node; `voice_toggle` (V) joins/leaves. Transport is owned by main.gd, not the dock.
+- `media_player.gd`: "Palace Radio" — right browse panel (Music/Podcasts/Live rows with
+  V4V ⚡ recipient labels, live listener counts) + bottom-right now-playing card (play/next,
+  gold progress, mm:ss mono, ⚡ Boost sats counter). Toggled by `media_player` (M); caches
+  audio in `user://media_cache/`; headless-safe (no HTTPRequest when headless, "offline" state).
+
+## Net seams (`scripts/net/`) — mock-first, one-file migrations
+
+Each seam is a plain `extends Node` mock that the UI talks to through a stable contract;
+swapping in the real backend never touches UI code.
+
+- `chat_transport.gd` — `signal message_received(msg)` (`{id, channel, author, body, at_ms,
+  self, system}`), `send(channel, body)`, `channel_ids()`. Mock: loopback + backlog +
+  ambient townsfolk drip. **Migration:** world/plaza → NIP-29 relay groups (kind-9 chat),
+  whispers → NIP-17 private DMs (NIP-59 gift-wrap + NIP-44); the per-seal Nostr key signs
+  sends and `author` becomes the npub profile name.
+- `voice_transport.gd` — `signal state_changed(state)` (`{status: off|connecting|live,
+  muted, speakers}`), `connect_voice()`, `disconnect_voice()`, `set_muted()`, `get_state()`.
+  Central room voice, NO spatial audio (ADR 0002). **Migration:** LiveKit self-hosted SFU
+  room first (ADR 0005 default), later MoQ room-scoped `audio.pcm`/`speaking.json` tracks
+  keyed by npub.
+- `media_catalog.gd` — `load_items() -> Array[Dictionary]` (`{id, title, author, kind:
+  music|podcast|live, audio_url, tone, value_recipient, listeners}`). **Migration:**
+  music/podcasts → Podcasting 2.0 RSS (`podcast:medium`, `enclosure`, `podcast:value`
+  for V4V splits; Nostr kind 31337/32123 for music), live → NIP-53 `kind:30311`
+  subscriptions (HLS stream URL, `current_participants` = listeners). Boost button →
+  NIP-57 zaps to `value_recipient`.
 
 ## Worlds
 
@@ -173,13 +223,22 @@ them too). Worlds own switching: on `Game.mode_changed` they toggle Player vs Ma
 - `palace_world.gd`: instantiates `res://assets/palace.glb`, generates trimesh collisions on
   its MeshInstance3Ds, invisible floor plane at y=0 (600×600), BuildSystem
   (allow_blocks = false) fed from Store palace decor, Player at (6, 2, 44).
-- `main.gd`: owns UI layers + world swapping per Game.space; boots to menu. If
+- `main.gd`: owns ALL UI layers (HUD, craft menu, main menu, chat panel, voice transport +
+  dock, media player) + world swapping per Game.space; boots to menu. Social layers are
+  visible only in HOME/PALACE (hidden in MENU, media browse panel force-closed). Child add
+  order defines `_unhandled_input` priority (reverse): craft menu → media → chat → voice
+  dock → HUD, so overlays swallow Esc/keys before the HUD acts on them. If
   `OS.get_cmdline_user_args()` contains `--smoke`, it instead instantiates `tests/smoke.gd`,
-  calls `run()`, and quits with the returned exit code (so autoloads are fully up).
+  calls `run()`, and quits with the returned exit code (so autoloads are fully up; the
+  smoke path builds no UI).
 - `tests/smoke.gd` (`extends Node`, `func run() -> int`): headless smoke — asserts autoload
   APIs, builds each world, places/absorbs a block via Economy+BuildSystem, queues a craft,
-  saves+reloads a home. Failure prints `SMOKE FAIL: <reason>` and returns 1; success prints
-  `SMOKE OK` and returns 0.
+  saves+reloads a home; then the social seams: UITheme contract (cached Theme, palette
+  keys), chat loopback (`send` → `message_received` with `self=true`, blank/unknown sends
+  dropped), voice handshake (connecting → live in ~1 s, self in speakers), media catalog
+  fields (`audio_url` + `value_recipient` on every item), and headless instantiation of
+  chat panel + voice dock + media player. Failure prints `SMOKE FAIL: <reason>` and
+  returns 1; success prints `SMOKE OK` and returns 0.
 
 ## Verification
 

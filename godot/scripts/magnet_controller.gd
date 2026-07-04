@@ -72,6 +72,8 @@ func _apply_active() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Game.typing:  # chat owns the keyboard/mouse
+		return
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if event is InputEventMouseMotion:
@@ -86,6 +88,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if Game.typing:  # freeze fly + aim while the chat input owns the keys
+		return
 	var input := Vector2.ZERO
 	var lift := 0.0
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:

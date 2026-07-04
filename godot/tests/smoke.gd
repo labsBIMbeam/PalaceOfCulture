@@ -1,10 +1,18 @@
 extends Node
 ## Headless smoke test (run via `-- --smoke`): asserts the autoload contract
-## APIs exist, then exercises home building, crafting, blueprint persistence
-## and palace decoration end to end. Prints SMOKE OK / SMOKE FAIL: <reason>.
+## APIs exist, then exercises home building, crafting, blueprint persistence,
+## palace decoration and the social seams (theme, chat, voice, media) end to
+## end. Prints SMOKE OK / SMOKE FAIL: <reason>.
 
 const HomeWorldScript := preload("res://scripts/world/home_world.gd")
 const PalaceWorldScript := preload("res://scripts/world/palace_world.gd")
+const UITheme := preload("res://scripts/ui/ui_theme.gd")
+const ChatTransportScript := preload("res://scripts/net/chat_transport.gd")
+const ChatPanelScript := preload("res://scripts/ui/chat_panel.gd")
+const VoiceTransportScript := preload("res://scripts/net/voice_transport.gd")
+const VoiceDockScript := preload("res://scripts/ui/voice_dock.gd")
+const MediaCatalogScript := preload("res://scripts/net/media_catalog.gd")
+const MediaPlayerScript := preload("res://scripts/ui/media_player.gd")
 
 const HOME_NAME := "smoke"
 
@@ -145,6 +153,101 @@ func _run_all() -> bool:
 	if not _check(spaces == want, "space_changed sequence wrong: %s" % [spaces]):
 		return false
 	Game.space_changed.disconnect(on_space)
+
+	# --- Social seams: shared theme, chat, voice, media ---
+	return await _check_social()
+
+
+## Exercises the theme contract and the three net seams + their UI layers
+## headless: loopback chat, mock voice handshake, media catalog fields.
+func _check_social() -> bool:
+	if not _check(UITheme.theme() is Theme, "UITheme.theme() did not return a Theme"):
+		return false
+	if not _check(UITheme.theme() == UITheme.theme(), "UITheme.theme() is not cached"):
+		return false
+	if not _check(UITheme.panel_style() is StyleBoxFlat, "panel_style() not a StyleBoxFlat"):
+		return false
+	for key: String in ["panel", "panel_strong", "border", "border_strong", "text", "body",
+			"muted", "gold", "gold_bright", "cream", "coral", "teal_light"]:
+		if not _check(UITheme.C.has(key), "UITheme.C missing key %s" % key):
+			return false
+	for action: String in ["chat_focus", "media_player", "voice_toggle"]:
+		if not _check(InputMap.has_action(action), "input action %s missing" % action):
+			return false
+	if not _check(Game.get("typing") != null, "Game.typing flag missing"):
+		return false
+
+	# Chat transport: backlog replays deferred, send loops back with self=true.
+	var chat_t := ChatTransportScript.new()
+	chat_t.local_handle = "Smoke"
+	add_child(chat_t)
+	var received: Array = []
+	chat_t.message_received.connect(func(msg: Dictionary) -> void: received.append(msg))
+	await get_tree().process_frame  # deferred backlog lands
+	var backlog := received.size()
+	if not _check(backlog >= 2, "chat backlog not replayed"):
+		return false
+	chat_t.send("world", "hi")
+	await get_tree().process_frame
+	if not _check(received.size() == backlog + 1, "send('world','hi') emitted nothing"):
+		return false
+	var last: Dictionary = received.back()
+	if not _check(bool(last.get("self", false)), "loopback message not self=true"):
+		return false
+	if not _check(String(last.get("body", "")) == "hi", "loopback body mangled"):
+		return false
+	chat_t.send("world", "   ")
+	chat_t.send("nowhere", "hi")
+	await get_tree().process_frame
+	if not _check(received.size() == backlog + 1, "blank/unknown-channel send not dropped"):
+		return false
+
+	# Voice transport: off -> connecting -> live within ~1 s of frames.
+	var voice_t := VoiceTransportScript.new()
+	voice_t.local_handle = "Smoke"
+	add_child(voice_t)
+	voice_t.connect_voice()
+	if not _check(String(voice_t.get_state().status) == "connecting", "voice not connecting"):
+		return false
+	await get_tree().create_timer(1.0).timeout
+	var vstate: Dictionary = voice_t.get_state()
+	if not _check(String(vstate.status) == "live", "voice not live after ~1 s"):
+		return false
+	if not _check((vstate.speakers as Array).has("Smoke"), "live speakers missing self"):
+		return false
+	voice_t.disconnect_voice()
+	if not _check(String(voice_t.get_state().status) == "off", "voice did not disconnect"):
+		return false
+
+	# Media catalog: non-empty, every item playable + V4V-addressable.
+	var catalog := MediaCatalogScript.new()
+	add_child(catalog)
+	var items: Array[Dictionary] = catalog.load_items()
+	if not _check(not items.is_empty(), "media catalog empty"):
+		return false
+	for item: Dictionary in items:
+		if not _check(String(item.get("audio_url", "")) != "", "media item missing audio_url"):
+			return false
+		if not _check(String(item.get("value_recipient", "")) != "",
+				"media item missing value_recipient"):
+			return false
+
+	# UI layers build headless without errors (media skips HTTP when headless).
+	var panel := ChatPanelScript.new()
+	var dock := VoiceDockScript.new()
+	var player := MediaPlayerScript.new()
+	add_child(panel)
+	add_child(dock)
+	dock.attach_transport(voice_t)
+	add_child(player)
+	await get_tree().process_frame
+	await get_tree().process_frame  # chat panel's own transport replays its backlog
+	var alive := panel.is_inside_tree() and dock.is_inside_tree() and player.is_inside_tree()
+	if not _check(alive, "a social UI layer failed to instantiate"):
+		return false
+	for node: Node in [panel, dock, player, chat_t, voice_t, catalog]:
+		node.queue_free()
+	await get_tree().process_frame
 	return true
 
 
