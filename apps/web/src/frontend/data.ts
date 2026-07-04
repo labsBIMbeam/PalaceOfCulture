@@ -14,6 +14,7 @@ export const navItems: NavItem[] = [
   { id: "home", name: "Home", label: "HOME", tag: "private", icon: "sprout" },
   { id: "pleb", name: "Pleb Market", label: "PLEB MARKET", tag: "sats", icon: "store" },
   { id: "style", name: "Style Market", label: "STYLE MARKET", tag: "digital", icon: "shirt" },
+  { id: "game", name: "Homebuilder", label: "3D GAME", tag: "pokopia", icon: "play" },
 ];
 
 export const feeds: Record<ScreenId, FeedConfig> = {
@@ -157,6 +158,33 @@ export const feeds: Record<ScreenId, FeedConfig> = {
         meta: "creator / npub1bo...2k / 22m",
         body: "minted the plaza lantern set. style only, wear it loud.",
         actions: { replies: 14, reposts: 8, zaps: 640 },
+      },
+    ],
+  },
+  game: {
+    title: "Builders' Log",
+    subtitle: "homebuilder dev signal",
+    status: "IN GAME",
+    tone: "gold",
+    icon: "sprout",
+    placeholder: "log a build...",
+    action: "Log",
+    posts: [
+      {
+        id: "game-1",
+        author: "racooDNI",
+        meta: "founder / npub1dn...420 / pinned",
+        body: "magnet mode is live. build your home, mill your boards — the stool takes 21 days and that is the point.",
+        pinned: true,
+        founder: true,
+        actions: { replies: 21, reposts: 42, zaps: 2100 },
+      },
+      {
+        id: "game-2",
+        author: "flx",
+        meta: "head of culture / npub1fl...600 / 1h",
+        body: "the palace is decorate-only. bring a finished piece — it carries your name.",
+        actions: { replies: 6, reposts: 12, zaps: 600 },
       },
     ],
   },

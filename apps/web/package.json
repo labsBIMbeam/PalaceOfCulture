@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "game:sync": "node -e \"require('fs').cpSync('../../godot/dist/web','public/game',{recursive:true})\""
   },
   "dependencies": {
     "@600b/identity": "workspace:*",

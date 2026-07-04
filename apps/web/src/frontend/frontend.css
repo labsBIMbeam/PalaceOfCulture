@@ -3443,3 +3443,22 @@ input.compose-input::placeholder {
     height: 300px;
   }
 }
+
+/* --- 3D game embed (the Godot homebuilder as a screen of the one website) --- */
+
+.game-embed-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+
+.game-embed {
+  flex: 1;
+  min-height: 420px;
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: #000;
+}

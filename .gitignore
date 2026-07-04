@@ -40,3 +40,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Godot web build synced into the site (artifact — rebuild via pnpm game:sync)
+apps/web/public/game/
