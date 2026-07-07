@@ -580,6 +580,25 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   </group>
                 </Ecctrl>
               ) : null}
+              {/* The homebuilder world (private Home only): blocks + crafted decor, walkable.
+                  Lives INSIDE <Physics> — its RigidBody/colliders need the context. */}
+              {canBuild ? (
+                <BuilderWorld
+                  building={mode === "build"}
+                  selected={builderSelected}
+                  system={homeBuild}
+                  targetsRef={builderTargets}
+                />
+              ) : null}
+              {/* In-canvas walk probe — inside <Physics> for the grounded raycast (useRapier). */}
+              {(mode === "walk" || mode === "decorate") && !posed ? (
+                <WalkSystems
+                  bodyRef={playerBody}
+                  onActive={setActiveInteract}
+                  onNearPose={setNearPose}
+                  poseables={poseables}
+                />
+              ) : null}
             </Physics>
             {/* Posed: a static avatar at the chair/bed. Holds the sit/sleep clip if present on the rig,
                 else idle (placeholder) until the pose clip lands. */}
@@ -592,15 +611,6 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               </group>
             ) : null}
             <PlotAssets accent={accent} />
-            {/* The homebuilder world (private Home only): blocks + crafted decor, walkable. */}
-            {canBuild ? (
-              <BuilderWorld
-                building={mode === "build"}
-                selected={builderSelected}
-                system={homeBuild}
-                targetsRef={builderTargets}
-              />
-            ) : null}
             {/* Home plot only: your personal Tree, grown in 3D to its current age (Tamagotchi). */}
             {world === "home" ? (
               <GrowingTree position={[-7, 0, 40]} progress={homeProgress} />
@@ -628,14 +638,6 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 def={pendingDef}
                 posRef={ghostRef}
                 yaw={ghostYaw}
-              />
-            ) : null}
-            {(mode === "walk" || mode === "decorate") && !posed ? (
-              <WalkSystems
-                bodyRef={playerBody}
-                onActive={setActiveInteract}
-                onNearPose={setNearPose}
-                poseables={poseables}
               />
             ) : null}
           </Suspense>
