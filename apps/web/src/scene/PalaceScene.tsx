@@ -20,6 +20,8 @@ import {
 } from "react";
 import * as THREE from "three";
 import { homeBuild } from "../builder/buildState";
+import { timelocks } from "../frontend/data";
+import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import { BuilderHud } from "../ui/BuilderHud";
@@ -28,8 +30,9 @@ import { DecorPicker } from "../ui/DecorPicker";
 import { MediaPlayer } from "../ui/MediaPlayer";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
+import { GrowableObject } from "./GrowableObject";
 import { Palace } from "./Palace";
-import { PlotAssets } from "./PlotAssets";
+import { GrowingTree, PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
 import { type PlacedItem, loadDecor, newUid, saveDecor } from "./decorStore";
 import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
@@ -487,6 +490,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     return () => window.removeEventListener("keydown", claimSpaceForJump);
   }, [mode]);
 
+  // Your growables anchor the empty Home map: the 21M lock grows the Tree, the 21Y lock builds
+  // the Rocket at the fog's edge — the first inhabitants of the future town. Everything that will
+  // produce resources here follows the same law: it arrives and grows by WAITING, never by grind.
+  const treeLock = timelocks.find((lock) => lock.tier === "21M");
+  const rocketLock = timelocks.find((lock) => lock.tier === "21Y");
+  const treeProgress = treeLock ? lockProgress(treeLock) : 0.4;
+  const rocketProgress = rocketLock ? lockProgress(rocketLock) : 0.2;
+
   const title = world === "hq" ? "Palace of Culture HQ" : "Home — your map";
   const subtitle =
     mode === "build"
@@ -578,10 +589,23 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 />
               </RigidBody>
               {world === "home" ? (
-                <mesh receiveShadow rotation-x={-Math.PI / 2}>
-                  <planeGeometry args={[HOME_GROUND_SIZE, HOME_GROUND_SIZE]} />
-                  <meshStandardMaterial color="#e5dabf" metalness={0} roughness={0.95} />
-                </mesh>
+                <>
+                  <mesh receiveShadow rotation-x={-Math.PI / 2}>
+                    <planeGeometry args={[HOME_GROUND_SIZE, HOME_GROUND_SIZE]} />
+                    <meshStandardMaterial color="#e5dabf" metalness={0} roughness={0.95} />
+                  </mesh>
+                  {/* Your timelocks, living on the map: Tree (21M) near the spawn, Rocket (21Y)
+                      rising out of the fog at the far corner. Both grow purely by waiting. */}
+                  <GrowingTree position={[-14, 0, 8]} progress={treeProgress} />
+                  <group position={[-38, 0, -34]}>
+                    <GrowableObject
+                      fitHeight={26}
+                      glbUrl="/growables/starship-stack.glb"
+                      manifestUrl="/growables/starship-stack.growth.json"
+                      progress={rocketProgress}
+                    />
+                  </group>
+                </>
               ) : null}
               {/* Walking (and decorating, which is walk + a build overlay): the controller. Parked
                   while posed (re-spawns at the piece on get-up, so `position` is keyed to force a
