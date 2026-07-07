@@ -13,7 +13,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { homeBuild, palaceBuild } from "../builder/buildState";
+import { homeBuild } from "../builder/buildState";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
@@ -55,6 +55,10 @@ type Posed = {
   pose: PoseKind;
   lift: number;
 };
+
+// Public palace: how many pieces ONE player may place — an anti-spam cap, not a creativity cap.
+// 21, of course. The private Home plot is uncapped (it is yours).
+const PALACE_DECOR_LIMIT = 21;
 
 const ORBIT_POSITION = new THREE.Vector3(150, 110, 150);
 // On the plaza just short of the asset shelf (RESERVED_CORNER ~[0,0,52]); the default camera looks
@@ -258,20 +262,19 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
 
   // Decoration: placed pieces are DATA, persisted per room (decorStore). `pendingDefId` = a catalog
   // piece chosen but not yet stamped; `selectedUid` = a placed piece being edited.
-  // ONE world, two modes (godot parity): `world` starts at the launch target and can be swapped
-  // in-engine (Travel) — same character, same assets. Private Home = full magnet (homeBuild);
-  // public Palace = decorate-only magnet (palaceBuild). Design law, not a tech limit.
+  // ONE world, two modes: `world` starts at the launch target and can be swapped in-engine
+  // (Travel) — same character, same assets. Private Home = the magnet builder (homeBuild).
+  // Public Palace = plain decorate placement only (B), capped against spam — no magnet there.
   const [world, setWorld] = useState<EngineTarget>(target);
   const canBuild = world === "home";
-  const activeBuild = world === "home" ? homeBuild : palaceBuild;
   const [builderSelected, setBuilderSelected] = useState("");
   const builderTargets = useRef<THREE.Group | null>(null);
   useEffect(() => {
     void homeBuild.setup();
-    void palaceBuild.setup();
   }, []);
-  // "M" (magnet) toggles Build mode in both worlds; ignored while typing in chat.
+  // "M" (magnet) toggles Build mode — private Home only; ignored while typing in chat.
   useEffect(() => {
+    if (!canBuild) return;
     const onMagnetKey = (event: KeyboardEvent) => {
       if (event.code !== "KeyM") return;
       const el = document.activeElement;
@@ -283,7 +286,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     };
     window.addEventListener("keydown", onMagnetKey);
     return () => window.removeEventListener("keydown", onMagnetKey);
-  }, []);
+  }, [canBuild]);
 
   const [items, setItems] = useState<PlacedItem[]>([]);
   const [pendingDefId, setPendingDefId] = useState<string | null>(null);
@@ -300,6 +303,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     saveDecor(world, next);
   };
   const addItem = (defId: string, position: [number, number, number]) => {
+    if (itemsRef.current.length >= decorLimit) return;
     const uid = newUid();
     persistItems([...items, { uid, defId, position, rotationY: 0, scale: 1 }]);
     setSelectedUid(uid);
@@ -310,6 +314,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     setSelectedUid(uid);
     setPendingDefId(null);
   };
+  // Anti-spam cap in the public palace; Number.POSITIVE_INFINITY = uncapped at home.
+  const decorLimit = world === "hq" ? PALACE_DECOR_LIMIT : Number.POSITIVE_INFINITY;
   const selectedItem = items.find((item) => item.uid === selectedUid) ?? null;
   const selectedDef = selectedItem ? defById(selectedItem.defId) : undefined;
   const pendingDef = pendingDefId ? defById(pendingDefId) : undefined;
@@ -334,6 +340,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     const defId = pendingRef.current;
     const point = ghostRef.current;
     if (!defId || !point) return;
+    if (itemsRef.current.length >= decorLimit) return;
     const uid = newUid();
     persistItems([
       ...itemsRef.current,
@@ -482,6 +489,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     setPosed(null);
   };
   const toggleBuild = () => {
+    if (!canBuild) return;
     setMode((value) => (value === "build" ? "walk" : "build"));
     setPendingDefId(null);
     setSelectedUid(null);
@@ -569,15 +577,15 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               </group>
             ) : null}
             <PlotAssets accent={accent} />
-            {/* The homebuilder world: placed blocks + crafted decor, walkable in every mode.
-                Home renders your private blueprint, the Palace its shared decorate-only set. */}
-            <BuilderWorld
-              building={mode === "build"}
-              key={world}
-              selected={builderSelected}
-              system={activeBuild}
-              targetsRef={builderTargets}
-            />
+            {/* The homebuilder world (private Home only): blocks + crafted decor, walkable. */}
+            {canBuild ? (
+              <BuilderWorld
+                building={mode === "build"}
+                selected={builderSelected}
+                system={homeBuild}
+                targetsRef={builderTargets}
+              />
+            ) : null}
             {/* Home plot only: your personal Tree, grown in 3D to its current age (Tamagotchi). */}
             {world === "home" ? (
               <GrowingTree position={[-7, 0, 40]} progress={homeProgress} />
@@ -618,11 +626,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           </Suspense>
           {mode === "orbit" ? <OrbitView /> : null}
           {mode === "build" ? (
-            <MagnetRig
-              selected={builderSelected}
-              system={activeBuild}
-              targetsRef={builderTargets}
-            />
+            <MagnetRig selected={builderSelected} system={homeBuild} targetsRef={builderTargets} />
           ) : null}
           {mode === "walk" && posed ? <SeatedView at={posed.position} /> : null}
           {POSTFX_ENABLED ? <PostFx /> : null}
@@ -659,12 +663,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               <span>{mode === "decorate" ? "Done (B)" : "Decorate (B)"}</span>
             </button>
           ) : null}
-          {mode !== "decorate" ? (
+          {canBuild && mode !== "decorate" ? (
             <button className="nav-pill nav-pill--engine" onClick={toggleBuild} type="button">
               <Icon name="sprout" size={16} />
-              <span>
-                {mode === "build" ? "Done (M)" : canBuild ? "Builder (M)" : "Decorate-Magnet (M)"}
-              </span>
+              <span>{mode === "build" ? "Done (M)" : "Builder (M)"}</span>
             </button>
           ) : null}
           {mode !== "decorate" && mode !== "build" ? (
@@ -723,6 +725,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         <DecorPicker
           catalog={CATALOG}
           count={items.length}
+          limit={world === "hq" ? PALACE_DECOR_LIMIT : undefined}
           onClearPending={() => setPendingDefId(null)}
           onDelete={() => {
             if (selectedItem) {
@@ -759,7 +762,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           onExit={toggleBuild}
           onSelect={setBuilderSelected}
           selected={builderSelected}
-          system={activeBuild}
+          system={homeBuild}
         />
       ) : null}
       {mode !== "decorate" && mode !== "build" ? <ChatPanel handle={handle} /> : null}

@@ -4021,3 +4021,7 @@ input.compose-input::placeholder {
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
+
+.decor-hint--limit {
+  color: var(--coral-hot);
+}
