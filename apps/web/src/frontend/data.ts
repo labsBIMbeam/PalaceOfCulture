@@ -14,7 +14,6 @@ export const navItems: NavItem[] = [
   { id: "home", name: "Home", label: "HOME", tag: "private", icon: "sprout" },
   { id: "workshop", name: "Workshop", label: "WORKSHOP", tag: "craft", icon: "hammer" },
   { id: "pleb", name: "Pleb Market", label: "PLEB MARKET", tag: "sats", icon: "store" },
-  { id: "style", name: "Style Market", label: "STYLE MARKET", tag: "digital", icon: "shirt" },
 ];
 
 export const feeds: Record<ScreenId, FeedConfig> = {
@@ -135,32 +134,6 @@ export const feeds: Record<ScreenId, FeedConfig> = {
       },
     ],
   },
-  style: {
-    title: "Style Drops",
-    subtitle: "creators and mints",
-    status: "MINTING",
-    tone: "coral",
-    icon: "spark",
-    placeholder: "follow a creator...",
-    action: "Drops",
-    posts: [
-      {
-        id: "style-1",
-        author: "loom",
-        meta: "creator / npub1lm...5d / now",
-        body: "the Atlantic Hoodie just dropped. deep teal, gold embroidery. 12 left.",
-        pinned: true,
-        actions: { replies: 48, reposts: 32, zaps: 2100 },
-      },
-      {
-        id: "style-2",
-        author: "bone",
-        meta: "creator / npub1bo...2k / 22m",
-        body: "minted the plaza lantern set. style only, wear it loud.",
-        actions: { replies: 14, reposts: 8, zaps: 640 },
-      },
-    ],
-  },
   workshop: {
     title: "Workshop Wire",
     subtitle: "craft + resource signal",
@@ -246,6 +219,18 @@ export const timelocks: Timelock[] = [
     icon: "ring",
     tone: "gold",
     detail: "Grown by the original holder. Not for sale, only lived.",
+  },
+  {
+    id: "first-seal-tile",
+    tier: "21D",
+    name: "Siegelfliese No. 1",
+    grewInto: "Seal Tile / firing",
+    daysLocked: 12,
+    unlock: "block 906,700",
+    status: "growing",
+    icon: "block",
+    tone: "teal",
+    detail: "Fired by time, not bought. Its pattern will skin furniture too. 9 days in the kiln.",
   },
   {
     id: "coast-road-bike",

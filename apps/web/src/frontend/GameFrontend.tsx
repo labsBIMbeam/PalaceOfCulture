@@ -262,14 +262,12 @@ function TopChrome({
   navOpen,
   onToggleNav,
   onSelectScreen,
-  showCoins,
   character,
 }: {
   current: NavItem;
   navOpen: boolean;
   onToggleNav: () => void;
   onSelectScreen: (screen: ScreenId) => void;
-  showCoins: boolean;
   character: Character;
 }) {
   return (
@@ -286,12 +284,6 @@ function TopChrome({
           <span className="demo-key-pill" title={`DEMO key (throwaway) · ${character.pubkey}`}>
             <Icon name="zap" size={11} />
             demo · {character.pubkey.slice(0, 9)}…
-          </span>
-        ) : null}
-        {showCoins ? (
-          <span className="coins-pill">
-            <Icon name="coins" size={15} />
-            12,400
           </span>
         ) : null}
         <span className="days-pill">
@@ -503,7 +495,6 @@ function ScreenFrame({
         navOpen={navOpen}
         onSelectScreen={onSelectScreen}
         onToggleNav={onToggleNav}
-        showCoins={screen === "style"}
       />
       {children}
       {screen === "home" ? (
@@ -944,7 +935,11 @@ function Legendwall({ locks, compact }: { locks: Timelock[]; compact?: boolean }
           >
             <div className={`lock-thumb lock-thumb--${lock.tone}`}>
               {/* Dynamic Tamagotchi sprite: grows with the lock's age (tree/ship/special × stage). */}
-              <GrowthSprite kind={kindForTier(lock.tier)} stage={growthStage(lock)} />
+              <GrowthSprite
+                kind={kindForTier(lock.tier)}
+                stage={growthStage(lock)}
+                tier={lock.tier}
+              />
               <span className="lock-tier">
                 {lock.tier === "21Y" ? <Icon name="crown" size={11} /> : null}
                 {lock.tier}
@@ -1288,7 +1283,7 @@ function HomeScreen({ onStartEngine, onBuild }: ScreenProps) {
 }
 
 /** The card thumbnail: the real product photo when the listing has one, else the category icon. */
-function MarketThumb({ item, mode }: { item: MarketItem; mode: "pleb" | "style" }) {
+function MarketThumb({ item }: { item: MarketItem }) {
   const [showImage, setShowImage] = useState(Boolean(item.image));
   return (
     <div className={`market-thumb market-thumb--${item.tone}`}>
@@ -1304,15 +1299,14 @@ function MarketThumb({ item, mode }: { item: MarketItem; mode: "pleb" | "style" 
         <Icon name={item.icon} size={42} />
       )}
       {item.badge ? <span className="market-badge">{item.badge}</span> : null}
-      {mode === "style" && !item.locked ? <span className="stock-badge">12 left</span> : null}
     </div>
   );
 }
 
-function MarketCard({ item, mode }: { item: MarketItem; mode: "pleb" | "style" }) {
+function MarketCard({ item }: { item: MarketItem }) {
   return (
     <article className={item.locked ? "market-card market-card--locked" : "market-card"}>
-      <MarketThumb item={item} mode={mode} />
+      <MarketThumb item={item} />
       <div className="market-info">
         <h2>{item.title}</h2>
         <small>{item.meta}</small>
@@ -1328,7 +1322,7 @@ function MarketCard({ item, mode }: { item: MarketItem; mode: "pleb" | "style" }
               rel="noopener noreferrer"
               target="_blank"
             >
-              {mode === "pleb" ? "Buy" : "Get"}
+              Buy
               <Icon name="chevron" size={13} />
             </a>
           ) : (
@@ -1336,7 +1330,7 @@ function MarketCard({ item, mode }: { item: MarketItem; mode: "pleb" | "style" }
               className={item.locked ? "ghost-button" : "coral-button coral-button--compact"}
               type="button"
             >
-              {item.locked ? "Earned" : mode === "pleb" ? "Offer" : "Get"}
+              {item.locked ? "Earned" : "Offer"}
             </button>
           )}
         </div>
@@ -1400,40 +1394,8 @@ function PlebMarketScreen() {
         ) : visible.length === 0 ? (
           <div className="market-empty">No listings in this category yet.</div>
         ) : (
-          visible.map((item) => <MarketCard item={item} key={item.id} mode="pleb" />)
+          visible.map((item) => <MarketCard item={item} key={item.id} />)
         )}
-      </div>
-    </section>
-  );
-}
-
-function StyleMarketScreen() {
-  const [filter, setFilter] = useState("Outfits");
-
-  return (
-    <section className="market-layout">
-      <div className="market-head">
-        <div>
-          <h1>Style Market</h1>
-          <p>digital assets / money buys style / wear it now</p>
-        </div>
-        <div className="market-filters">
-          {["Outfits", "Vehicle", "Pet", "Decor"].map((label) => (
-            <button
-              className={filter === label ? "filter-chip filter-chip--coral" : "filter-chip"}
-              key={label}
-              onClick={() => setFilter(label)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="market-grid">
-        {styleDrops.map((item) => (
-          <MarketCard item={item} key={item.id} mode="style" />
-        ))}
       </div>
     </section>
   );
@@ -1464,8 +1426,6 @@ function renderScreen(screen: ScreenId, props: ScreenProps) {
       return <WorkshopScreen />;
     case "pleb":
       return <PlebMarketScreen />;
-    case "style":
-      return <StyleMarketScreen />;
   }
 }
 
