@@ -20,8 +20,6 @@ import {
 } from "react";
 import * as THREE from "three";
 import { homeBuild } from "../builder/buildState";
-import { timelocks } from "../frontend/data";
-import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import { BuilderHud } from "../ui/BuilderHud";
@@ -31,7 +29,7 @@ import { MediaPlayer } from "../ui/MediaPlayer";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { Palace } from "./Palace";
-import { GrowingTree, PlotAssets } from "./PlotAssets";
+import { PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
 import { type PlacedItem, loadDecor, newUid, saveDecor } from "./decorStore";
 import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
@@ -70,6 +68,15 @@ const ORBIT_POSITION = new THREE.Vector3(150, 110, 150);
 // On the plaza just short of the asset shelf (RESERVED_CORNER ~[0,0,52]); the default camera looks
 // +z, so the tree + spaceship sit ahead in view on spawn. Tune freely with RESERVED_CORNER.
 const SPAWN: [number, number, number] = [6, 4, 44];
+
+// The private Home is its OWN empty map (godot home_world parity): cream ground, cream fog,
+// nothing but what you build. Palace assets never load here.
+const HOME_SPAWN: [number, number, number] = [6, 3, 24];
+const HOME_GROUND_SIZE = 128;
+const HOME_CREAM = "#efe6d2";
+/** How long the travel curtain stays down (world swap happens under it). */
+const TRAVEL_SWAP_MS = 300;
+const TRAVEL_TOTAL_MS = 1500;
 
 // drei KeyboardControls map — ecctrl reads these named actions. Full WASD; Decorate is on "B".
 const KEYBOARD_MAP = [
@@ -192,11 +199,14 @@ const GROUND_RAY_LENGTH = 1.45;
 function WalkSystems({
   bodyRef,
   poseables,
+  spawn,
   onActive,
   onNearPose,
 }: {
   bodyRef: RefObject<RapierRigidBody>;
   poseables: PosePoint[];
+  /** Where the safety net puts a fallen controller — the active world's spawn. */
+  spawn: [number, number, number];
   onActive: (item: Interactable | null) => void;
   onNearPose: (point: PosePoint | null) => void;
 }) {
@@ -215,7 +225,7 @@ function WalkSystems({
     // Safety net: if the controller ever tunnels through the floor, lift it back to the entry point
     // instead of falling forever.
     if (pos.y < -6) {
-      body.setTranslation({ x: SPAWN[0], y: 3, z: SPAWN[2] }, true);
+      body.setTranslation({ x: spawn[0], y: 3, z: spawn[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       return;
     }
@@ -370,7 +380,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // Cozy poses: walk up to a chair/bed and sit/sleep. The pose clip plays if present on the rig, else
   // idle (placeholder). The mechanic — snap to the piece, park the controller, posed camera — is real.
   const [posed, setPosed] = useState<Posed | null>(null);
-  const [standPos, setStandPos] = useState<[number, number, number]>(SPAWN);
+  const [standPos, setStandPos] = useState<[number, number, number]>(
+    target === "home" ? HOME_SPAWN : SPAWN,
+  );
   const [nearPose, setNearPose] = useState<PosePoint | null>(null);
   const posedRef = useRef<Posed | null>(null);
   posedRef.current = posed;
@@ -475,14 +487,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     return () => window.removeEventListener("keydown", claimSpaceForJump);
   }, [mode]);
 
-  // The personal growing tree on the Home plot: a 21-month (Tree) lock drives its 3D growth by age.
-  const homeLock =
-    timelocks.find((lock) => lock.tier === "21M") ??
-    timelocks.find((lock) => lock.status === "growing") ??
-    timelocks[0];
-  const homeProgress = homeLock ? lockProgress(homeLock) : 0.5;
-
-  const title = world === "hq" ? "Palace of Culture HQ" : "Home Plot";
+  const title = world === "hq" ? "Palace of Culture HQ" : "Home — your map";
   const subtitle =
     mode === "build"
       ? "build — magnet captured, blocks + crafted decor"
@@ -509,15 +514,23 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     setSelectedUid(null);
     setPosed(null);
   };
-  // Travel: swap the world without leaving the engine — same character, same assets.
+  // Travel: swap the world behind a short loading curtain — Home is its own empty map, so the
+  // swap (unmount palace / mount ground) happens while the screen is covered.
+  const [traveling, setTraveling] = useState<EngineTarget | null>(null);
   const travel = () => {
-    setWorld((value) => (value === "home" ? "hq" : "home"));
+    if (traveling) return;
+    const next: EngineTarget = world === "home" ? "hq" : "home";
+    setTraveling(next);
     setMode("walk");
     setBuilderSelected("");
     setPendingDefId(null);
     setSelectedUid(null);
     setPosed(null);
-    setStandPos(SPAWN);
+    window.setTimeout(() => {
+      setWorld(next);
+      setStandPos(next === "home" ? HOME_SPAWN : SPAWN);
+    }, TRAVEL_SWAP_MS);
+    window.setTimeout(() => setTraveling(null), TRAVEL_TOTAL_MS);
   };
 
   return (
@@ -541,17 +554,35 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             shadow-camera-top={200}
             shadow-mapSize={[2048, 2048]}
           />
-          <Atmosphere />
+          {world === "hq" ? <Atmosphere /> : null}
+          {world === "home" ? (
+            <>
+              <color args={[HOME_CREAM]} attach="background" />
+              <fog args={[HOME_CREAM, 30, 120]} attach="fog" />
+            </>
+          ) : null}
           <Suspense fallback={null}>
-            <Physics timeStep={1 / 60}>
-              <Palace />
+            <Physics key={world} timeStep={1 / 60}>
+              {world === "hq" ? <Palace /> : null}
               {/* Invisible flat floor at the deck level (y=0): the palace trimesh has gaps/glass the
                   ecctrl ground ray misses, leaving the controller stuck in "fall" so it never walks.
-                  A guaranteed ground plane keeps the player grounded across the whole plaza. */}
+                  A guaranteed ground plane keeps the player grounded across the whole plaza.
+                  The Home map gets its own (smaller) slab under the visible cream ground. */}
               <RigidBody type="fixed" colliders={false}>
                 {/* Thick (10 m) so the capsule can't tunnel through it on spawn/respawn. Top at y=0. */}
-                <CuboidCollider args={[300, 5, 300]} position={[0, -5, 0]} />
+                <CuboidCollider
+                  args={
+                    world === "hq" ? [300, 5, 300] : [HOME_GROUND_SIZE / 2, 5, HOME_GROUND_SIZE / 2]
+                  }
+                  position={[0, -5, 0]}
+                />
               </RigidBody>
+              {world === "home" ? (
+                <mesh receiveShadow rotation-x={-Math.PI / 2}>
+                  <planeGeometry args={[HOME_GROUND_SIZE, HOME_GROUND_SIZE]} />
+                  <meshStandardMaterial color="#e5dabf" metalness={0} roughness={0.95} />
+                </mesh>
+              ) : null}
               {/* Walking (and decorating, which is walk + a build overlay): the controller. Parked
                   while posed (re-spawns at the piece on get-up, so `position` is keyed to force a
                   fresh mount when standPos changes). */}
@@ -597,6 +628,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   onActive={setActiveInteract}
                   onNearPose={setNearPose}
                   poseables={poseables}
+                  spawn={world === "home" ? HOME_SPAWN : SPAWN}
                 />
               ) : null}
             </Physics>
@@ -610,11 +642,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 <AvatarView config={character.avatar} pose={posed.pose} />
               </group>
             ) : null}
-            <PlotAssets accent={accent} />
-            {/* Home plot only: your personal Tree, grown in 3D to its current age (Tamagotchi). */}
-            {world === "home" ? (
-              <GrowingTree position={[-7, 0, 40]} progress={homeProgress} />
-            ) : null}
+            {world === "hq" ? <PlotAssets accent={accent} /> : null}
             {/* Player-placed decoration — visible in every mode; editable only while decorating. */}
             <group>
               {items.map((item) => {
@@ -650,6 +678,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         </Canvas>
       </KeyboardControls>
       <Leva hidden />
+      {traveling ? (
+        <div className="travel-screen">
+          <Icon name={traveling === "home" ? "home" : "globe"} size={44} />
+          <strong>{traveling === "home" ? "Coming home…" : "Traveling to the Palace…"}</strong>
+          <small>
+            {traveling === "home"
+              ? "your own empty map — build slowly"
+              : "the shared plaza — decorate, don't spam"}
+          </small>
+        </div>
+      ) : null}
       <div className="engine-hud">
         <button className="nav-pill nav-pill--engine" onClick={onExit} type="button">
           <Icon name="chevron" size={16} />

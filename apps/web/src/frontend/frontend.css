@@ -4055,3 +4055,37 @@ input.compose-input::placeholder {
 .decor-hint--limit {
   color: var(--coral-hot);
 }
+
+/* ---------- travel curtain: world swap between Home map and Palace ---------- */
+
+.travel-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  background: radial-gradient(80% 70% at 50% 40%, rgba(36, 24, 15, 0.97), rgba(12, 8, 5, 0.995));
+  color: var(--gold-bright);
+  animation: travel-in 0.25s ease;
+}
+
+.travel-screen strong {
+  font: 700 22px var(--display);
+  letter-spacing: 0.05em;
+}
+
+.travel-screen small {
+  color: rgba(246, 236, 210, 0.6);
+  font: 500 12px var(--mono);
+}
+
+@keyframes travel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
