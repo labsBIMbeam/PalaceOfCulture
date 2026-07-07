@@ -37,6 +37,8 @@ type PalaceSceneProps = {
   target: EngineTarget;
   onExit: () => void;
   character: Character;
+  /** Home "Build" button: skip walk mode and wake up holding the magnet. */
+  startInBuild?: boolean;
 };
 
 type ViewMode = "orbit" | "walk" | "decorate" | "build";
@@ -166,7 +168,10 @@ function SeatedView({ at }: { at: [number, number, number] }) {
 // Bloom + vignette. Off by default: it's wired and standard, but the preview GPU can't be
 // screenshot-verified here — flip to true and confirm on real hardware (set false again if a weak
 // GPU shows a blank scene).
-const POSTFX_ENABLED = false;
+// Enabled via URL flag (?postfx=1) so real hardware can verify without a code flip; a weak GPU
+// showing a blank scene just drops the flag.
+const POSTFX_ENABLED =
+  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("postfx");
 const USE_RADIUS = 2.6; // metres: how close you must be to a chair/bed for the "Sit"/"Sleep" prompt
 const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the bed's default scale
 
@@ -245,8 +250,8 @@ function WalkSystems({
 }
 
 /** The 3D game view, launched from the frontend UI. */
-export function PalaceScene({ target, onExit, character }: PalaceSceneProps) {
-  const [mode, setMode] = useState<ViewMode>("walk");
+export function PalaceScene({ target, onExit, character, startInBuild }: PalaceSceneProps) {
+  const [mode, setMode] = useState<ViewMode>(startInBuild && target === "home" ? "build" : "walk");
   const accent = character.avatar.aura;
   const handle = character.handle;
   const playerBody = useRef<RapierRigidBody>(null);

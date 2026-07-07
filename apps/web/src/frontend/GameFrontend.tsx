@@ -4,10 +4,13 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { GeoJSON, MapContainer, ZoomControl, useMap, useMapEvents } from "react-leaflet";
+import { MATERIALS } from "../builder/catalog";
+import { useEconomy } from "../builder/economy";
 import { createCharacterStore } from "../character/store";
 import { ENTITY_NPUBS } from "../identity/entities";
 import { demoNpub, getOrCreateDemoSigner } from "../identity/keyStore";
 import { type Article, loadArticles } from "../net/articles";
+import { zapNote } from "../net/lightning";
 import { loadPlebListings } from "../net/market";
 import { RELAYS, setSigner } from "../net/nostr";
 import {
@@ -22,9 +25,9 @@ import {
 } from "../net/social";
 import { PalaceScene } from "../scene/PalaceScene";
 import { MemberSelect } from "../ui/MemberSelect";
+import { WorkshopPanel } from "../ui/WorkshopPanel";
 import { GrowthSprite } from "./GrowthSprite";
 import { IntroScreen } from "./IntroScreen";
-import { LevelBuildHandoff } from "./LevelBuildHandoff";
 import { StartScreen } from "./StartScreen";
 import {
   circleFriends,
@@ -308,7 +311,15 @@ function TopChrome({
   );
 }
 
-function PostCard({ post, onRepost }: { post: FeedPost; onRepost?: () => void }) {
+function PostCard({
+  post,
+  onRepost,
+  onZap,
+}: {
+  post: FeedPost;
+  onRepost?: () => void;
+  onZap?: () => void;
+}) {
   return (
     <article className={post.pinned ? "post-card post-card--pinned" : "post-card"}>
       <div className="post-author">
@@ -338,10 +349,22 @@ function PostCard({ post, onRepost }: { post: FeedPost; onRepost?: () => void })
             {post.actions.reposts}
           </span>
         )}
-        <span className="zap-count">
-          <Icon name="zap" size={14} />
-          {post.actions.zaps.toLocaleString("en-US")}
-        </span>
+        {onZap ? (
+          <button
+            className="post-action zap-count"
+            onClick={onZap}
+            title="Zap 21 sats (NIP-57)"
+            type="button"
+          >
+            <Icon name="zap" size={14} />
+            {post.actions.zaps.toLocaleString("en-US")}
+          </button>
+        ) : (
+          <span className="zap-count">
+            <Icon name="zap" size={14} />
+            {post.actions.zaps.toLocaleString("en-US")}
+          </span>
+        )}
       </div>
     </article>
   );
@@ -1010,6 +1033,24 @@ function HomeFeed() {
     }
   };
 
+  // Zap a note 21 sats (NIP-57): signed request -> author's LNURL -> invoice -> WebLN wallet.
+  // Counted only when the wallet confirms; without WebLN the lightning: URI opens the OS wallet.
+  const handleZap = async (note: FeedNote) => {
+    const result = await zapNote(note, 21, "\u26a1 from the Palace of Culture");
+    if (result.paid) {
+      setNotes(
+        (prev) =>
+          prev?.map((entry) =>
+            entry.id === note.id
+              ? { ...entry, actions: { ...entry.actions, zaps: entry.actions.zaps + 21 } }
+              : entry,
+          ) ?? prev,
+      );
+    } else if (result.fallbackUri) {
+      window.open(result.fallbackUri, "_self");
+    }
+  };
+
   // Repost a note (NIP-18 kind:6), bumping its count optimistically.
   const handleRepost = (note: FeedNote) => {
     setNotes(
@@ -1164,7 +1205,12 @@ function HomeFeed() {
           <div className="feed-note-state">Quiet here. Try another mood.</div>
         ) : (
           notes.map((note) => (
-            <PostCard key={note.id} onRepost={() => handleRepost(note)} post={note} />
+            <PostCard
+              key={note.id}
+              onRepost={() => handleRepost(note)}
+              onZap={() => void handleZap(note)}
+              post={note}
+            />
           ))
         )}
       </div>
@@ -1196,6 +1242,22 @@ function HomeFeed() {
 }
 
 /** The Home screen: a compact timelock strip stacked above the Iris-style Nostr feed (the hero). */
+function HomeResourceStrip() {
+  const economy = useEconomy();
+  return (
+    <div className="resource-strip">
+      {Object.entries(MATERIALS).map(([id, def]) => (
+        <span className="resource-chip" key={id}>
+          <span className="builder-swatch" style={{ background: def.color }} />
+          <strong>{economy.getMaterial(id)}</strong>
+          {def.display}
+        </span>
+      ))}
+      <small>drip: real time · craft in the Workshop</small>
+    </div>
+  );
+}
+
 function HomeScreen({ onStartEngine, onBuild }: ScreenProps) {
   return (
     <section className="home-layout home-layout--feed">
@@ -1203,6 +1265,7 @@ function HomeScreen({ onStartEngine, onBuild }: ScreenProps) {
         <h1>Home</h1>
         <p>your timelocks / the feed / pick a mood</p>
       </div>
+      <HomeResourceStrip />
       <Legendwall compact locks={timelocks} />
       <HomeFeed />
       <div className="build-dock build-dock--slim">
@@ -1404,6 +1467,19 @@ function GameScreen() {
   );
 }
 
+/** The Workshop: crafting + resources as a frontend window (menu), same economy as the 3D builder. */
+function WorkshopScreen() {
+  return (
+    <section className="workshop-layout">
+      <div className="screen-heading">
+        <h1>Workshop</h1>
+        <p>resources drip / crafts take real time / patience becomes decor</p>
+      </div>
+      <WorkshopPanel />
+    </section>
+  );
+}
+
 function renderScreen(screen: ScreenId, props: ScreenProps) {
   switch (screen) {
     case "title":
@@ -1412,6 +1488,8 @@ function renderScreen(screen: ScreenId, props: ScreenProps) {
       return <MapScreen {...props} />;
     case "home":
       return <HomeScreen {...props} />;
+    case "workshop":
+      return <WorkshopScreen />;
     case "pleb":
       return <PlebMarketScreen />;
     case "style":
@@ -1432,7 +1510,8 @@ export function GameFrontend() {
   const [screen, setScreen] = useState<ScreenId>("title");
   const [navOpen, setNavOpen] = useState(false);
   const [engineTarget, setEngineTarget] = useState<EngineTarget | null>(null);
-  const [buildMode, setBuildMode] = useState(false);
+  // Home "Build" jumps straight into the 3D engine's magnet build mode (godot parity).
+  const [engineBuild, setEngineBuild] = useState(false);
   const store = useMemo(() => createCharacterStore(), []);
   const [storeChecked, setStoreChecked] = useState(false);
 
@@ -1492,14 +1571,14 @@ export function GameFrontend() {
     return (
       <PalaceScene
         character={character}
-        onExit={() => setEngineTarget(null)}
+        onExit={() => {
+          setEngineTarget(null);
+          setEngineBuild(false);
+        }}
+        startInBuild={engineBuild}
         target={engineTarget}
       />
     );
-  }
-
-  if (buildMode) {
-    return <LevelBuildHandoff onExit={() => setBuildMode(false)} />;
   }
 
   return (
@@ -1512,7 +1591,10 @@ export function GameFrontend() {
     >
       {renderScreen(screen, {
         onStartEngine: setEngineTarget,
-        onBuild: () => setBuildMode(true),
+        onBuild: () => {
+          setEngineBuild(true);
+          setEngineTarget("home");
+        },
       })}
     </ScreenFrame>
   );

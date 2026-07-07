@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../frontend/icons";
 import type { IconName } from "../frontend/types";
 import { type PodcastShow, loadShowEpisodes, searchPodcastShows } from "../net/feed";
+import { sendBoost } from "../net/lightning";
 import { type MediaItem, type MediaKind, createMediaCatalog } from "../net/media";
 
 const TABS: ReadonlyArray<{ id: MediaKind; label: string }> = [
@@ -88,11 +89,25 @@ export function MediaPlayer() {
     if (next) play(next, playlist);
   };
 
-  const boost = () => {
-    setBoosted((sats) => sats + 100);
-    setFlash(true);
-    setTimeout(() => setFlash(false), 1100);
-    // V4V (ADR 0004): boostagram to nowPlaying.valueRecipient over LNbits/NWC. Mock now.
+  // V4V (ADR 0004): 100-sat boost to the item's value recipient — LNURL-pay via WebLN, else the
+  // OS wallet gets a lightning: URI. Counted only when WebLN confirms the payment.
+  const [boosting, setBoosting] = useState(false);
+  const boost = async () => {
+    const recipient = nowPlaying?.valueRecipient;
+    if (!recipient || boosting) return;
+    setBoosting(true);
+    try {
+      const result = await sendBoost(recipient, 100, `Boost from the Palace: ${nowPlaying.title}`);
+      if (result.paid) {
+        setBoosted((sats) => sats + 100);
+        setFlash(true);
+        setTimeout(() => setFlash(false), 1100);
+      } else if (result.fallbackUri) {
+        window.open(result.fallbackUri, "_self");
+      }
+    } finally {
+      setBoosting(false);
+    }
   };
 
   const runSearch = async () => {
@@ -261,7 +276,13 @@ export function MediaPlayer() {
         </button>
         <button
           className={`media-boost${flash ? " media-boost--flash" : ""}`}
+          disabled={!nowPlaying?.valueRecipient || boosting}
           onClick={boost}
+          title={
+            nowPlaying?.valueRecipient
+              ? `Boost 100 sats → ${nowPlaying.valueRecipient}`
+              : "No value recipient on this item"
+          }
           type="button"
         >
           <Icon name="zap" size={13} />

@@ -53,6 +53,8 @@ export function MagnetRig({
   });
   const ghostRef = useRef<THREE.Mesh>(null);
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  // Q/E turn the furniture ghost relative to the camera yaw (kept across placements, like decorate).
+  const ghostYawOffset = useRef(0);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
 
@@ -97,12 +99,17 @@ export function MagnetRig({
         const def = getObject(id);
         if (!def) return;
         if (def.kind === "block") {
-          buildSystem.placeBlocks(buildSystem.footprintCells(current.cell), id);
+          // Shift+LMB repaints existing blocks in the footprint (replace_blocks); plain LMB stamps.
+          if (event.shiftKey) {
+            buildSystem.replaceBlocks(buildSystem.footprintCells(current.absorbCell), id);
+          } else {
+            buildSystem.placeBlocks(buildSystem.footprintCells(current.cell), id);
+          }
         } else {
           buildSystem.placeDecor(
             id,
             [current.point.x, current.point.y, current.point.z],
-            yaw.current,
+            yaw.current + ghostYawOffset.current,
           );
         }
       } else if (event.button === 2) {
@@ -111,16 +118,23 @@ export function MagnetRig({
         else if (current.absorbTarget) buildSystem.absorbDecor(current.absorbTarget);
       }
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (document.pointerLockElement !== canvas) return;
+      if (event.code === "KeyQ") ghostYawOffset.current -= Math.PI / 4;
+      else if (event.code === "KeyE") ghostYawOffset.current += Math.PI / 4;
+    };
     const onContextMenu = (event: Event) => event.preventDefault();
     canvas.addEventListener("click", requestLock);
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mousedown", onMouseDown);
     canvas.addEventListener("contextmenu", onContextMenu);
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       canvas.removeEventListener("click", requestLock);
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mousedown", onMouseDown);
       canvas.removeEventListener("contextmenu", onContextMenu);
+      window.removeEventListener("keydown", onKeyDown);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     };
   }, [gl]);
@@ -193,7 +207,7 @@ export function MagnetRig({
             current.point.y + ghostSize[1] * 0.5,
             current.point.z,
           );
-          ghost.rotation.set(0, yaw.current, 0);
+          ghost.rotation.set(0, yaw.current + ghostYawOffset.current, 0);
         }
       }
     }

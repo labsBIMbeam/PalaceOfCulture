@@ -1,4 +1,4 @@
-export type ScreenId = "title" | "map" | "home" | "pleb" | "style" | "game";
+export type ScreenId = "title" | "map" | "home" | "workshop" | "pleb" | "style" | "game";
 
 export type EngineTarget = "hq" | "home";
 

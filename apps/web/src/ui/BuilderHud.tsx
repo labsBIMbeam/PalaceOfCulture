@@ -133,6 +133,16 @@ export function BuilderHud({
         </button>
       </div>
 
+      {/* live queue chip — the head craft counts down without opening the menu */}
+      {queue.length > 0 && !craftOpen ? (
+        <button className="builder-queue-chip" onClick={() => setCraftOpen(true)} type="button">
+          <Icon name="sprout" size={12} />
+          {RECIPES[queue[0]?.recipe_id ?? ""]?.display ?? "crafting"} —{" "}
+          {formatDuration((queue[0]?.remaining ?? 0) / economy.timeScale)}
+          {queue.length > 1 ? ` (+${queue.length - 1})` : ""}
+        </button>
+      ) : null}
+
       {/* craft menu */}
       {craftOpen ? (
         <section className="builder-craft">
@@ -203,8 +213,8 @@ export function BuilderHud({
           {document.pointerLockElement ? "Magnet captured" : "Click the scene to fly"}
         </strong>
         <span>
-          LMB place · RMB absorb · WASD fly · Space/Shift rise/sink · 1–{HOTBAR.length} select · C
-          craft · M done
+          LMB place · Shift+LMB repaint · RMB absorb · Q/E rotate · WASD fly · Space/Shift rise/sink
+          · 1–{HOTBAR.length} select · C craft · M done
           {document.pointerLockElement ? " · Esc release" : " · or click surfaces to place"}
         </span>
       </div>

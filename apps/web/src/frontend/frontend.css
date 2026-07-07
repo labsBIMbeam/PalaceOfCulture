@@ -3907,3 +3907,117 @@ input.compose-input::placeholder {
 .builder-hint {
   pointer-events: none;
 }
+
+/* ---------- workshop screen (menu) + home resource strip ---------- */
+
+.workshop-layout {
+  display: grid;
+  gap: 18px;
+  padding: 24px clamp(18px, 4vw, 48px) 120px;
+}
+
+.workshop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.workshop-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(231, 178, 60, 0.35);
+  border-radius: 14px;
+  background: rgba(20, 13, 8, 0.72);
+  color: var(--cream);
+}
+
+.workshop-card--recipes {
+  grid-row: span 2;
+}
+
+.workshop-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(246, 236, 210, 0.14);
+}
+
+.workshop-head small {
+  color: rgba(246, 236, 210, 0.55);
+  font-size: 0.72rem;
+}
+
+.workshop-resource {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.workshop-resource strong {
+  min-width: 3ch;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.workshop-resource small {
+  margin-left: auto;
+  color: rgba(246, 236, 210, 0.55);
+  font-size: 0.72rem;
+}
+
+.workshop-empty {
+  margin: 0;
+  color: rgba(246, 236, 210, 0.55);
+  font-size: 0.85rem;
+}
+
+.resource-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.resource-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(231, 178, 60, 0.35);
+  border-radius: 999px;
+  background: rgba(20, 13, 8, 0.6);
+  color: var(--cream);
+  font-size: 0.82rem;
+}
+
+.resource-chip strong {
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-strip > small {
+  color: rgba(246, 236, 210, 0.5);
+  font-size: 0.72rem;
+}
+
+.builder-queue-chip {
+  position: absolute;
+  top: 84px;
+  right: 18px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid rgba(231, 178, 60, 0.4);
+  border-radius: 999px;
+  background: rgba(20, 13, 8, 0.78);
+  color: var(--gold-bright);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}

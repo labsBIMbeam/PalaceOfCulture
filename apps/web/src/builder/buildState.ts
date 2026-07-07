@@ -36,8 +36,9 @@ class BuildSystem {
   private loaded = false;
   private suppressSave = false;
 
-  /** Loads the blueprint for the home and starts autosaving on every change. */
+  /** Loads the blueprint for the home and starts autosaving on every change. Idempotent. */
   async setup(allowBlocks: boolean, home: string = DEFAULT_HOME): Promise<void> {
+    if (this.loaded) return;
     this.allowBlocks = allowBlocks;
     const data = await loadHome(home);
     this.suppressSave = true; // loading must not immediately re-save
