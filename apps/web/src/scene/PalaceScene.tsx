@@ -13,7 +13,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { buildSystem } from "../builder/buildState";
+import { homeBuild, palaceBuild } from "../builder/buildState";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
@@ -258,17 +258,20 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
 
   // Decoration: placed pieces are DATA, persisted per room (decorStore). `pendingDefId` = a catalog
   // piece chosen but not yet stamped; `selectedUid` = a placed piece being edited.
-  // Homebuilder (godot port): the hotbar selection + the raycast-target group the magnet aims at.
-  // Block building exists only on the private Home plot — design law, not a tech limit.
-  const canBuild = target === "home";
+  // ONE world, two modes (godot parity): `world` starts at the launch target and can be swapped
+  // in-engine (Travel) — same character, same assets. Private Home = full magnet (homeBuild);
+  // public Palace = decorate-only magnet (palaceBuild). Design law, not a tech limit.
+  const [world, setWorld] = useState<EngineTarget>(target);
+  const canBuild = world === "home";
+  const activeBuild = world === "home" ? homeBuild : palaceBuild;
   const [builderSelected, setBuilderSelected] = useState("");
   const builderTargets = useRef<THREE.Group | null>(null);
   useEffect(() => {
-    if (canBuild) void buildSystem.setup(true);
-  }, [canBuild]);
-  // "M" (magnet) toggles Build mode on the Home plot; ignored while typing in chat.
+    void homeBuild.setup();
+    void palaceBuild.setup();
+  }, []);
+  // "M" (magnet) toggles Build mode in both worlds; ignored while typing in chat.
   useEffect(() => {
-    if (!canBuild) return;
     const onMagnetKey = (event: KeyboardEvent) => {
       if (event.code !== "KeyM") return;
       const el = document.activeElement;
@@ -280,21 +283,21 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     };
     window.addEventListener("keydown", onMagnetKey);
     return () => window.removeEventListener("keydown", onMagnetKey);
-  }, [canBuild]);
+  }, []);
 
   const [items, setItems] = useState<PlacedItem[]>([]);
   const [pendingDefId, setPendingDefId] = useState<string | null>(null);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
 
   useEffect(() => {
-    setItems(loadDecor(target));
+    setItems(loadDecor(world));
     setPendingDefId(null);
     setSelectedUid(null);
-  }, [target]);
+  }, [world]);
 
   const persistItems = (next: PlacedItem[]) => {
     setItems(next);
-    saveDecor(target, next);
+    saveDecor(world, next);
   };
   const addItem = (defId: string, position: [number, number, number]) => {
     const uid = newUid();
@@ -458,15 +461,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     timelocks[0];
   const homeProgress = homeLock ? lockProgress(homeLock) : 0.5;
 
-  const title = target === "hq" ? "Palace of Culture HQ" : "Home Plot";
+  const title = world === "hq" ? "Palace of Culture HQ" : "Home Plot";
   const subtitle =
     mode === "build"
       ? "build — magnet captured, blocks + crafted decor"
       : mode === "decorate"
         ? "decorate — walk up, aim, and place"
         : mode === "walk"
-          ? "third-person — walk the palace"
-          : target === "hq"
+          ? world === "hq"
+            ? "public — walk the palace"
+            : "private — your plot"
+          : world === "hq"
             ? "3D engine — global palace"
             : "3D engine — private plot";
 
@@ -481,6 +486,16 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     setPendingDefId(null);
     setSelectedUid(null);
     setPosed(null);
+  };
+  // Travel: swap the world without leaving the engine — same character, same assets.
+  const travel = () => {
+    setWorld((value) => (value === "home" ? "hq" : "home"));
+    setMode("walk");
+    setBuilderSelected("");
+    setPendingDefId(null);
+    setSelectedUid(null);
+    setPosed(null);
+    setStandPos(SPAWN);
   };
 
   return (
@@ -554,16 +569,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               </group>
             ) : null}
             <PlotAssets accent={accent} />
-            {/* The homebuilder world: placed blocks + crafted decor, walkable in every mode. */}
-            {canBuild ? (
-              <BuilderWorld
-                building={mode === "build"}
-                selected={builderSelected}
-                targetsRef={builderTargets}
-              />
-            ) : null}
+            {/* The homebuilder world: placed blocks + crafted decor, walkable in every mode.
+                Home renders your private blueprint, the Palace its shared decorate-only set. */}
+            <BuilderWorld
+              building={mode === "build"}
+              key={world}
+              selected={builderSelected}
+              system={activeBuild}
+              targetsRef={builderTargets}
+            />
             {/* Home plot only: your personal Tree, grown in 3D to its current age (Tamagotchi). */}
-            {target === "home" ? (
+            {world === "home" ? (
               <GrowingTree position={[-7, 0, 40]} progress={homeProgress} />
             ) : null}
             {/* Player-placed decoration — visible in every mode; editable only while decorating. */}
@@ -602,7 +618,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           </Suspense>
           {mode === "orbit" ? <OrbitView /> : null}
           {mode === "build" ? (
-            <MagnetRig selected={builderSelected} targetsRef={builderTargets} />
+            <MagnetRig
+              selected={builderSelected}
+              system={activeBuild}
+              targetsRef={builderTargets}
+            />
           ) : null}
           {mode === "walk" && posed ? <SeatedView at={posed.position} /> : null}
           {POSTFX_ENABLED ? <PostFx /> : null}
@@ -639,10 +659,18 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               <span>{mode === "decorate" ? "Done (B)" : "Decorate (B)"}</span>
             </button>
           ) : null}
-          {canBuild && mode !== "decorate" ? (
+          {mode !== "decorate" ? (
             <button className="nav-pill nav-pill--engine" onClick={toggleBuild} type="button">
               <Icon name="sprout" size={16} />
-              <span>{mode === "build" ? "Done (M)" : "Builder (M)"}</span>
+              <span>
+                {mode === "build" ? "Done (M)" : canBuild ? "Builder (M)" : "Decorate-Magnet (M)"}
+              </span>
+            </button>
+          ) : null}
+          {mode !== "decorate" && mode !== "build" ? (
+            <button className="nav-pill nav-pill--engine" onClick={travel} type="button">
+              <Icon name="globe" size={16} />
+              <span>{world === "home" ? "Travel: Palace" : "Travel: Home"}</span>
             </button>
           ) : null}
         </div>
@@ -727,7 +755,12 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         />
       ) : null}
       {mode === "build" ? (
-        <BuilderHud onExit={toggleBuild} onSelect={setBuilderSelected} selected={builderSelected} />
+        <BuilderHud
+          onExit={toggleBuild}
+          onSelect={setBuilderSelected}
+          selected={builderSelected}
+          system={activeBuild}
+        />
       ) : null}
       {mode !== "decorate" && mode !== "build" ? <ChatPanel handle={handle} /> : null}
       {mode !== "decorate" && mode !== "build" ? <MediaPlayer /> : null}

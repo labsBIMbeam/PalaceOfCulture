@@ -1,4 +1,6 @@
-// Block + decor placement state for one world — a 1:1 port of godot/scripts/build_system.gd,
+// Block + decor placement state for ONE world — a 1:1 port of godot/scripts/build_system.gd.
+// Two instances exist (godot home_world/palace_world parity): the private Home (full magnet,
+// blocks + decor) and the public Palace (decorate-only — design law, not a tech limit).
 // with the GridMap swapped for a plain cell map (rendering is the scene's job; state is data).
 // Every mutation settles with Economy and re-reports specialty multipliers and the move-in
 // condition (>=9 blocks and >=1 lantern placed). Autosaves via builder/store.ts on every change.
@@ -29,18 +31,22 @@ class BuildSystem {
   /** cellKey -> block object id. */
   private cells = new Map<string, string>();
   private decor: PlacedDecor[] = [];
-  /** Palace worlds pass allowBlocks = false — block tools exist only in the private Home. */
-  private allowBlocks = true;
   private version = 0;
   private listeners = new Set<() => void>();
   private loaded = false;
   private suppressSave = false;
 
-  /** Loads the blueprint for the home and starts autosaving on every change. Idempotent. */
-  async setup(allowBlocks: boolean, home: string = DEFAULT_HOME): Promise<void> {
+  constructor(
+    /** Palace worlds pass false — block tools exist only in the private Home. */
+    readonly allowBlocks: boolean,
+    /** Blueprint name in builder/store (godot: homes/<name>.json vs palace.json). */
+    private readonly blueprint: string,
+  ) {}
+
+  /** Loads the world's blueprint and starts autosaving on every change. Idempotent. */
+  async setup(): Promise<void> {
     if (this.loaded) return;
-    this.allowBlocks = allowBlocks;
-    const data = await loadHome(home);
+    const data = await loadHome(this.blueprint);
     this.suppressSave = true; // loading must not immediately re-save
     this.fromData(data ?? { blocks: [], decor: [] });
     this.suppressSave = false;
@@ -198,7 +204,7 @@ class BuildSystem {
     }
     this.version += 1;
     for (const listener of this.listeners) listener();
-    if (this.loaded && !this.suppressSave) void saveHome(this.toData());
+    if (this.loaded && !this.suppressSave) void saveHome(this.toData(), this.blueprint);
   }
 
   // --- React wiring ---
@@ -211,13 +217,15 @@ class BuildSystem {
   getVersion = (): number => this.version;
 }
 
-/** The one home BuildSystem instance (single-home PoC). */
-export const buildSystem = new BuildSystem();
+/** The private Home plot — full magnet building, feeds specialty + move-in (godot home_world). */
+export const homeBuild = new BuildSystem(true, DEFAULT_HOME);
+/** The public Palace — decorate-only, crafted furniture as shared decor (godot palace_world). */
+export const palaceBuild = new BuildSystem(false, "palace");
 
-/** Subscribes the component to every placement change; read via buildSystem.entries() etc. */
-export function useBuildSystem(): BuildSystem {
-  useSyncExternalStore(buildSystem.subscribe, buildSystem.getVersion, buildSystem.getVersion);
-  return buildSystem;
+/** Subscribes the component to the given world's placement changes. */
+export function useBuildSystem(system: BuildSystem = homeBuild): BuildSystem {
+  useSyncExternalStore(system.subscribe, system.getVersion, system.getVersion);
+  return system;
 }
 
 export type { BuildSystem };

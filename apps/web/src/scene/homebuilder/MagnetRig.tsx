@@ -7,7 +7,7 @@ import { useKeyboardControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { type Cell, buildSystem } from "../../builder/buildState";
+import type { BuildSystem, Cell } from "../../builder/buildState";
 import { getObject } from "../../builder/catalog";
 
 const FLY_SPEED = 12;
@@ -16,6 +16,7 @@ const RAY_LENGTH = 60;
 const PITCH_MIN = -1.4;
 const PITCH_MAX = 1.4;
 const GOLD = "#e7b23c";
+const CORAL = "#e8735a"; // decorate-only worlds tint the ghost coral (godot parity)
 const GHOST_ALPHA = 0.35;
 
 /** Where the magnet wakes up over the home plot (godot spawns at (6, 8, 24) over its ground). */
@@ -34,9 +35,12 @@ type Aim = {
 };
 
 export function MagnetRig({
+  system,
   selected,
   targetsRef,
 }: {
+  /** The world under the magnet — homeBuild (blocks allowed) or palaceBuild (decorate-only). */
+  system: BuildSystem;
   selected: string;
   targetsRef: MutableRefObject<THREE.Group | null>;
 }) {
@@ -98,15 +102,15 @@ export function MagnetRig({
         if (!current.valid || !id) return;
         const def = getObject(id);
         if (!def) return;
-        if (def.kind === "block") {
+        if (def.kind === "block" && system.allowBlocks) {
           // Shift+LMB repaints existing blocks in the footprint (replace_blocks); plain LMB stamps.
           if (event.shiftKey) {
-            buildSystem.replaceBlocks(buildSystem.footprintCells(current.absorbCell), id);
+            system.replaceBlocks(system.footprintCells(current.absorbCell), id);
           } else {
-            buildSystem.placeBlocks(buildSystem.footprintCells(current.cell), id);
+            system.placeBlocks(system.footprintCells(current.cell), id);
           }
-        } else {
-          buildSystem.placeDecor(
+        } else if (def.kind === "furniture") {
+          system.placeDecor(
             id,
             [current.point.x, current.point.y, current.point.z],
             yaw.current + ghostYawOffset.current,
@@ -114,8 +118,8 @@ export function MagnetRig({
         }
       } else if (event.button === 2) {
         // absorb (godot magnet _absorb)
-        if (current.absorbTarget === "block") buildSystem.absorbBlock(current.absorbCell);
-        else if (current.absorbTarget) buildSystem.absorbDecor(current.absorbTarget);
+        if (current.absorbTarget === "block") system.absorbBlock(current.absorbCell);
+        else if (current.absorbTarget) system.absorbDecor(current.absorbTarget);
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
@@ -137,7 +141,7 @@ export function MagnetRig({
       window.removeEventListener("keydown", onKeyDown);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     };
-  }, [gl]);
+  }, [gl, system]);
 
   useFrame((_, delta) => {
     // fly (godot magnet _physics_process)

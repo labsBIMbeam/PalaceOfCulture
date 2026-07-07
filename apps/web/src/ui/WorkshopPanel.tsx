@@ -5,7 +5,7 @@
 // while you read the feed. Pure presentation; all state lives in builder/*.
 
 import { useEffect, useState } from "react";
-import { buildSystem, useBuildSystem } from "../builder/buildState";
+import { homeBuild, useBuildSystem } from "../builder/buildState";
 import {
   ATTRACTION_SUSTAIN_SEC,
   MATERIALS,
@@ -19,12 +19,12 @@ import { Icon } from "../frontend/icons";
 
 export function WorkshopPanel() {
   const economy = useEconomy();
-  const system = useBuildSystem();
+  const system = useBuildSystem(homeBuild);
   // 1 Hz pulse so the queue countdown and sustain timer tick visibly.
   const [, setPulse] = useState(0);
   useEffect(() => {
     // Load the home blueprint (idempotent) so block/lantern counts are real outside the engine.
-    void buildSystem.setup(true);
+    void homeBuild.setup();
     const timer = window.setInterval(() => setPulse((n) => n + 1), 1000);
     return () => window.clearInterval(timer);
   }, []);

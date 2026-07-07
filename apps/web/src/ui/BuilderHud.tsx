@@ -5,7 +5,7 @@
 // >=1 lantern, held 24 h wall-clock). Pure presentation; all state lives in builder/*.
 
 import { useEffect, useState } from "react";
-import { useBuildSystem } from "../builder/buildState";
+import { type BuildSystem, useBuildSystem } from "../builder/buildState";
 import {
   ATTRACTION_SUSTAIN_SEC,
   MATERIALS,
@@ -20,19 +20,24 @@ import {
 import { type EconomyEvent, useEconomy } from "../builder/economy";
 import { Icon } from "../frontend/icons";
 
-const HOTBAR: string[] = [...blockIds(), ...furnitureIds()];
+const HOTBAR_HOME: string[] = [...blockIds(), ...furnitureIds()];
+const HOTBAR_PALACE: string[] = [...furnitureIds()]; // public palace: decorate-only, no block tools
 
 export function BuilderHud({
+  system,
   selected,
   onSelect,
   onExit,
 }: {
+  /** The world being edited — homeBuild (private, blocks) or palaceBuild (public, decor-only). */
+  system: BuildSystem;
   selected: string;
   onSelect: (objectId: string) => void;
   onExit: () => void;
 }) {
   const economy = useEconomy();
-  const system = useBuildSystem();
+  useBuildSystem(system);
+  const HOTBAR = system.allowBlocks ? HOTBAR_HOME : HOTBAR_PALACE;
   const [craftOpen, setCraftOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // 1 Hz re-render so queue countdown + sustain progress tick visibly.
@@ -190,20 +195,22 @@ export function BuilderHud({
               ))}
             </div>
           ) : null}
-          <div className="builder-movein">
-            <strong>Move-in attraction</strong>
-            <span className={blocks >= 9 ? "builder-check builder-check--ok" : "builder-check"}>
-              {blocks >= 9 ? "✓" : "○"} 9+ blocks placed ({blocks})
-            </span>
-            <span className={lanterns >= 1 ? "builder-check builder-check--ok" : "builder-check"}>
-              {lanterns >= 1 ? "✓" : "○"} a lantern placed ({lanterns})
-            </span>
-            <span className={conditionMet ? "builder-check builder-check--ok" : "builder-check"}>
-              {conditionMet
-                ? `⏳ held for ${formatDuration(heldFor)} of ${formatDuration(ATTRACTION_SUSTAIN_SEC)}`
-                : "hold both for 24 h and someone moves in"}
-            </span>
-          </div>
+          {system.allowBlocks ? (
+            <div className="builder-movein">
+              <strong>Move-in attraction</strong>
+              <span className={blocks >= 9 ? "builder-check builder-check--ok" : "builder-check"}>
+                {blocks >= 9 ? "✓" : "○"} 9+ blocks placed ({blocks})
+              </span>
+              <span className={lanterns >= 1 ? "builder-check builder-check--ok" : "builder-check"}>
+                {lanterns >= 1 ? "✓" : "○"} a lantern placed ({lanterns})
+              </span>
+              <span className={conditionMet ? "builder-check builder-check--ok" : "builder-check"}>
+                {conditionMet
+                  ? `⏳ held for ${formatDuration(heldFor)} of ${formatDuration(ATTRACTION_SUSTAIN_SEC)}`
+                  : "hold both for 24 h and someone moves in"}
+              </span>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

@@ -1439,34 +1439,6 @@ function StyleMarketScreen() {
   );
 }
 
-/**
- * The 3D game — the Godot homebuilder (Pokopia loop: magnet building, drip economy,
- * month crafts, palace decoration) shipped as a web export and embedded as a screen
- * of the ONE website. Synced from godot/dist/web via `pnpm game:sync`; the fullscreen
- * link opens the same build in its own tab.
- */
-function GameScreen() {
-  return (
-    <section className="game-embed-layout">
-      <div className="market-head">
-        <div>
-          <h1>Homebuilder</h1>
-          <p>the 3D game / build at home, decorate the palace / time is the material</p>
-        </div>
-        <a className="filter-chip" href="/game/index.html" rel="noreferrer" target="_blank">
-          Open fullscreen
-        </a>
-      </div>
-      <iframe
-        allow="autoplay; fullscreen"
-        className="game-embed"
-        src="/game/index.html"
-        title="Homebuilder — 3D game"
-      />
-    </section>
-  );
-}
-
 /** The Workshop: crafting + resources as a frontend window (menu), same economy as the 3D builder. */
 function WorkshopScreen() {
   return (
@@ -1494,8 +1466,6 @@ function renderScreen(screen: ScreenId, props: ScreenProps) {
       return <PlebMarketScreen />;
     case "style":
       return <StyleMarketScreen />;
-    case "game":
-      return <GameScreen />;
   }
 }
 

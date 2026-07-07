@@ -1,6 +1,6 @@
 // Run: esbuild tests/builder-smoke.ts --bundle --platform=node --format=esm --outfile=/tmp/smoke.mjs && node /tmp/smoke.mjs
 // Godot-parity smoke test for the ported builder logic (run in Node, storage is a silent no-op).
-import { buildSystem } from "../src/builder/buildState";
+import { homeBuild as buildSystem, palaceBuild } from "../src/builder/buildState";
 import { economy } from "../src/builder/economy";
 import { OBJECTS, RECIPES, blockIds, formatDuration } from "../src/builder/catalog";
 
@@ -62,5 +62,10 @@ buildSystem.fromData(JSON.parse(JSON.stringify(data)));
 assert("roundtrip blocks", buildSystem.blockCount() === 9);
 assert("roundtrip lantern", buildSystem.decorCount("lantern") === 1);
 assert("condition still met after load", economy.conditionMet() === true);
+
+// public palace is decorate-only (design law): block tools must refuse
+assert("palace refuses blocks", palaceBuild.placeBlocks(palaceBuild.footprintCells([0, 0, 0]), "block_stone") === 0);
+economy.returnObject("stool");
+assert("palace takes furniture", palaceBuild.placeDecor("stool", [1, 0, 1], 0) === true);
 
 console.log("\nALLE SMOKE-TESTS GRUEN");

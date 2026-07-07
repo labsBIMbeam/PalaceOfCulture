@@ -11,7 +11,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { type Cell, buildSystem, useBuildSystem } from "../../builder/buildState";
+import { type BuildSystem, type Cell, useBuildSystem } from "../../builder/buildState";
 import { blockIds, getObject } from "../../builder/catalog";
 
 const PLINTH_COLOR = "#d8cdb4"; // plinth cream (godot PLINTH_COLOR)
@@ -103,10 +103,13 @@ function DecorPiece({
 }
 
 export function BuilderWorld({
+  system,
   building,
   selected,
   targetsRef,
 }: {
+  /** Which world's placement state this renders (homeBuild or palaceBuild). */
+  system: BuildSystem;
   /** true while the magnet/build mode is active (enables the click-placement fallback). */
   building: boolean;
   /** Selected hotbar object id ("" = none). */
@@ -114,7 +117,7 @@ export function BuilderWorld({
   /** The magnet raycasts against this group (blocks + decor + ground). */
   targetsRef: MutableRefObject<THREE.Group | null>;
 }) {
-  const system = useBuildSystem();
+  useBuildSystem(system);
   const entries = system.entries();
   const decor = system.decorItems();
 
@@ -142,10 +145,10 @@ export function BuilderWorld({
     if (event.button === 2) {
       // absorb: block cell behind the surface, or the decor piece hit
       const decorUid = findDecorUid(object);
-      if (decorUid) buildSystem.absorbDecor(decorUid);
+      if (decorUid) system.absorbDecor(decorUid);
       else if (object.userData.builderBlockId) {
         const q = point.clone().addScaledVector(normal, -0.5);
-        buildSystem.absorbBlock([Math.floor(q.x), Math.floor(q.y), Math.floor(q.z)]);
+        system.absorbBlock([Math.floor(q.x), Math.floor(q.y), Math.floor(q.z)]);
       }
       return;
     }
@@ -157,9 +160,9 @@ export function BuilderWorld({
     if (def.kind === "block") {
       const p = point.clone().addScaledVector(normal, 0.5);
       const cell: Cell = [Math.floor(p.x), Math.max(0, Math.floor(p.y)), Math.floor(p.z)];
-      buildSystem.placeBlocks(buildSystem.footprintCells(cell), id);
+      system.placeBlocks(system.footprintCells(cell), id);
     } else {
-      buildSystem.placeDecor(id, [point.x, point.y, point.z], 0);
+      system.placeDecor(id, [point.x, point.y, point.z], 0);
     }
   };
 
