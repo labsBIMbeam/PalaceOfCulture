@@ -1304,7 +1304,9 @@ function MarketThumb({ item }: { item: MarketItem }) {
 }
 
 function MarketCard({ item }: { item: MarketItem }) {
-  return (
+  // The WHOLE card is the link (plebeian.market pattern): click anywhere -> the product page on
+  // their domain, where the Lightning checkout lives. We never custody the payment.
+  const card = (
     <article className={item.locked ? "market-card market-card--locked" : "market-card"}>
       <MarketThumb item={item} />
       <div className="market-info">
@@ -1316,26 +1318,23 @@ function MarketCard({ item }: { item: MarketItem }) {
             {item.price}
           </span>
           {item.href && !item.locked ? (
-            <a
-              className="coral-button coral-button--compact"
-              href={item.href}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Buy
-              <Icon name="chevron" size={13} />
-            </a>
+            <span className="market-open">
+              plebeian.market
+              <Icon name="chevron" size={12} />
+            </span>
           ) : (
-            <button
-              className={item.locked ? "ghost-button" : "coral-button coral-button--compact"}
-              type="button"
-            >
-              {item.locked ? "Earned" : "Offer"}
-            </button>
+            <span className="ghost-button">{item.locked ? "Earned" : "Offer"}</span>
           )}
         </div>
       </div>
     </article>
+  );
+  return item.href && !item.locked ? (
+    <a className="market-card-link" href={item.href} rel="noopener noreferrer" target="_blank">
+      {card}
+    </a>
+  ) : (
+    card
   );
 }
 
