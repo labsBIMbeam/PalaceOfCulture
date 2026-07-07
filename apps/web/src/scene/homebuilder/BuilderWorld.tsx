@@ -30,6 +30,64 @@ export function flatMaterial(color: string): THREE.MeshStandardMaterial {
 }
 
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
+
+/** One merged physics box: a w×1×d slab of cells starting at (x, y, z). */
+interface ColliderRect {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  d: number;
+}
+
+/**
+ * Greedy meshing per y-layer: merge occupied cells into the fewest axis-aligned rectangles.
+ * Walking across a merged slab is seamless — per-cell colliders expose internal edges that
+ * catch the capsule mid-stride — and the collider count drops by an order of magnitude.
+ */
+function mergeCellsToRects(cells: Cell[]): ColliderRect[] {
+  const layers = new Map<number, Set<string>>();
+  for (const [x, y, z] of cells) {
+    let layer = layers.get(y);
+    if (!layer) {
+      layer = new Set();
+      layers.set(y, layer);
+    }
+    layer.add(`${x},${z}`);
+  }
+  const rects: ColliderRect[] = [];
+  for (const [y, layer] of layers) {
+    const open = new Set(layer);
+    for (const key of layer) {
+      if (!open.has(key)) continue;
+      const parts = key.split(",").map(Number);
+      const x0 = parts[0] ?? 0;
+      const z0 = parts[1] ?? 0;
+      // grow along x…
+      let w = 1;
+      while (open.has(`${x0 + w},${z0}`)) w += 1;
+      // …then along z while the whole row is present
+      let d = 1;
+      let rowFull = true;
+      while (rowFull) {
+        for (let dx = 0; dx < w; dx += 1) {
+          if (!open.has(`${x0 + dx},${z0 + d}`)) {
+            rowFull = false;
+            break;
+          }
+        }
+        if (rowFull) d += 1;
+      }
+      for (let dx = 0; dx < w; dx += 1) {
+        for (let dz = 0; dz < d; dz += 1) {
+          open.delete(`${x0 + dx},${z0 + dz}`);
+        }
+      }
+      rects.push({ x: x0, y, z: z0, w, d });
+    }
+  }
+  return rects;
+}
 const MAX_INSTANCES = 4096;
 
 /** All cells of one block type as a single InstancedMesh; userData maps instanceId -> cell. */
@@ -128,6 +186,11 @@ export function BuilderWorld({
     return map;
   }, [entries]);
 
+  const colliderRects = useMemo(
+    () => mergeCellsToRects(entries.map((entry) => entry.cell)),
+    [entries],
+  );
+
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const buildingRef = useRef(building);
@@ -183,13 +246,13 @@ export function BuilderWorld({
           <DecorPiece id={item.id} key={item.uid} pos={item.pos} rotY={item.rotY} uid={item.uid} />
         ))}
       </group>
-      {/* Physics: the avatar walks on placed blocks + furniture. */}
+      {/* Physics: the avatar walks on placed blocks + furniture (blocks greedy-merged into slabs). */}
       <RigidBody colliders={false} type="fixed">
-        {entries.map(({ cell }) => (
+        {colliderRects.map((rect) => (
           <CuboidCollider
-            args={[0.5, 0.5, 0.5]}
-            key={`${cell[0]},${cell[1]},${cell[2]}`}
-            position={[cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5]}
+            args={[rect.w / 2, 0.5, rect.d / 2]}
+            key={`${rect.x},${rect.y},${rect.z}`}
+            position={[rect.x + rect.w / 2, rect.y + 0.5, rect.z + rect.d / 2]}
           />
         ))}
         {decor.map((item) => {

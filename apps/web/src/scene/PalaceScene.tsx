@@ -1,6 +1,12 @@
 import { KeyboardControls, OrbitControls, useKeyboardControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { CuboidCollider, Physics, type RapierRigidBody, RigidBody } from "@react-three/rapier";
+import {
+  CuboidCollider,
+  Physics,
+  type RapierRigidBody,
+  RigidBody,
+  useRapier,
+} from "@react-three/rapier";
 import Ecctrl from "ecctrl";
 import { Leva } from "leva";
 import {
@@ -179,6 +185,10 @@ const POSTFX_ENABLED =
 const USE_RADIUS = 2.6; // metres: how close you must be to a chair/bed for the "Sit"/"Sleep" prompt
 const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the bed's default scale
 
+// Capsule half height (0.5) + radius (0.4) + float (0.3) + slack: how far below the body centre
+// the ground may be and still count as "standing on it".
+const GROUND_RAY_LENGTH = 1.45;
+
 function WalkSystems({
   bodyRef,
   poseables,
@@ -191,6 +201,7 @@ function WalkSystems({
   onNearPose: (point: PosePoint | null) => void;
 }) {
   const [, getKeys] = useKeyboardControls();
+  const { world, rapier } = useRapier();
   const lastId = useRef<string | null>(null);
   const lastPose = useRef<string | null>(null);
   const jumpPrev = useRef(false);
@@ -210,12 +221,15 @@ function WalkSystems({
     }
 
     // Our own jump (ecctrl's canJump is unreliable on the invisible floor, so ecctrl's own jump is
-    // disabled via jumpVel={0} to avoid a double-jump; this is the single source). On a fresh press
-    // while roughly grounded, set an upward velocity. Edge-detected so holding Space doesn't repeat;
-    // |vy| gate blocks air jumps. Kept modest so it reads as a hop, not a leap.
+    // disabled via jumpVel={0}; this is the single source). Grounded = a real downward raycast that
+    // hits something within reach of the capsule (excluding the player itself) — the old |vy| gate
+    // allowed an air jump at the arc's apex. Edge-detected so holding Space doesn't repeat.
     const jumpNow = Boolean(keys.jump);
-    if (jumpNow && !jumpPrev.current && Math.abs(linvel.y) < 2) {
-      body.setLinvel({ x: linvel.x, y: 4.5, z: linvel.z }, true);
+    if (jumpNow && !jumpPrev.current) {
+      const ray = new rapier.Ray(pos, { x: 0, y: -1, z: 0 });
+      const grounded =
+        world.castRay(ray, GROUND_RAY_LENGTH, true, undefined, undefined, undefined, body) !== null;
+      if (grounded) body.setLinvel({ x: linvel.x, y: 4.5, z: linvel.z }, true);
     }
     jumpPrev.current = jumpNow;
 
@@ -529,7 +543,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           />
           <Atmosphere />
           <Suspense fallback={null}>
-            <Physics timeStep="vary">
+            <Physics timeStep={1 / 60}>
               <Palace />
               {/* Invisible flat floor at the deck level (y=0): the palace trimesh has gaps/glass the
                   ecctrl ground ray misses, leaving the controller stuck in "fall" so it never walks.
@@ -544,6 +558,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               {(mode === "walk" || mode === "decorate") && !posed ? (
                 <Ecctrl
                   camInitDis={-7}
+                  ccd
                   camMaxDis={-14}
                   camMinDis={-1.5}
                   capsuleHalfHeight={0.5}
