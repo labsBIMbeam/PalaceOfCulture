@@ -1,0 +1,395 @@
+{
+ "asset": "leviathan",
+ "description": "Modulares 21-Jahres-Konzeptschiff (36 Module). Jahre auf progress 0..1 normalisiert (Jahr/21).",
+ "coordinateSystem": "glTF Y-up",
+ "totalParts": 36,
+ "growthModel": "Pro Node: s=clamp((progress-t0)/win,0,1); node.scale=baseScaleAusGltf*smoothstep(s). 'year'=[Baubeginn,Fertig] in Jahren (0..21).",
+ "phases": [
+  {
+   "id": "A",
+   "name": "Kiel & Rueckgrat"
+  },
+  {
+   "id": "B",
+   "name": "Energie & Reaktor"
+  },
+  {
+   "id": "C",
+   "name": "Rumpf & Panzerung"
+  },
+  {
+   "id": "D",
+   "name": "Antrieb"
+  },
+  {
+   "id": "E",
+   "name": "Aufbauten & Habitat"
+  },
+  {
+   "id": "F",
+   "name": "Systeme & Bewaffnung"
+  }
+ ],
+ "nodes": [
+  {
+   "node": "LV_01_kiel_mitte",
+   "t0": 0.0476,
+   "win": 0.048,
+   "group": "phase_A",
+   "year": [
+    1,
+    2
+   ]
+  },
+  {
+   "node": "LV_02_kiel_bug1",
+   "t0": 0.0952,
+   "win": 0.048,
+   "group": "phase_A",
+   "year": [
+    2,
+    3
+   ]
+  },
+  {
+   "node": "LV_03_kiel_heck1",
+   "t0": 0.0952,
+   "win": 0.048,
+   "group": "phase_A",
+   "year": [
+    2,
+    3
+   ]
+  },
+  {
+   "node": "LV_04_kiel_bug2",
+   "t0": 0.1429,
+   "win": 0.048,
+   "group": "phase_A",
+   "year": [
+    3,
+    4
+   ]
+  },
+  {
+   "node": "LV_05_kiel_heck2",
+   "t0": 0.1429,
+   "win": 0.048,
+   "group": "phase_A",
+   "year": [
+    3,
+    4
+   ]
+  },
+  {
+   "node": "LV_06_reaktor",
+   "t0": 0.1905,
+   "win": 0.048,
+   "group": "phase_B",
+   "year": [
+    4,
+    5
+   ]
+  },
+  {
+   "node": "LV_07_batt_a",
+   "t0": 0.2381,
+   "win": 0.048,
+   "group": "phase_B",
+   "year": [
+    5,
+    6
+   ]
+  },
+  {
+   "node": "LV_08_batt_b",
+   "t0": 0.2381,
+   "win": 0.048,
+   "group": "phase_B",
+   "year": [
+    5,
+    6
+   ]
+  },
+  {
+   "node": "LV_09_radiator",
+   "t0": 0.2857,
+   "win": 0.048,
+   "group": "phase_B",
+   "year": [
+    6,
+    7
+   ]
+  },
+  {
+   "node": "LV_10_reaktor2",
+   "t0": 0.3333,
+   "win": 0.048,
+   "group": "phase_B",
+   "year": [
+    7,
+    8
+   ]
+  },
+  {
+   "node": "LV_11_hull_low",
+   "t0": 0.3333,
+   "win": 0.095,
+   "group": "phase_C",
+   "year": [
+    7,
+    9
+   ]
+  },
+  {
+   "node": "LV_12_hull_up",
+   "t0": 0.381,
+   "win": 0.095,
+   "group": "phase_C",
+   "year": [
+    8,
+    10
+   ]
+  },
+  {
+   "node": "LV_13_hull_fore",
+   "t0": 0.4286,
+   "win": 0.095,
+   "group": "phase_C",
+   "year": [
+    9,
+    11
+   ]
+  },
+  {
+   "node": "LV_14_hull_aft",
+   "t0": 0.4286,
+   "win": 0.095,
+   "group": "phase_C",
+   "year": [
+    9,
+    11
+   ]
+  },
+  {
+   "node": "LV_15_armor_port",
+   "t0": 0.4762,
+   "win": 0.048,
+   "group": "phase_C",
+   "year": [
+    10,
+    11
+   ]
+  },
+  {
+   "node": "LV_16_armor_star",
+   "t0": 0.4762,
+   "win": 0.048,
+   "group": "phase_C",
+   "year": [
+    10,
+    11
+   ]
+  },
+  {
+   "node": "LV_17_bow_tip",
+   "t0": 0.5238,
+   "win": 0.048,
+   "group": "phase_C",
+   "year": [
+    11,
+    12
+   ]
+  },
+  {
+   "node": "LV_18_decks",
+   "t0": 0.5714,
+   "win": 0.048,
+   "group": "phase_C",
+   "year": [
+    12,
+    13
+   ]
+  },
+  {
+   "node": "LV_19_engine1",
+   "t0": 0.5714,
+   "win": 0.048,
+   "group": "phase_D",
+   "year": [
+    12,
+    13
+   ]
+  },
+  {
+   "node": "LV_20_engine2",
+   "t0": 0.619,
+   "win": 0.048,
+   "group": "phase_D",
+   "year": [
+    13,
+    14
+   ]
+  },
+  {
+   "node": "LV_21_engine3",
+   "t0": 0.619,
+   "win": 0.048,
+   "group": "phase_D",
+   "year": [
+    13,
+    14
+   ]
+  },
+  {
+   "node": "LV_22_steering",
+   "t0": 0.6667,
+   "win": 0.048,
+   "group": "phase_D",
+   "year": [
+    14,
+    15
+   ]
+  },
+  {
+   "node": "LV_23_maneuver",
+   "t0": 0.7143,
+   "win": 0.048,
+   "group": "phase_D",
+   "year": [
+    15,
+    16
+   ]
+  },
+  {
+   "node": "LV_24_habitat_ring",
+   "t0": 0.7143,
+   "win": 0.095,
+   "group": "phase_E",
+   "year": [
+    15,
+    17
+   ]
+  },
+  {
+   "node": "LV_25_bridge",
+   "t0": 0.7619,
+   "win": 0.048,
+   "group": "phase_E",
+   "year": [
+    16,
+    17
+   ]
+  },
+  {
+   "node": "LV_26_sensor_mast",
+   "t0": 0.8095,
+   "win": 0.048,
+   "group": "phase_E",
+   "year": [
+    17,
+    18
+   ]
+  },
+  {
+   "node": "LV_27_comm_dish",
+   "t0": 0.8095,
+   "win": 0.048,
+   "group": "phase_E",
+   "year": [
+    17,
+    18
+   ]
+  },
+  {
+   "node": "LV_28_solar_port",
+   "t0": 0.8571,
+   "win": 0.048,
+   "group": "phase_E",
+   "year": [
+    18,
+    19
+   ]
+  },
+  {
+   "node": "LV_29_solar_star",
+   "t0": 0.8571,
+   "win": 0.048,
+   "group": "phase_E",
+   "year": [
+    18,
+    19
+   ]
+  },
+  {
+   "node": "LV_30_shield_gen",
+   "t0": 0.8571,
+   "win": 0.048,
+   "group": "phase_F",
+   "year": [
+    18,
+    19
+   ]
+  },
+  {
+   "node": "LV_31_turret1",
+   "t0": 0.9048,
+   "win": 0.048,
+   "group": "phase_F",
+   "year": [
+    19,
+    20
+   ]
+  },
+  {
+   "node": "LV_32_turret2",
+   "t0": 0.9048,
+   "win": 0.048,
+   "group": "phase_F",
+   "year": [
+    19,
+    20
+   ]
+  },
+  {
+   "node": "LV_33_turret3",
+   "t0": 0.9524,
+   "win": 0.048,
+   "group": "phase_F",
+   "year": [
+    20,
+    21
+   ]
+  },
+  {
+   "node": "LV_34_turret4",
+   "t0": 0.9524,
+   "win": 0.048,
+   "group": "phase_F",
+   "year": [
+    20,
+    21
+   ]
+  },
+  {
+   "node": "LV_35_hangar",
+   "t0": 0.9524,
+   "win": 0.048,
+   "group": "phase_F",
+   "year": [
+    20,
+    21
+   ]
+  },
+  {
+   "node": "LV_36_commission",
+   "t0": 0.9524,
+   "win": 0.048,
+   "group": "phase_F",
+   "year": [
+    20,
+    21
+   ]
+  }
+ ]
+}

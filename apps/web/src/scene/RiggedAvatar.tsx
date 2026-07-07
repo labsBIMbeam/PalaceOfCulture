@@ -15,8 +15,9 @@ const EMPTY: string[] = [];
 // ecctrl's animation state, which depends on flaky ground-ray detection in a big trimesh world.
 const WALK_SPEED = 0.6;
 const RUN_SPEED = 5;
+const JUMP_VY = 1.2; // vertical speed (m/s) above which the avatar is treated as airborne
 
-type Gait = "idle" | "walk" | "run";
+type Gait = "idle" | "walk" | "run" | "sit" | "sleep" | "jump";
 
 function asStandard(material: THREE.Material): THREE.MeshStandardMaterial | null {
   return "color" in material ? (material as THREE.MeshStandardMaterial) : null;
@@ -28,6 +29,10 @@ function clipFor(gait: Gait, names: string[], idleFallback: string): string {
   const idle = find("idle") ?? find("clip0") ?? find("clip") ?? idleFallback ?? names[0];
   if (gait === "walk") return find("walk") ?? idle;
   if (gait === "run") return find("run") ?? find("walk") ?? idle;
+  // Pose/airborne clips: fall back to idle until the clip GLB is present on the rig.
+  if (gait === "jump") return find("jump") ?? idle;
+  if (gait === "sit") return find("sit") ?? idle;
+  if (gait === "sleep") return find("sleep") ?? find("lie") ?? idle;
   return idle;
 }
 
@@ -45,11 +50,14 @@ export function RiggedAvatar({
   config,
   clipUrls = EMPTY,
   bodyRef,
+  pose,
 }: {
   url: string;
   config: AvatarConfig;
   clipUrls?: string[];
   bodyRef?: RefObject<RapierRigidBody | null>;
+  /** When set, the avatar holds this pose clip (sit/sleep) instead of speed-driven locomotion. */
+  pose?: "sit" | "sleep";
 }) {
   const group = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(url);
@@ -124,29 +132,42 @@ export function RiggedAvatar({
     };
   }, [actions, names, idleFallback]);
 
-  // Start on idle once the actions exist.
+  // Start on the pose (if any) or idle once the actions exist; re-fire when the pose changes.
   useEffect(() => {
     current.current = null;
-    playGait("idle");
-  }, [playGait]);
+    playGait(pose ?? "idle");
+  }, [playGait, pose]);
 
   const hipLock = useRef<THREE.Vector3 | null>(null);
   useFrame(() => {
-    // Pick the gait from horizontal speed (immune to ground-ray flicker).
-    const body = bodyRef?.current;
-    if (body) {
-      const v = body.linvel();
-      const speed = Math.hypot(v.x, v.z);
-      const next: Gait = speed > RUN_SPEED ? "run" : speed > WALK_SPEED ? "walk" : "idle";
-      if (next !== gait.current) playGait(next);
+    // While holding a pose (sit/sleep) stay on its clip; otherwise pick the gait from speed.
+    if (!pose) {
+      const body = bodyRef?.current;
+      if (body) {
+        const v = body.linvel();
+        const speed = Math.hypot(v.x, v.z);
+        const next: Gait =
+          Math.abs(v.y) > JUMP_VY
+            ? "jump"
+            : speed > RUN_SPEED
+              ? "run"
+              : speed > WALK_SPEED
+                ? "walk"
+                : "idle";
+        if (next !== gait.current) playGait(next);
+      }
     }
     // Foot-plant: the baked clips translate the hip bone, popping/drifting the body relative to the
     // capsule. Run after the mixer (this useFrame is registered after useAnimations) and pin the hip's
     // local position to its first animated value — limbs/spine still animate (so it reads as
     // walking-in-place while the controller carries the body); only the body-move + bob are removed.
-    if (hips) {
+    // Foot-plant only for locomotion. Pose clips (sit/sleep) deliberately move the hips down onto the
+    // seat/bed — pinning the hip there would float the avatar at standing height above the object.
+    if (hips && !pose) {
       if (!hipLock.current) hipLock.current = hips.position.clone();
       else hips.position.copy(hipLock.current);
+    } else if (pose) {
+      hipLock.current = null;
     }
   });
 
