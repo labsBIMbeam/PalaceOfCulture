@@ -1394,7 +1394,12 @@ function GameScreen() {
           Open fullscreen
         </a>
       </div>
-      <iframe allow="autoplay; fullscreen" className="game-embed" src="/game/index.html" title="Homebuilder — 3D game" />
+      <iframe
+        allow="autoplay; fullscreen"
+        className="game-embed"
+        src="/game/index.html"
+        title="Homebuilder — 3D game"
+      />
     </section>
   );
 }
