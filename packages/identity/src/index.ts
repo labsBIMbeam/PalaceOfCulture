@@ -1,10 +1,5 @@
-// @600b/identity — the Nostr key identities for 600 Billion: the player (non-custodial) and the
-// ENTITY service identities (palaces / guilds / system NPCs), derived from one master seed.
-//
-// ⚠️ DEMO PHASE: a hardcoded, public DEMO_SEED makes entity npubs stable so the whole write path can
-// be built and tested with throwaway keys. The real seed lives in the SERVER env (never shipped to the
-// client) and drops into deriveEntityKey() later with no consumer change — every entity npub rotates
-// when it does, by design. See the approved plan / BUILD-BRIEF §3. nsec/priv is never logged or shipped.
+// Server-side Nostr identities for palaces, guilds and system actors. Callers supply key material
+// from their secret store; this package deliberately contains no seed, demo or otherwise.
 
 import { hmac } from "@noble/hashes/hmac";
 import { sha256 } from "@noble/hashes/sha256";
@@ -12,14 +7,8 @@ import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import * as nip19 from "nostr-tools/nip19";
 import { getPublicKey } from "nostr-tools/pure";
 
-/**
- * ⚠️ DEMO ONLY — a public, throwaway master seed so entity npubs are stable while we build the write
- * path. NOT secret, NOT secure. The real master seed lives in the server env and replaces this later.
- */
-export const DEMO_SEED = "600b-demo-master-seed-not-secret-replace-before-real-keys";
-
 export interface EntityKey {
-  /** 32-byte secp256k1 private key, hex. Server-side / demo only — never log, never ship to client. */
+  /** 32-byte secp256k1 private key, hex. Server-side only; never log or ship to clients. */
   privHex: string;
   /** x-only public key, hex. */
   pubHex: string;
@@ -30,6 +19,8 @@ export interface EntityKey {
 /** Stable entity ids — the things that get their own Nostr identity. */
 export type EntityId = `palace:${string}` | `guild:${string}` | `system:${string}`;
 
+const ENTITY_ID_PATTERN = /^(palace|guild|system):[a-z0-9][a-z0-9:_-]{0,127}$/;
+
 /**
  * Deterministically derive an entity's Nostr key from a master seed + its stable id. Same (seed, id)
  * → same key, always (recoverable from the seed alone). Domain-separated HMAC-SHA256; a counter
@@ -37,6 +28,9 @@ export type EntityId = `palace:${string}` | `guild:${string}` | `system:${string
  */
 export function deriveEntityKey(seed: string, entityId: EntityId): EntityKey {
   const key = utf8ToBytes(seed);
+  if (key.length < 32)
+    throw new Error("deriveEntityKey: master seed must contain at least 32 bytes");
+  if (!ENTITY_ID_PATTERN.test(entityId)) throw new Error("deriveEntityKey: invalid entity id");
   for (let counter = 0; counter < 256; counter += 1) {
     const priv = hmac(sha256, key, utf8ToBytes(`600b:entity:${entityId}:${counter}`));
     try {
@@ -54,8 +48,8 @@ export function entityNpub(seed: string, entityId: EntityId): string {
   return deriveEntityKey(seed, entityId).npub;
 }
 
-/** The demo entity roster — stable ids whose npubs the app references while building the write path. */
-export const DEMO_ENTITIES = {
+/** Stable service identity ids; deployments derive their keys from a secret server-side seed. */
+export const ENTITY_IDS = {
   hqPalace: "palace:hq",
   foundersGuild: "guild:founders",
   worldAgent: "system:world-agent",

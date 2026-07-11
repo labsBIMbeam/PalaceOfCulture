@@ -5,6 +5,7 @@
 // and the feed ranking (net/social.ts) picks them up. We never touch keys or custody sats.
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { REAL_PAYMENTS_ENABLED } from "../config/safety";
 import { RELAYS, getNdk, queryEvents } from "./nostr";
 
 /** WebLN (https://webln.dev) — injected by Alby and friends. */
@@ -55,10 +56,22 @@ export async function fetchPayEndpoint(recipient: string): Promise<PayEndpoint |
     if (!response.ok) return null;
     const data = await response.json();
     if (typeof data.callback !== "string") return null;
+    const callback = new URL(data.callback);
+    if (callback.protocol !== "https:" || callback.username || callback.password) return null;
+    const minSendable = Number(data.minSendable);
+    const maxSendable = Number(data.maxSendable);
+    if (
+      !Number.isSafeInteger(minSendable) ||
+      !Number.isSafeInteger(maxSendable) ||
+      minSendable <= 0 ||
+      maxSendable < minSendable
+    ) {
+      return null;
+    }
     return {
-      callback: data.callback,
-      minSendable: Number(data.minSendable ?? 1000),
-      maxSendable: Number(data.maxSendable ?? 100_000_000_000),
+      callback: callback.toString(),
+      minSendable,
+      maxSendable,
       commentAllowed: Number(data.commentAllowed ?? 0) || undefined,
       allowsNostr: Boolean(data.allowsNostr),
       nostrPubkey: typeof data.nostrPubkey === "string" ? data.nostrPubkey : undefined,
@@ -74,8 +87,12 @@ export async function requestInvoice(
   sats: number,
   options: { comment?: string; zapRequest?: string } = {},
 ): Promise<string | null> {
-  const msat = Math.max(endpoint.minSendable, Math.min(endpoint.maxSendable, sats * 1000));
+  const msat = sats * 1000;
+  if (!Number.isSafeInteger(msat) || msat < endpoint.minSendable || msat > endpoint.maxSendable) {
+    return null;
+  }
   const url = new URL(endpoint.callback);
+  if (url.protocol !== "https:" || url.username || url.password) return null;
   url.searchParams.set("amount", String(msat));
   if (options.comment && endpoint.commentAllowed) {
     url.searchParams.set("comment", options.comment.slice(0, endpoint.commentAllowed));
@@ -87,7 +104,7 @@ export async function requestInvoice(
     const response = await fetch(url.toString());
     if (!response.ok) return null;
     const data = await response.json();
-    return typeof data.pr === "string" ? data.pr : null;
+    return typeof data.pr === "string" && data.pr.length > 0 ? data.pr : null;
   } catch {
     return null;
   }
@@ -95,6 +112,13 @@ export async function requestInvoice(
 
 /** Pay via WebLN when available; otherwise return the `lightning:` URI for the OS wallet. */
 export async function payInvoice(invoice: string): Promise<PayResult> {
+  if (!REAL_PAYMENTS_ENABLED) {
+    return {
+      paid: false,
+      invoice,
+      error: "wallet payments are disabled until BOLT11 validation is complete",
+    };
+  }
   if (window.webln) {
     try {
       await window.webln.enable();

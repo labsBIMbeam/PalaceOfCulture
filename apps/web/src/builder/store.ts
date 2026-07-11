@@ -1,11 +1,11 @@
-// Builder persistence — the seam between the homebuilder and where its state lives, mirroring
-// godot/scripts/store.gd (user:// JSON files) and the CharacterStore pattern (src/character/store.ts).
-//
-// Plug-and-play today = IndexedDB on the device: the player owns their home, no server needed,
-// survives reload. The DATA SHAPES are the godot module contract, unchanged:
-//   state: {materials, inventory, queue, last_tick, condition_since, specialty}
-//   home:  {blocks: [{id, cell: [x,y,z]}], decor: [{id, pos: [x,y,z], rot_y}]}
-// The same interface later swaps to the apps/server truth-tier + event log (ADR 0001/0003).
+// Browser persistence for the home builder. Data writes and their audit events commit atomically.
+
+import {
+  type AuditEvent,
+  commitAuditedWrite,
+  ensureAuditStores,
+  readAuditStream,
+} from "../audit/indexedDbAudit";
 
 export interface QueueEntry {
   recipe_id: string;
@@ -17,9 +17,9 @@ export interface EconomyState {
   materials: Record<string, number>;
   inventory: Record<string, number>;
   queue: QueueEntry[];
-  /** Unix seconds of the last tick — offline time is caught up from here on boot. */
+  /** Unix seconds of the last tick; offline time is caught up from here on boot. */
   last_tick: number;
-  /** Unix seconds the move-in condition became met; 0 = not met. */
+  /** Unix seconds the move-in condition became met; 0 means not met. */
   condition_since: number;
   specialty: Record<string, number>;
 }
@@ -41,18 +41,22 @@ export interface HomeData {
 }
 
 const DB_NAME = "600b-builder";
+const DB_VERSION = 2;
 const STORE = "kv";
 const STATE_KEY = "state";
 const HOME_KEY_PREFIX = "home:";
-/** Single-home PoC — the hosted home. */
+const writeQueues = new Map<string, Promise<void>>();
+
+/** Single-home proof of concept: the hosted home. */
 export const DEFAULT_HOME = "default";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      ensureAuditStores(db);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -60,31 +64,57 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 async function readKey<T>(key: string): Promise<T | null> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDb();
+    const database = await openDb();
+    db = database;
     return await new Promise<T | null>((resolve, reject) => {
-      const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).get(key);
-      req.onsuccess = () => resolve((req.result as T | undefined) ?? null);
-      req.onerror = () => reject(req.error);
+      const transaction = database.transaction(STORE, "readonly");
+      const input = transaction.objectStore(STORE).get(key);
+      input.onsuccess = () => resolve((input.result as T | undefined) ?? null);
+      input.onerror = () => reject(input.error);
     });
   } catch {
-    return null; // storage unavailable — non-fatal for the pilot
+    return null;
+  } finally {
+    db?.close();
   }
 }
 
-async function writeKey(key: string, value: unknown): Promise<void> {
-  try {
-    const db = await openDb();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(value, key);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+async function writeAuditedKey(
+  key: string,
+  value: unknown,
+  stream: string,
+  action: string,
+  reason: string,
+): Promise<void> {
+  // Preserve call order. Without this queue, an older snapshot could win a retry after a newer one.
+  const previous = writeQueues.get(stream) ?? Promise.resolve();
+  const current = previous
+    .catch(() => undefined)
+    .then(async () => {
+      let db: IDBDatabase | null = null;
+      try {
+        db = await openDb();
+        await commitAuditedWrite(
+          db,
+          [STORE],
+          stream,
+          { action, payload: value, reason, updatedBy: "auto:builder" },
+          (transaction) => transaction.objectStore(STORE).put(value, key),
+        );
+      } catch {
+        // Storage unavailable/full is non-fatal; the next ordered snapshot can still retry.
+      } finally {
+        db?.close();
+      }
     });
-  } catch {
-    // storage unavailable/full — non-fatal for the pilot
-  }
+  writeQueues.set(stream, current);
+  const clean = () => {
+    if (writeQueues.get(stream) === current) writeQueues.delete(stream);
+  };
+  current.then(clean, clean);
+  return current;
 }
 
 export async function loadState(): Promise<EconomyState | null> {
@@ -92,7 +122,13 @@ export async function loadState(): Promise<EconomyState | null> {
 }
 
 export async function saveState(state: EconomyState): Promise<void> {
-  return writeKey(STATE_KEY, state);
+  return writeAuditedKey(
+    STATE_KEY,
+    state,
+    "builder:economy",
+    "economy.snapshot.saved",
+    "persist deterministic economy snapshot",
+  );
 }
 
 export async function loadHome(name: string = DEFAULT_HOME): Promise<HomeData | null> {
@@ -100,5 +136,21 @@ export async function loadHome(name: string = DEFAULT_HOME): Promise<HomeData | 
 }
 
 export async function saveHome(data: HomeData, name: string = DEFAULT_HOME): Promise<void> {
-  return writeKey(HOME_KEY_PREFIX + name, data);
+  return writeAuditedKey(
+    HOME_KEY_PREFIX + name,
+    data,
+    `builder:home:${name}`,
+    "home.snapshot.saved",
+    "persist local home after a builder mutation",
+  );
+}
+
+/** Export a local builder audit stream for verification or future SQLite import. */
+export async function loadBuilderAudit(stream: string): Promise<AuditEvent[]> {
+  const db = await openDb();
+  try {
+    return await readAuditStream(db, stream);
+  } finally {
+    db.close();
+  }
 }

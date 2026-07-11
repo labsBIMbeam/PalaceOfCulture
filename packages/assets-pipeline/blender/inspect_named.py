@@ -16,7 +16,7 @@ def wz(o):
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src = rest[0]
     kw = (rest[1] if len(rest) > 1 else "geschossdecke").lower()
 
@@ -36,7 +36,9 @@ def main() -> None:
     for o in sorted(hits, key=lambda o: wz(o)[1]):
         zlo, zhi = wz(o)
         d = o.dimensions
-        print(f"  z=[{zlo:7.2f},{zhi:7.2f}] dim=[{d.x:6.1f},{d.y:6.1f},{d.z:5.2f}] {o.name[:52]}")
+        print(
+            f"  z=[{zlo:7.2f},{zhi:7.2f}] dim=[{d.x:6.1f},{d.y:6.1f},{d.z:5.2f}] {o.name[:52]}"
+        )
 
     allz = [(o.matrix_world @ Vector(c[:])).z for o in meshes for c in o.bound_box]
     print(f"OVERALL Z min={min(allz):.2f} max={max(allz):.2f}  objects={len(meshes)}")

@@ -20,7 +20,7 @@ def norm(name: str) -> str:
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src = rest[0]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -64,9 +64,28 @@ def main() -> None:
 
     print("--- keyword breakdown ---")
     for kw in (
-        "textil", "glas", "glass", "licht", "led", "streifen", "band",
-        "geländer", "gelander", "skelett", "stahl", "steel", "träger", "trager",
-        "rahmen", "fassade", "decke", "wand", "dach", "stütze", "stutze", "column",
+        "textil",
+        "glas",
+        "glass",
+        "licht",
+        "led",
+        "streifen",
+        "band",
+        "geländer",
+        "gelander",
+        "skelett",
+        "stahl",
+        "steel",
+        "träger",
+        "trager",
+        "rahmen",
+        "fassade",
+        "decke",
+        "wand",
+        "dach",
+        "stütze",
+        "stutze",
+        "column",
     ):
         objs = [o for o in meshes if kw in o.name.lower()]
         if objs:

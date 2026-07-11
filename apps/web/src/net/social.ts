@@ -8,92 +8,10 @@
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
-import type { IconName } from "../frontend/types";
 import { type Event, connect, getNdk, queryEvents } from "./nostr";
-
-/** A rendered feed note. Superset of FeedPost (frontend/types) so it drops straight into <PostCard>. */
-export type FeedNote = {
-  id: string;
-  author: string;
-  /** Composed meta line shown under the author: shortened npub · relative time. */
-  meta: string;
-  body: string;
-  npub: string;
-  /** Author hex pubkey — needed to address a reaction/repost (the `p` tag) at this note. */
-  pubkey: string;
-  createdAt: number;
-  founder?: boolean;
-  pinned?: boolean;
-  actions: { replies: number; reposts: number; zaps: number };
-};
-
-/** A mood/topic tab — data-driven, so tabs are config not code. A theme = a curated hashtag set. */
-export type FeedTab = {
-  id: string;
-  label: string;
-  icon: IconName;
-  hashtags: string[];
-  /** Built-in tabs (General, PoC, Guild) can't be removed by the player. */
-  builtin?: boolean;
-  /**
-   * Special non-hashtag feeds: "general" = curated global firehose (Iris-style); "articles" = NIP-23
-   * long-form (kind 30023) rendered as article cards instead of notes.
-   */
-  algo?: "general" | "articles";
-};
-
-// The tabs that always ship. Topics live ONLY here + PRESET_TABS.
-export const BUILTIN_TABS: FeedTab[] = [
-  // General = the default channel: a curated global feed (recency + engagement), Iris-style.
-  { id: "general", label: "General", icon: "globe", hashtags: [], algo: "general", builtin: true },
-  // Articles = NIP-23 long-form (kind 30023), the "blog posts" of nostr — rendered as article cards.
-  { id: "articles", label: "Articles", icon: "doc", hashtags: [], algo: "articles", builtin: true },
-  {
-    id: "poc",
-    label: "PoC",
-    icon: "palace",
-    hashtags: ["600billion", "palaceofculture", "timelock", "bitcoin"],
-    builtin: true,
-  },
-  // Guilds aren't a real Nostr group yet (NIP-29/NIP-72 is the later path) — a placeholder tag that
-  // mostly rides the mock fallback until guild groups exist.
-  { id: "guild", label: "Guild", icon: "community", hashtags: ["guild"], builtin: true },
-];
-
-// Moods the player can add from the "+" picker. These return genuinely live notes off the relays —
-// the proof the integration works. Felix named geopolitics / social / gardening; bitcoin is on-brand.
-export const PRESET_TABS: FeedTab[] = [
-  {
-    id: "social",
-    label: "Social",
-    icon: "spark",
-    hashtags: ["nostr", "asknostr", "introductions"],
-  },
-  {
-    id: "gardening",
-    label: "Gardening",
-    icon: "sprout",
-    hashtags: ["gardening", "garden", "plants", "permaculture", "homestead"],
-  },
-  {
-    id: "geopolitics",
-    label: "Geopolitics",
-    icon: "globe",
-    hashtags: ["geopolitics", "politics", "worldnews"],
-  },
-  { id: "bitcoin", label: "Bitcoin", icon: "coins", hashtags: ["bitcoin", "lightning", "nostr"] },
-];
-
-/** Turn raw user input ("#Gardening", "garden") into a custom single-hashtag tab, or null if empty. */
-export function customTab(raw: string): FeedTab | null {
-  const tag = raw
-    .trim()
-    .replace(/^#/, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-  if (!tag) return null;
-  return { id: `tag:${tag}`, label: `#${tag}`, icon: "zap", hashtags: [tag] };
-}
+import { BUILTIN_TABS, type FeedNote, type FeedTab } from "./socialModel";
+export { BUILTIN_TABS, PRESET_TABS, customTab, localNote } from "./socialModel";
+export type { FeedNote, FeedTab } from "./socialModel";
 
 // --- Write path (signed by the active signer; net/nostr wires the demo signer at startup) -----------
 
@@ -158,20 +76,6 @@ export async function repostNote(note: { id: string; pubkey: string }): Promise<
   } catch {
     return false;
   }
-}
-
-/** An optimistic local note for the player's just-published text — shown instantly while it propagates. */
-export function localNote(id: string, npub: string, body: string): FeedNote {
-  return {
-    id,
-    author: "you",
-    meta: `${shortNpub(npub)} · now`,
-    body,
-    npub,
-    pubkey: "",
-    createdAt: Math.floor(Date.now() / 1000),
-    actions: { replies: 0, reposts: 0, zaps: 0 },
-  };
 }
 
 // Known founder pubkeys (hex) get the crown. Empty until the real npubs are known.

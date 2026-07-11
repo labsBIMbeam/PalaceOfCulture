@@ -1,8 +1,8 @@
-// Run: esbuild tests/builder-smoke.ts --bundle --platform=node --format=esm --outfile=/tmp/smoke.mjs && node /tmp/smoke.mjs
+// Run: pnpm --filter @600b/web test
 // Godot-parity smoke test for the ported builder logic (run in Node, storage is a silent no-op).
 import { homeBuild as buildSystem, palaceBuild } from "../src/builder/buildState";
-import { economy } from "../src/builder/economy";
 import { OBJECTS, RECIPES, blockIds, formatDuration } from "../src/builder/catalog";
+import { economy } from "../src/builder/economy";
 
 const assert = (name: string, cond: boolean) => {
   if (!cond) throw new Error(`FAIL: ${name}`);
@@ -11,7 +11,10 @@ const assert = (name: string, cond: boolean) => {
 
 // catalog parity
 assert("hotbar order blocks first", blockIds().join(",") === "block_stone,block_boards");
-assert("lantern costs 2 boards + 2 stone", JSON.stringify(RECIPES.craft_lantern?.cost) === '{"boards":2,"stone":2}');
+assert(
+  "lantern costs 2 boards + 2 stone",
+  JSON.stringify(RECIPES.craft_lantern?.cost) === '{"boards":2,"stone":2}',
+);
 assert("stool takes 21 days", RECIPES.craft_stool?.seconds === 21 * 86400);
 assert("duration renders 21d", formatDuration(RECIPES.craft_stool?.seconds ?? 0) === "21d");
 assert("fountain attracts", OBJECTS.fountain?.attracts === true);
@@ -27,7 +30,10 @@ assert("starter stone blocks 18", economy.getCount("block_stone") === 18);
 const placed = buildSystem.placeBlocks(buildSystem.footprintCells([0, 0, 0]), "block_stone");
 assert("footprint places 9", placed === 9);
 assert("inventory drained to 9", economy.getCount("block_stone") === 9);
-assert("second stamp on same cells places 0", buildSystem.placeBlocks(buildSystem.footprintCells([0, 0, 0]), "block_stone") === 0);
+assert(
+  "second stamp on same cells places 0",
+  buildSystem.placeBlocks(buildSystem.footprintCells([0, 0, 0]), "block_stone") === 0,
+);
 
 // absorb returns the block
 assert("absorb", buildSystem.absorbBlock([0, 0, 0]) === true);
@@ -64,7 +70,10 @@ assert("roundtrip lantern", buildSystem.decorCount("lantern") === 1);
 assert("condition still met after load", economy.conditionMet() === true);
 
 // public palace is decorate-only (design law): block tools must refuse
-assert("palace refuses blocks", palaceBuild.placeBlocks(palaceBuild.footprintCells([0, 0, 0]), "block_stone") === 0);
+assert(
+  "palace refuses blocks",
+  palaceBuild.placeBlocks(palaceBuild.footprintCells([0, 0, 0]), "block_stone") === 0,
+);
 economy.returnObject("stool");
 assert("palace takes furniture", palaceBuild.placeDecor("stool", [1, 0, 1], 0) === true);
 

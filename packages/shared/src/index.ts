@@ -6,5 +6,7 @@
 
 export const SHARED_SCHEMA_VERSION = "0.0.0";
 
-export type { AgeRead, AvatarConfig, Character, Gender } from "./character";
-export { DEFAULT_AVATAR } from "./character";
+export type { AgeRead, AvatarConfig, Character, Gender } from "./character.js";
+export { DEFAULT_AVATAR } from "./character.js";
+export { JsonEncodingError, canonicalizeJson } from "./json.js";
+export type { JsonObject, JsonPrimitive, JsonValue } from "./json.js";

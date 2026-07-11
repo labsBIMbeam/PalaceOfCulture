@@ -5,12 +5,6 @@ import { Icon } from "../frontend/icons";
 import { AvatarTurntable } from "../scene/AvatarTurntable";
 import { MEMBERS } from "./members";
 
-// Warm the glTF cache with every member's idle mesh so flipping through the roster is instant
-// (no Suspense → no flash). Only the idle model is preloaded; walk/run clips load in-game.
-const MEMBER_MODELS = [
-  ...new Set(MEMBERS.map((m) => m.avatar.modelUrl).filter(Boolean)),
-] as string[];
-
 /**
  * Character select (new concept): pick who you are from the **600 Billion member roster** (names/roles
  * from www.600.wtf). A shared live turntable previews the highlighted member — mirroring the site's
@@ -22,11 +16,14 @@ export function MemberSelect({
   onComplete: (character: Character) => void;
 }) {
   const [index, setIndex] = useState(0);
-  // Preload all member idle meshes once so switching the preview never re-suspends.
-  useEffect(() => {
-    for (const url of MEMBER_MODELS) useGLTF.preload(url);
-  }, []);
   const member = MEMBERS[index] ?? MEMBERS[0];
+  const modelUrl = member?.avatar.modelUrl;
+
+  // Fetch only the highlighted idle mesh. The previous all-roster preload pulled ~133 MiB at once.
+  useEffect(() => {
+    if (modelUrl) useGLTF.preload(modelUrl);
+  }, [modelUrl]);
+
   if (!member) return null; // roster is never empty; satisfies strict index access
 
   const enter = () => {
@@ -37,7 +34,7 @@ export function MemberSelect({
       avatar: member.avatar,
       createdAt: now,
       updatedAt: now,
-      updatedBy: `user:${member.name}`,
+      updatedBy: "local:roster",
     });
   };
 
@@ -46,7 +43,7 @@ export function MemberSelect({
       <section className="member-card">
         <header className="member-head">
           <div>
-            <h1>Choose your member</h1>
+            <h1>Choose your starting avatar</h1>
             <p>600,000,000,000 — pick who you are</p>
           </div>
         </header>
@@ -65,6 +62,7 @@ export function MemberSelect({
           <div className="member-roster">
             {MEMBERS.map((entry, i) => (
               <button
+                aria-pressed={i === index}
                 className={`member-chip${i === index ? " member-chip--active" : ""}`}
                 key={entry.name}
                 onClick={() => setIndex(i)}

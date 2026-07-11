@@ -71,9 +71,11 @@ def masonry(size, seed, base, courses, contrast):
                 h = (rng.random() - 0.5) * 0.10
                 tint[y0:y1, xa:xb, 0] = h
                 tint[y0:y1, xa:xb, 2] = -h
-                shade[y0:y1, xa:min(size, xa + mortar_px)] = mortar_v  # vertical joint
+                shade[y0:y1, xa : min(size, xa + mortar_px)] = (
+                    mortar_v  # vertical joint
+                )
             x += bw
-        shade[max(0, y1 - mortar_px):y1, :] = mortar_v  # bed joint
+        shade[max(0, y1 - mortar_px) : y1, :] = mortar_v  # bed joint
     shade *= 1.0 + 0.13 * (tile_grid(size, 6, seed + 7) - 0.5)
     return _rgba((base[None, None, :] + tint) * shade[:, :, None])
 
@@ -82,21 +84,32 @@ def column_tex(size, seed):
     u, _ = _grids(size)
     grain = np.sin(u * math.pi * 2 * 6 + tile_grid(size, 4, seed) * 3.5)
     val = 0.95 + 0.16 * grain + 0.10 * (tile_grid(size, 5, seed + 1) - 0.5)
-    return _rgba(np.array((0.93, 0.51, 0.15))[None, None, :] * np.clip(val, 0.5, 1.4)[:, :, None])
+    return _rgba(
+        np.array((0.93, 0.51, 0.15))[None, None, :] * np.clip(val, 0.5, 1.4)[:, :, None]
+    )
 
 
 def steel_tex(size, seed):
     _, v = _grids(size)
-    val = 0.95 + 0.06 * np.sin(v * math.pi * 2 * 60) + 0.08 * (tile_grid(size, 5, seed) - 0.5)
+    val = (
+        0.95
+        + 0.06 * np.sin(v * math.pi * 2 * 60)
+        + 0.08 * (tile_grid(size, 5, seed) - 0.5)
+    )
     return _rgba(np.array((0.34, 0.37, 0.36))[None, None, :] * val[:, :, None])
 
 
 def roof_mesh(size, seed, base, cells, alpha_cell):
     """Semitransparent canopy: opaque thin grid 'mesh', see-through cells."""
     u, v = _grids(size)
-    line = ((np.abs(np.sin(u * math.pi * cells)) < 0.16) | (np.abs(np.sin(v * math.pi * cells)) < 0.16))
+    line = (np.abs(np.sin(u * math.pi * cells)) < 0.16) | (
+        np.abs(np.sin(v * math.pi * cells)) < 0.16
+    )
     alpha = alpha_cell + (1.0 - alpha_cell) * line.astype(float)
-    rgb = np.array(base)[None, None, :] * (0.92 + 0.18 * (tile_grid(size, 4, seed) - 0.5))[:, :, None]
+    rgb = (
+        np.array(base)[None, None, :]
+        * (0.92 + 0.18 * (tile_grid(size, 4, seed) - 0.5))[:, :, None]
+    )
     return _rgba(rgb, alpha)
 
 
@@ -189,7 +202,7 @@ def bake_variation(obj):
 
 def main():
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, dst = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -202,7 +215,9 @@ def main():
     bpy.ops.import_scene.gltf(filepath=src)
 
     textures = build_textures()
-    mats = {k: make_material(k, rgba, is_roof) for k, (rgba, _, is_roof) in textures.items()}
+    mats = {
+        k: make_material(k, rgba, is_roof) for k, (rgba, _, is_roof) in textures.items()
+    }
 
     for o in [o for o in bpy.data.objects if o.type == "MESH"]:
         key = group_of(o.name, textures.keys())
@@ -224,10 +239,15 @@ def main():
     # force COLOR_0 export (the multiply node isn't auto-detected); three.js multiplies it per glTF spec
     try:
         bpy.ops.export_scene.gltf(
-            filepath=dst, export_format="GLB", use_selection=False, export_vertex_color="ACTIVE"
+            filepath=dst,
+            export_format="GLB",
+            use_selection=False,
+            export_vertex_color="ACTIVE",
         )
     except TypeError:
-        bpy.ops.export_scene.gltf(filepath=dst, export_format="GLB", use_selection=False)
+        bpy.ops.export_scene.gltf(
+            filepath=dst, export_format="GLB", use_selection=False
+        )
     print("TEXTURIZED", dst)
 
 

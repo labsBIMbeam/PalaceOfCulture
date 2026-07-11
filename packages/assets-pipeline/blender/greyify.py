@@ -15,7 +15,7 @@ GREY = (0.80, 0.80, 0.82, 1.0)
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, dst = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)

@@ -1,4 +1,6 @@
-import { KeyboardControls, OrbitControls, useKeyboardControls } from "@react-three/drei";
+import { PALACE_SPAWN } from "@600b/multiplayer";
+import { DEFAULT_AVATAR } from "@600b/shared";
+import { Html, KeyboardControls, OrbitControls, useKeyboardControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   CuboidCollider,
@@ -24,6 +26,14 @@ import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
+import {
+  type MultiplayerViewState,
+  OFFLINE_MULTIPLAYER_STATE,
+  PalaceMultiplayerTransport,
+  type RemotePlayerSnapshot,
+  getMultiplayerUrl,
+  horizontalYawFromQuaternion,
+} from "../net/multiplayer";
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
 import { DecorPicker } from "../ui/DecorPicker";
@@ -34,6 +44,7 @@ import { GrowableObject } from "./GrowableObject";
 import { Palace } from "./Palace";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
+import { findImport, importUrl } from "./avatarImports";
 import { type PlacedItem, loadDecor, newUid, saveDecor } from "./decorStore";
 import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
 import { BuilderWorld } from "./homebuilder/BuilderWorld";
@@ -70,7 +81,7 @@ const PALACE_DECOR_LIMIT = 21;
 const ORBIT_POSITION = new THREE.Vector3(150, 110, 150);
 // On the plaza just short of the asset shelf (RESERVED_CORNER ~[0,0,52]); the default camera looks
 // +z, so the tree + spaceship sit ahead in view on spawn. Tune freely with RESERVED_CORNER.
-const SPAWN: [number, number, number] = [6, 4, 44];
+const SPAWN: [number, number, number] = [PALACE_SPAWN.x, PALACE_SPAWN.y, PALACE_SPAWN.z];
 
 // The private Home is its OWN empty map (godot home_world parity): cream ground, cream fog,
 // nothing but what you build. Palace assets never load here.
@@ -228,7 +239,7 @@ function WalkSystems({
     // Safety net: if the controller ever tunnels through the floor, lift it back to the entry point
     // instead of falling forever.
     if (pos.y < -6) {
-      body.setTranslation({ x: spawn[0], y: 3, z: spawn[2] }, true);
+      body.setTranslation({ x: spawn[0], y: spawn[1], z: spawn[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       return;
     }
@@ -280,11 +291,250 @@ function WalkSystems({
   return null;
 }
 
+/** Read the local Rapier controller every frame; the transport itself enforces the 10 Hz wire rate. */
+function MultiplayerMovementSync({
+  bodyRef,
+  transportRef,
+}: {
+  bodyRef: RefObject<RapierRigidBody>;
+  transportRef: RefObject<PalaceMultiplayerTransport | null>;
+}) {
+  useFrame(() => {
+    const body = bodyRef.current;
+    const transport = transportRef.current;
+    if (!body || !transport) return;
+    const correction = transport.consumeCorrection();
+    if (correction) {
+      const halfYaw = correction.rotationY / 2;
+      body.setTranslation({ x: correction.x, y: correction.y, z: correction.z }, true);
+      body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      return;
+    }
+    const position = body.translation();
+    const rotation = body.rotation();
+    // Ecctrl's default auto-balance turns the rigid body toward its model indicator. Project the
+    // body's local +Z axis onto the ground so remote facing follows the visible avatar, even while
+    // it is standing still or sliding in a different direction.
+    const rotationY = horizontalYawFromQuaternion(rotation);
+    transport.sendMovement({
+      x: position.x,
+      y: position.y,
+      z: position.z,
+      rotationY,
+    });
+  });
+  return null;
+}
+
+function remoteColor(sessionId: string): string {
+  const palette = ["#e7b23c", "#e8704f", "#67c5b3", "#8bb8e8", "#c49be8"];
+  let hash = 0;
+  for (let index = 0; index < sessionId.length; index += 1) {
+    hash = (hash * 31 + sessionId.charCodeAt(index)) >>> 0;
+  }
+  return palette[hash % palette.length] ?? palette[0] ?? "#e7b23c";
+}
+
+function dampAngle(current: number, target: number, alpha: number): number {
+  const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  return current + delta * alpha;
+}
+
+/** Pure Three visual: never enters Rapier, so remote players cannot collide or separate each other. */
+function RemotePlayerMarker({
+  detailed,
+  player,
+  labelStack,
+}: {
+  detailed: boolean;
+  player: RemotePlayerSnapshot;
+  labelStack: number;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const target = useMemo(
+    () => new THREE.Vector3(player.x, player.y - 0.9, player.z),
+    [player.x, player.y, player.z],
+  );
+  const color = useMemo(() => remoteColor(player.sessionId), [player.sessionId]);
+  const avatarConfig = useMemo(
+    () => ({
+      ...DEFAULT_AVATAR,
+      aura: color,
+      modelUrl: importUrl(player.avatarAssetId) ?? importUrl("placeholder"),
+    }),
+    [color, player.avatarAssetId],
+  );
+  const opacity = player.connected ? 0.88 : 0.28;
+
+  useFrame((_state, delta) => {
+    const node = group.current;
+    if (!node) return;
+    const alpha = 1 - Math.exp(-10 * Math.min(delta, 0.1));
+    node.position.lerp(target, alpha);
+    node.rotation.y = dampAngle(node.rotation.y, player.rotationY, alpha);
+  });
+
+  return (
+    <group
+      position={[player.x, player.y - 0.9, player.z]}
+      ref={group}
+      rotation-y={player.rotationY}
+    >
+      {detailed ? (
+        <AvatarView config={avatarConfig} locomotion={false} />
+      ) : (
+        <>
+          <mesh position={[0, 0.72, 0]}>
+            <capsuleGeometry args={[0.28, 0.78, 4, 8]} />
+            <meshStandardMaterial color={color} opacity={opacity} roughness={0.72} transparent />
+          </mesh>
+          <mesh position={[0, 1.55, 0]}>
+            <sphereGeometry args={[0.29, 12, 10]} />
+            <meshStandardMaterial color={color} opacity={opacity} roughness={0.72} transparent />
+          </mesh>
+        </>
+      )}
+      <mesh position={[0, 0.025, 0]} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[0.36, 0.48, 24]} />
+        <meshBasicMaterial color={color} opacity={opacity * 0.75} transparent />
+      </mesh>
+      <Html center position={[0, 2.08 + labelStack * 0.32, 0]} style={{ pointerEvents: "none" }}>
+        <span
+          className={
+            player.connected
+              ? "remote-player-label"
+              : "remote-player-label remote-player-label--dim"
+          }
+        >
+          {player.handle}
+        </span>
+      </Html>
+    </group>
+  );
+}
+
+function RemotePlayers({ players }: { players: RemotePlayerSnapshot[] }) {
+  const camera = useThree((state) => state.camera);
+  const [detailedIds, setDetailedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const lastDetailUpdate = useRef(Number.NEGATIVE_INFINITY);
+  useFrame(({ clock }) => {
+    if (clock.elapsedTime - lastDetailUpdate.current < 0.5) return;
+    lastDetailUpdate.current = clock.elapsedTime;
+    const distances = players
+      .filter((player) => player.connected)
+      .map((player) => ({
+        id: player.sessionId,
+        distanceSquared:
+          (camera.position.x - player.x) ** 2 +
+          (camera.position.y - (player.y - 0.9)) ** 2 +
+          (camera.position.z - player.z) ** 2,
+      }))
+      .sort((a, b) => a.distanceSquared - b.distanceSquared);
+    setDetailedIds((current) => {
+      // Keep already-detailed players until 48 m, but admit new detail models only inside 40 m.
+      // The hysteresis prevents repeated skeleton/material rebuilds around the distance boundary.
+      const next = new Set(
+        distances
+          .filter((entry) => current.has(entry.id) && entry.distanceSquared <= 48 ** 2)
+          .slice(0, 4)
+          .map((entry) => entry.id),
+      );
+      for (const entry of distances) {
+        if (next.size >= 4 || entry.distanceSquared > 40 ** 2) break;
+        next.add(entry.id);
+      }
+      if (current.size === next.size && [...next].every((id) => current.has(id))) return current;
+      return next;
+    });
+  });
+  const positionCounts = new Map<string, number>();
+  return (
+    <group name="remote-player-visuals">
+      {players.map((player) => {
+        const positionKey = `${player.x.toFixed(3)}:${player.y.toFixed(3)}:${player.z.toFixed(3)}`;
+        const labelStack = positionCounts.get(positionKey) ?? 0;
+        positionCounts.set(positionKey, labelStack + 1);
+        return (
+          <RemotePlayerMarker
+            detailed={detailedIds.has(player.sessionId)}
+            key={player.sessionId}
+            labelStack={labelStack}
+            player={player}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+type MultiplayerSession = {
+  transport: PalaceMultiplayerTransport | null;
+  detail?: string;
+};
+
+function useMultiplayerView(
+  transport: PalaceMultiplayerTransport | null,
+  detail?: string,
+): MultiplayerViewState {
+  const [view, setView] = useState<MultiplayerViewState>(() => ({
+    ...OFFLINE_MULTIPLAYER_STATE,
+    detail,
+  }));
+  useEffect(() => {
+    if (!transport) {
+      setView({ ...OFFLINE_MULTIPLAYER_STATE, detail });
+      return;
+    }
+    return transport.subscribe(setView);
+  }, [detail, transport]);
+  return view;
+}
+
+function MultiplayerLayer({
+  bodyRef,
+  session,
+  transportRef,
+}: {
+  bodyRef: RefObject<RapierRigidBody>;
+  session: MultiplayerSession;
+  transportRef: RefObject<PalaceMultiplayerTransport | null>;
+}) {
+  const view = useMultiplayerView(session.transport, session.detail);
+  return (
+    <>
+      <MultiplayerMovementSync bodyRef={bodyRef} transportRef={transportRef} />
+      <RemotePlayers players={view.players} />
+    </>
+  );
+}
+
+function MultiplayerStatus({ session }: { session: MultiplayerSession }) {
+  const view = useMultiplayerView(session.transport, session.detail);
+  const label =
+    view.status === "connected"
+      ? `connected · ${view.players.filter((player) => player.connected).length + 1} online`
+      : view.status;
+  return (
+    <output
+      aria-live="polite"
+      className="multiplayer-status"
+      data-status={view.status}
+      title={view.detail}
+    >
+      <span className="multiplayer-status-dot" />
+      {label}
+    </output>
+  );
+}
+
 /** The 3D game view, launched from the frontend UI. */
 export function PalaceScene({ target, onExit, character, startInBuild }: PalaceSceneProps) {
   const [mode, setMode] = useState<ViewMode>(startInBuild && target === "home" ? "build" : "walk");
   const accent = character.avatar.aura;
   const handle = character.handle;
+  const avatarAssetId = findImport(character.avatar.modelUrl)?.id ?? "placeholder";
   const playerBody = useRef<RapierRigidBody>(null);
 
   // Decoration: placed pieces are DATA, persisted per room (decorStore). `pendingDefId` = a catalog
@@ -294,26 +544,48 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // Public Palace = plain decorate placement only (B), capped against spam — no magnet there.
   const [world, setWorld] = useState<EngineTarget>(target);
   const canBuild = world === "home";
+  const multiplayerTransportRef = useRef<PalaceMultiplayerTransport | null>(null);
+  const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession>({
+    transport: null,
+  });
   const [builderSelected, setBuilderSelected] = useState("");
   const builderTargets = useRef<THREE.Group | null>(null);
+
+  useEffect(() => {
+    if (world !== "hq") {
+      multiplayerTransportRef.current = null;
+      setMultiplayerSession({ transport: null });
+      return;
+    }
+
+    let transport: PalaceMultiplayerTransport;
+    try {
+      transport = new PalaceMultiplayerTransport(
+        getMultiplayerUrl(),
+        handle,
+        undefined,
+        avatarAssetId,
+      );
+    } catch (error) {
+      setMultiplayerSession({
+        transport: null,
+        detail: error instanceof Error ? error.message : "Invalid multiplayer configuration",
+      });
+      return;
+    }
+
+    multiplayerTransportRef.current = transport;
+    setMultiplayerSession({ transport });
+    transport.connect();
+    return () => {
+      if (multiplayerTransportRef.current === transport) multiplayerTransportRef.current = null;
+      void transport.leave();
+    };
+  }, [avatarAssetId, handle, world]);
+
   useEffect(() => {
     void homeBuild.setup();
   }, []);
-  // "M" (magnet) toggles Build mode — private Home only; ignored while typing in chat.
-  useEffect(() => {
-    if (!canBuild) return;
-    const onMagnetKey = (event: KeyboardEvent) => {
-      if (event.code !== "KeyM") return;
-      const el = document.activeElement;
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
-      setMode((value) => (value === "build" ? "walk" : "build"));
-      setPendingDefId(null);
-      setSelectedUid(null);
-      setPosed(null);
-    };
-    window.addEventListener("keydown", onMagnetKey);
-    return () => window.removeEventListener("keydown", onMagnetKey);
-  }, [canBuild]);
 
   const [items, setItems] = useState<PlacedItem[]>([]);
   const [pendingDefId, setPendingDefId] = useState<string | null>(null);
@@ -419,6 +691,23 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     setPosed(null);
   };
 
+  // "M" (magnet) toggles Build mode — private Home only; ignored while typing in chat.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: getUp reads the current seat through posedRef
+  useEffect(() => {
+    if (!canBuild) return;
+    const onMagnetKey = (event: KeyboardEvent) => {
+      if (event.code !== "KeyM") return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      getUp();
+      setMode((value) => (value === "build" ? "walk" : "build"));
+      setPendingDefId(null);
+      setSelectedUid(null);
+    };
+    window.addEventListener("keydown", onMagnetKey);
+    return () => window.removeEventListener("keydown", onMagnetKey);
+  }, [canBuild]);
+
   // Interact (E key, or the on-screen button): get up if posed, else sit/sleep if near a piece, else
   // fire the nearest interactable's action.
   // biome-ignore lint/correctness/useExhaustiveDependencies: listener is bound once per mode; enterPose/getUp read live state via refs
@@ -457,17 +746,18 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     return () => window.removeEventListener("keydown", onDecorateKey);
   }, [mode]);
 
-  // "B" (build) toggles Decorate from anywhere in the engine (uses only stable setters, so a
-  // once-bound listener is safe). Ignored while typing in chat. Not D — that's WASD right-strafe.
+  // "B" toggles Decorate from anywhere in the engine. Ignored while typing in chat. Not D —
+  // that's WASD right-strafe. Leaving a chair first preserves its position across the mode switch.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: getUp reads the current seat through posedRef
   useEffect(() => {
     const onDecorateKey = (event: KeyboardEvent) => {
       if (event.code !== "KeyB") return;
       const el = document.activeElement;
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      getUp();
       setMode((value) => (value === "build" ? value : value === "decorate" ? "walk" : "decorate"));
       setPendingDefId(null);
       setSelectedUid(null);
-      setPosed(null);
     };
     window.addEventListener("keydown", onDecorateKey);
     return () => window.removeEventListener("keydown", onDecorateKey);
@@ -511,19 +801,30 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           : world === "hq"
             ? "3D engine — global palace"
             : "3D engine — private plot";
-
   const toggleDecorate = () => {
+    getUp();
     setMode((value) => (value === "decorate" ? "walk" : "decorate"));
     setPendingDefId(null);
     setSelectedUid(null);
-    setPosed(null);
   };
   const toggleBuild = () => {
     if (!canBuild) return;
+    getUp();
     setMode((value) => (value === "build" ? "walk" : "build"));
     setPendingDefId(null);
     setSelectedUid(null);
-    setPosed(null);
+  };
+  const toggleOverview = () => {
+    if (mode === "walk") {
+      const bodyPosition = playerBody.current?.translation();
+      if (bodyPosition) setStandPos([bodyPosition.x, bodyPosition.y, bodyPosition.z]);
+      else if (posedRef.current) getUp();
+      setPosed(null);
+      setNearPose(null);
+      setMode("orbit");
+      return;
+    }
+    setMode("walk");
   };
   // Travel: swap the world behind a short loading curtain — Home is its own empty map, so the
   // swap (unmount palace / mount ground) happens while the screen is covered.
@@ -656,6 +957,13 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 />
               ) : null}
             </Physics>
+            {world === "hq" ? (
+              <MultiplayerLayer
+                bodyRef={playerBody}
+                session={multiplayerSession}
+                transportRef={multiplayerTransportRef}
+              />
+            ) : null}
             {/* Posed: a static avatar at the chair/bed. Holds the sit/sleep clip if present on the rig,
                 else idle (placeholder) until the pose clip lands. */}
             {mode === "walk" && posed ? (
@@ -722,17 +1030,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span>{title}</span>
           <small>{subtitle}</small>
         </div>
+        {world === "hq" ? <MultiplayerStatus session={multiplayerSession} /> : null}
         <div className="engine-actions">
           {mode !== "decorate" && mode !== "build" ? (
-            <button
-              className="nav-pill nav-pill--engine"
-              onClick={() => {
-                setPosed(null);
-                setNearPose(null);
-                setMode((value) => (value === "walk" ? "orbit" : "walk"));
-              }}
-              type="button"
-            >
+            <button className="nav-pill nav-pill--engine" onClick={toggleOverview} type="button">
               <Icon name={mode === "walk" ? "globe" : "play"} size={16} />
               <span>{mode === "walk" ? "Overview" : "Walk"}</span>
             </button>

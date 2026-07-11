@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "apps/web", "dev"],
       "port": 5173
+    },
+    {
+      "name": "godot-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8060", "--directory", "godot/dist/web"],
+      "port": 8060
     }
   ]
 }

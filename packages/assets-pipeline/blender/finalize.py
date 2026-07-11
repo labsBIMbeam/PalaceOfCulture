@@ -15,7 +15,9 @@ import bmesh
 import bpy
 from mathutils import Vector
 
-MAX_DIM = 1000.0  # any mesh bigger than this in a single axis is a blow-up artifact -> drop
+MAX_DIM = (
+    1000.0  # any mesh bigger than this in a single axis is a blow-up artifact -> drop
+)
 CUT_Z = -0.6  # cut every vertex below this world-Z (just under the EG ground slab, top@0 / STB@-0.45)
 
 
@@ -33,7 +35,7 @@ def world_bbox(objs):
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, dst = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -64,7 +66,12 @@ def main() -> None:
     mins, maxs = world_bbox(meshes)
     cx = (mins[0] + maxs[0]) / 2.0
     cy = (mins[1] + maxs[1]) / 2.0
-    print("pre-cut bbox min:", [round(v, 2) for v in mins], "max:", [round(v, 2) for v in maxs])
+    print(
+        "pre-cut bbox min:",
+        [round(v, 2) for v in mins],
+        "max:",
+        [round(v, 2) for v in maxs],
+    )
     for o in meshes:
         o.location.x -= cx
         o.location.y -= cy
@@ -95,7 +102,9 @@ def main() -> None:
     final = [o for o in bpy.data.objects if o.type == "MESH"]
     fmins, fmaxs = world_bbox(final)
     size = [round(fmaxs[i] - fmins[i], 1) for i in range(3)]
-    print(f"FINAL objects={len(final)} size(m)={size} z=[{fmins[2]:.2f},{fmaxs[2]:.2f}] (deck@0)")
+    print(
+        f"FINAL objects={len(final)} size(m)={size} z=[{fmins[2]:.2f},{fmaxs[2]:.2f}] (deck@0)"
+    )
     bpy.ops.export_scene.gltf(filepath=dst, export_format="GLB", use_selection=False)
     print("FINALIZED", dst)
 

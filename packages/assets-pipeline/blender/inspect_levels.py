@@ -8,14 +8,13 @@ import sys
 from collections import defaultdict
 
 import bpy
-from mathutils import Vector
 
 MAX_DIM = 1000.0
 
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src = rest[0]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -29,7 +28,9 @@ def main() -> None:
     bpy.context.view_layer.update()
 
     for o in list(bpy.data.objects):
-        if o.type == "MESH" and ("palapa" in o.name.lower() or max(o.dimensions) > MAX_DIM):
+        if o.type == "MESH" and (
+            "palapa" in o.name.lower() or max(o.dimensions) > MAX_DIM
+        ):
             bpy.data.objects.remove(o, do_unlink=True)
 
     meshes = [o for o in bpy.data.objects if o.type == "MESH"]

@@ -37,7 +37,7 @@ export function BuilderHud({
 }) {
   const economy = useEconomy();
   useBuildSystem(system);
-  const HOTBAR = system.allowBlocks ? HOTBAR_HOME : HOTBAR_PALACE;
+  const hotbar = system.allowBlocks ? HOTBAR_HOME : HOTBAR_PALACE;
   const [craftOpen, setCraftOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // 1 Hz re-render so queue countdown + sustain progress tick visibly.
@@ -54,12 +54,12 @@ export function BuilderHud({
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
       if (event.code === "KeyC") setCraftOpen((open) => !open);
       const slot = Number.parseInt(event.key, 10);
-      const slotId = HOTBAR[slot - 1];
+      const slotId = hotbar[slot - 1];
       if (slotId) onSelect(slotId);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onSelect]);
+  }, [hotbar, onSelect]);
 
   // Arrival + craft toasts (godot signals craft_completed / move_in_arrived).
   useEffect(() => {
@@ -105,7 +105,7 @@ export function BuilderHud({
 
       {/* hotbar */}
       <div className="builder-hotbar">
-        {HOTBAR.map((id, index) => {
+        {hotbar.map((id, index) => {
           const def = OBJECTS[id];
           if (!def) return null;
           const count = economy.getCount(id);
@@ -221,7 +221,7 @@ export function BuilderHud({
         </strong>
         <span>
           LMB place · Shift+LMB repaint · RMB absorb · Q/E rotate · WASD fly · Space/Shift rise/sink
-          · 1–{HOTBAR.length} select · C craft · M done
+          · 1–{hotbar.length} select · C craft · M done
           {document.pointerLockElement ? " · Esc release" : " · or click surfaces to place"}
         </span>
       </div>

@@ -38,11 +38,11 @@ nimg = bpy.data.images.new("N", w, h, alpha=True)
 nimg.colorspace_settings.name = "Non-Color"
 nimg.pixels.foreach_set(out_px.reshape(-1))
 
-# a subtle synthetic relief map doesn't need 2K/lossless — downscale + JPEG keeps the GLB lean
+# Keep normal vectors lossless. JPEG block artifacts bend reconstructed surface directions.
 target = int(argv[3]) if len(argv) > 3 else 1024
 if w > target:
     nimg.scale(target, target)
 nimg.filepath_raw = out
-nimg.file_format = "JPEG" if out.lower().endswith((".jpg", ".jpeg")) else "PNG"
+nimg.file_format = "PNG"
 nimg.save()
 print("WROTE", out, nimg.size[0], nimg.size[1])

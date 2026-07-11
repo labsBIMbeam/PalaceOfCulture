@@ -16,7 +16,9 @@ import sys
 import bpy
 from mathutils import Vector
 
-FOOTPRINT_MAX = 100.0  # m — anything wider than this in X or Y is environment/wall, not building
+FOOTPRINT_MAX = (
+    100.0  # m — anything wider than this in X or Y is environment/wall, not building
+)
 
 
 def should_remove(name: str, span: float) -> str | None:
@@ -45,7 +47,7 @@ def xy_span(o) -> float:
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, dst = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -62,7 +64,9 @@ def main() -> None:
     before_objs = len(meshes)
     before_tris = sum(tris(o) for o in meshes)
 
-    removed = {k: [0, 0] for k in ("textil", "glas", "licht-streifen", "umgebung+mauer")}
+    removed = {
+        k: [0, 0] for k in ("textil", "glas", "licht-streifen", "umgebung+mauer")
+    }
     env_names = []
     for o in list(meshes):
         reason = should_remove(o.name, xy_span(o))

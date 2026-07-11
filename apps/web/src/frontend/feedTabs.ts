@@ -1,4 +1,4 @@
-import { BUILTIN_TABS, type FeedTab } from "../net/social";
+import { BUILTIN_TABS, type FeedTab } from "../net/socialModel";
 
 // The player's chosen feed tabs (built-ins + added presets/custom), persisted on the device. Mirrors
 // the localStorage half of character/store.ts. Plug-and-play today; could move to the server truth-tier

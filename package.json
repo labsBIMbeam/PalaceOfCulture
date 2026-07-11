@@ -14,10 +14,17 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
+    "test": "pnpm -r --if-present test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "format": "biome format --write ."
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "typescript": "^5.6.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "set-cookie-parser": "3.1.1"
+    }
   }
 }

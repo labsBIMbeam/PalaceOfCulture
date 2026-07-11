@@ -1,6 +1,6 @@
 import type { AvatarConfig } from "@600b/shared";
 import { useAnimations, useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import type { RapierRigidBody } from "@react-three/rapier";
 import { type RefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -21,6 +21,38 @@ type Gait = "idle" | "walk" | "run" | "sit" | "sleep" | "jump";
 
 function asStandard(material: THREE.Material): THREE.MeshStandardMaterial | null {
   return "color" in material ? (material as THREE.MeshStandardMaterial) : null;
+}
+
+function improveTextureSampling(material: THREE.MeshStandardMaterial, anisotropy: number): void {
+  for (const texture of [
+    material.map,
+    material.normalMap,
+    material.roughnessMap,
+    material.metalnessMap,
+    material.aoMap,
+    material.emissiveMap,
+  ]) {
+    if (!texture) continue;
+    if (texture.anisotropy < anisotropy) {
+      texture.anisotropy = anisotropy;
+      texture.needsUpdate = true;
+    }
+  }
+
+  // Six legacy exports use their albedo as a full-strength emissive map. That flattens all scene
+  // lighting and washes out the texture; it is exporter residue, not authored glow.
+  if (material.map && material.emissiveMap === material.map) {
+    material.emissiveMap = null;
+    material.emissive.set(0x000000);
+    material.emissiveIntensity = 0;
+    material.needsUpdate = true;
+  }
+
+  if (material instanceof THREE.MeshPhysicalMaterial) {
+    material.specularColor.r = Math.min(1, material.specularColor.r);
+    material.specularColor.g = Math.min(1, material.specularColor.g);
+    material.specularColor.b = Math.min(1, material.specularColor.b);
+  }
 }
 
 /** Find the clip name for a gait, tolerating per-pack naming (Quaternius "Walk", Meshy "walking_man"…). */
@@ -60,6 +92,7 @@ export function RiggedAvatar({
   pose?: "sit" | "sleep";
 }) {
   const group = useRef<THREE.Group>(null);
+  const anisotropy = useThree((state) => Math.min(8, state.gl.capabilities.getMaxAnisotropy()));
   const { scene, animations } = useGLTF(url);
   // Extra GLBs loaded only for their clips (same rig → the mixer binds them by bone name).
   const extra = useGLTF(clipUrls) as unknown as Array<{ animations: THREE.AnimationClip[] }>;
@@ -69,7 +102,7 @@ export function RiggedAvatar({
     return [...animations, ...extraClips];
   }, [animations, extra]);
 
-  const { root, skinMats, hairMats, hips } = useMemo(() => {
+  const { root, ownedMats, skinMats, hairMats, hips } = useMemo(() => {
     const cloned = SkeletonUtils.clone(scene);
     cloned.updateMatrixWorld(true);
     const height = new THREE.Box3().setFromObject(cloned).getSize(new THREE.Vector3()).y || 1;
@@ -79,6 +112,7 @@ export function RiggedAvatar({
 
     const skin: THREE.MeshStandardMaterial[] = [];
     const hair: THREE.MeshStandardMaterial[] = [];
+    const ownedMaterials: THREE.Material[] = [];
     let hipBone: THREE.Object3D | null = null;
     cloned.traverse((object) => {
       object.castShadow = true;
@@ -90,19 +124,34 @@ export function RiggedAvatar({
       if (!mesh.material) return;
       const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       // Clone materials so per-instance tinting can't mutate the shared cached glTF.
-      const owned = source.map((material) => {
+      const copies = source.map((material) => {
         const copy = material.clone();
+        ownedMaterials.push(copy);
         const standard = asStandard(copy);
         if (standard) {
+          improveTextureSampling(standard, anisotropy);
           if (standard.name === "Skin") skin.push(standard);
           else if (/hair/i.test(standard.name)) hair.push(standard);
         }
         return copy;
       });
-      mesh.material = Array.isArray(mesh.material) ? owned : (owned[0] as THREE.Material);
+      mesh.material = Array.isArray(mesh.material) ? copies : (copies[0] as THREE.Material);
     });
-    return { root: cloned, skinMats: skin, hairMats: hair, hips: hipBone as THREE.Object3D | null };
-  }, [scene]);
+    return {
+      root: cloned,
+      ownedMats: ownedMaterials,
+      skinMats: skin,
+      hairMats: hair,
+      hips: hipBone as THREE.Object3D | null,
+    };
+  }, [anisotropy, scene]);
+
+  useEffect(
+    () => () => {
+      for (const material of ownedMats) material.dispose();
+    },
+    [ownedMats],
+  );
 
   useEffect(() => {
     for (const material of skinMats) material.color.set(config.skinTone);

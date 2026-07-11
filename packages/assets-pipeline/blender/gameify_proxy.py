@@ -12,7 +12,7 @@ import bpy
 
 def _args() -> tuple[str, str, int]:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     return rest[0], rest[1], int(rest[2])
 
 
@@ -40,7 +40,14 @@ def _count_tris() -> int:
 def main() -> None:
     src, dst, target = _args()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    _enable("gltf", ("io_scene_gltf2", "bl_ext.blender_org.io_scene_gltf2", "bl_ext.system.io_scene_gltf2"))
+    _enable(
+        "gltf",
+        (
+            "io_scene_gltf2",
+            "bl_ext.blender_org.io_scene_gltf2",
+            "bl_ext.system.io_scene_gltf2",
+        ),
+    )
     bpy.ops.import_scene.gltf(filepath=src)
 
     for obj in list(bpy.data.objects):

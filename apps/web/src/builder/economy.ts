@@ -27,8 +27,11 @@ const nowSec = () => Date.now() / 1000;
  */
 function readTimeScale(): number {
   try {
+    if (import.meta.env?.DEV !== true) return 1;
     const raw = new URLSearchParams(window.location.search).get("timescale");
-    return raw ? Math.max(1, Number(raw) || 1) : 1;
+    if (!raw) return 1;
+    const value = Number(raw);
+    return Number.isFinite(value) ? Math.min(10_000, Math.max(1, value)) : 1;
   } catch {
     return 1;
   }

@@ -5,20 +5,22 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch src/dev.ts",
+    "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p tsconfig.json && tsx --test test/auditStore.test.ts test/multiplayer.test.ts test/podcasts.test.ts test/rateLimit.test.ts test/server.test.ts"
   },
   "dependencies": {
-    "@600b/ownership": "workspace:*",
+    "@600b/multiplayer": "workspace:*",
     "@600b/shared": "workspace:*",
-    "@colyseus/core": "^0.15.0",
-    "colyseus": "^0.15.0",
-    "fastify": "^5.0.0",
+    "@colyseus/core": "^0.17.44",
+    "@colyseus/ws-transport": "^0.17.13",
     "better-sqlite3": "^11.3.0",
-    "yjs": "^13.6.0"
+    "express": "^5.2.1"
   },
   "devDependencies": {
+    "@colyseus/sdk": "^0.17.43",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20.16.0",
     "tsx": "^4.19.1",
