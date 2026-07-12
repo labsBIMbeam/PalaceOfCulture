@@ -1,0 +1,322 @@
+# Locktard Street — Ringstadt handoff
+
+## Product image
+
+Locktard Street is not a linear avenue. It is the inhabited ring around the Palace's two central
+symbols:
+
+- the **young tree** represents time, patience and growth;
+- the **rocket site** represents the future and the 21-year horizon;
+- the **Plaza** is the shared civic ground;
+- **Locktard Street** is the complete walkable ring around it;
+- the guild quarters face inward from the outside of the ring.
+
+The player enters from the south, immediately sees the centre and may walk either direction around
+the whole city. Web and world will later project the same guilds, Activities, Sessions and places;
+this scene establishes their spatial grammar without owning their business state.
+
+## Top-down plan
+
+```text
+                                      NORTH
+
+                          ╭────── ARCANE PORTAL ──────╮
+                          │  action on demand / games │
+                 ╭────────┴───────────────────────────┴────────╮
+                 │                                             │
+          SHELTER HALL                                  CULTURE LIBRARY
+          CRAFT LODGE          OUTER BUILDING RING       LISTENING STAGE
+                 │        entrances and porches inward          │
+                 │                                             │
+             ╭───┴═══════════════════════════════════════┴───╮
+             ║                                               ║
+             ║              LOCKTARD STREET                  ║
+             ║          continuous walkable ring             ║
+             ║                                               ║
+        FORGE YARD    ╭─────────────────────────────────╮    CULTURE
+        BLACKSMITH    │                                 │     COURT
+        SAWMILL       │        INNER PLAZA              │
+             ║        │                                 │        ║
+             ║        │            🌳                   │        ║
+             ║        │       TREE + ROCKET SITE 🚀     │        ║
+             ║        │                                 │        ║
+             ║        ╰─────────────────────────────────╯        ║
+             ║                                               ║
+             ║                                               ║
+             ╚═══╤═══════════════════════════════════════╤═══╝
+                 │                                       │
+           WORKSHOP DEPOT                           MARKET + INN
+                 │                                       │
+                 ╰─────────────── MAIN GATE ──────────────╯
+                                      │
+                                    SPAWN
+                                      │
+                                     SOUTH
+```
+
+The drawing communicates hierarchy, not exact scale. The centre must remain visually dominant.
+Buildings frame it; they do not form an opaque wall around it.
+
+## Visual recipe
+
+### Rendering qualities
+
+Aim for the graphic clarity of a stylized Nintendo Switch adventure world without copying a
+specific game's assets or characters:
+
+- simple, strong silhouettes;
+- reduced geometry and painterly surfaces;
+- warm, readable colour regions;
+- soft daylight/dusk, atmospheric depth and restrained fog;
+- natural vegetation with deliberate negative space;
+- exaggerated landmarks legible from third person;
+- fantastic and welcoming rather than photoreal or grimdark;
+- material response kept simple enough for weaker desktop GPUs.
+
+### Architecture blend
+
+Every quarter belongs to the same world. Do not split the ring into three unrelated art styles.
+Layer the influences on each building:
+
+| Layer | Approx. share | Expression |
+|---|---:|---|
+| Medieval | 65% | stone, timber, plaster, shingles, towers, gables, arches, guild halls |
+| Western | 25% | porches, awnings, timber walks, open workshops, large signs, market fronts |
+| Cypherpunk | 10% | antennas, cables, terminals, emissive marks, patched-on technical systems |
+
+Cypherpunk is a signal layer, not a neon city. A bright colour must help identify a place, state or
+route. Upper floors create silhouette and atmosphere; street-level fronts communicate action.
+
+## Spatial hierarchy
+
+### 1. Central sanctuary
+
+- Keep the rocket foundation and young tree together in the middle.
+- The future rocket grows from the existing prepared site; do not ship a completed rocket early.
+- No shop, traffic lane or unrelated prop crosses the centre.
+- Keep important sightlines from the gate and ring.
+- Use only low planting, seating, ceremonial stones and a few banners nearby.
+- Reserve this ground for the Bell, Unsealings, witnessing and multi-guild gatherings.
+
+### 2. Inner Plaza
+
+- Circular, pedestrian and visually quieter than the street.
+- Several radial paths connect it to the ring.
+- Floor value/colour differs clearly from Locktard Street.
+- Benches and lamps support gathering without obscuring the centre.
+- No tall prop may accidentally become the central silhouette.
+
+### 3. Locktard Ring
+
+- One continuous road around the Plaza.
+- A player can complete the loop in both directions without jumping or backtracking.
+- Wide enough for groups, events and small temporary stalls.
+- Inner edge reads as civic space; outer edge reads as inhabited frontage.
+- The ring itself is the primary navigation device. No minimap should be necessary for one lap.
+
+### 4. Guild quarters
+
+All primary entrances face the ring. Recommended distribution:
+
+| Direction | Place | Function |
+|---|---|---|
+| South | Main Gate / Commons | arrival and immediate sightline to centre |
+| South-west | Forge Yard | build, study, repair; blacksmith, sawmill, GVCS Activities |
+| West / north-west | Craft Lodge and Shelter Hall | materials, joinery, building and repair |
+| North | Arcane Portal | strongest technical silhouette; action on demand |
+| East / north-east | Culture Library and Listening Stage | music, podcasts, reading and performance |
+| South-east | Market and Inn | trading, hospitality and low-friction social arrival |
+
+Use stable spatial ids from the beginning:
+
+```text
+place:commons:plaza
+place:guild:forge
+place:guild:craft
+place:guild:shelter
+place:guild:culture
+place:market:ring
+place:arcade:portal
+```
+
+These are spatial anchors only. Scene components must not own guild membership, Nostr keys,
+curation, wallet state or Session truth.
+
+### 5. Outer boundary
+
+- Palisade, landform and dense vegetation hide the technical edge.
+- Avoid the read of a rectangular arena even if colliders remain simple internally.
+- Keep the south gate unmistakable.
+- Later radial exits may lead to new quarters without breaking the original ring.
+
+## Existing code — useful facts
+
+The current scene already contains a good radial base:
+
+- `PLAZA_CENTRE = [0, 120]`;
+- `PLAZA_RADIUS = 24`;
+- `plazaRing()` places inward-facing buildings at radius `35`;
+- the south arc is intentionally open for the approach;
+- Plaza visuals and building colliders already consume the same `plazaRing()` result;
+- `STREET_SPAWN = [0, 3, 30]`;
+- the gate sits near `z=14`;
+- the current enclosure spans `x=-52…52`, `z=2…188`, with an 11 m half-width gate opening.
+
+Preserve the shared-layout habit. Extend it rather than adding a second hand-maintained position
+list.
+
+Current inconsistencies to resolve:
+
+1. `LocktardStreet.tsx` still builds a linear facade row from approximately `z=46…212` and is not
+   mounted by `StreetWorld`.
+2. `StreetShops.tsx` is also present but not mounted.
+3. `StreetWorld` comments still describe elements it does not render.
+4. The old linear facades would extend beyond the current north enclosure.
+5. Procedural facade and ground textures use `Math.random()`, so remounts can change the world.
+
+Either adapt useful facade/shop pieces to the radial system or remove the stale path. Do not retain
+parallel linear and circular town layouts.
+
+## One radial layout source
+
+Define one small, typed layout and derive visuals, colliders, signs, interactables, map markers and
+future Session spawns from it.
+
+```ts
+type RingPlace = {
+  id: PlaceId;
+  angle: number;
+  radius: number;
+  buildingType: string;
+  guildId?: GuildId;
+  rotationOffset?: number;
+  scale?: number;
+};
+```
+
+Position from angle and radius:
+
+```ts
+const x = centerX + Math.cos(angle) * radius;
+const z = centerZ + Math.sin(angle) * radius;
+const rotationY = Math.atan2(centerX - x, centerZ - z) + (rotationOffset ?? 0);
+```
+
+Rules:
+
+- building front faces the centre by default;
+- deliberate exceptions use `rotationOffset` and a written reason;
+- collider footprint comes from the same building/layout record;
+- paths and gate gaps are explicit layout data, not accidental empty space;
+- seed any procedural variation from stable place/building ids;
+- never call `Math.random()` during render or texture construction.
+
+## Existing FOSS assets as world proxies
+
+The credited CC0 village assets already cover the first landmarks:
+
+| Asset | Palace use |
+|---|---|
+| `blacksmith.glb` | Forge Yard anchor |
+| `sawmill.glb` | Citadel/GVCS Sawmill Activity |
+| `stable.glb` | future Food/Land quarter |
+| `windmill.glb` | Energy landmark |
+| `market-stand.glb` | ring market |
+| `inn.glb` | inn, guild hall or Culture hospitality |
+| houses and huts | Shelter/Craft frontage |
+
+These are `WORLD PROXY` visuals, never technical representations of source hardware. Preserve asset
+credits. Source, maturity and license will come from the canonical Activity inspection layer.
+
+## Interaction grammar
+
+Street-level design must communicate verbs:
+
+- Forge: **Study · Build · Repair**
+- Culture: **Listen · Read · Perform**
+- Market: **Browse · Trade · Exhibit**
+- Arcane: **Play · Form party · Challenge**
+- Commons: **Meet · Invite · Attend**
+
+Use doors, porches, signs, props, lighting and silhouette before adding floating UI. Empty places
+may be quiet, but never fake populated: no fake users, chat, presence dots or invented Sessions.
+
+## Collision and walkability
+
+- Derive building colliders from the radial layout.
+- Preserve the open gate and all radial Plaza paths.
+- Keep the full ring traversable.
+- Test door thresholds and awnings with the real controller.
+- Do not place invisible barriers across obvious walkable surfaces.
+- Prevent access behind the world boundary without making the boundary visually surprising.
+- Keep the central sanctuary free of unnecessary colliders.
+- Validate the palisade collider matches its visible geometry and leaves the gate open.
+
+Required walkthrough:
+
+```text
+Spawn → Gate → Ring clockwise → Arcane → Culture → Market → Gate
+                 ↓
+              Plaza centre
+                 ↓
+Spawn ← Gate ← Ring counter-clockwise ← Forge ← Craft/Shelter
+```
+
+## Performance budget
+
+- Reuse CanvasTextures per facade/material variant.
+- Use instancing for repeated facade modules, lamps and vegetation where practical.
+- Shadow only hero buildings, avatars and meaningful landmarks.
+- Small props and repeated upper floors should not cast shadows.
+- Prefer emissive materials over many realtime lights.
+- Keep a small number of deliberate warm light pools.
+- Avoid new large GLBs until the existing CC0 set cannot express the silhouette.
+- Use deterministic, bounded vegetation density.
+- Keep the web projection usable when 3D or post-processing is disabled.
+- Treat 1280×720 and a modest desktop GPU as the minimum desktop case.
+
+## Build order
+
+1. Establish the correct centre, Plaza, ring radii and south entrance.
+2. Make one complete collision-tested lap possible.
+3. Fix the gate-to-centre composition.
+4. Place four unmistakable landmarks: Forge, Culture, Market and Arcane.
+5. Add Craft/Shelter supporting frontage.
+6. Connect stable place ids and simple interactables.
+7. Add signs, porches and street-level props.
+8. Add deterministic vegetation and restrained lighting.
+9. Optimize repeated geometry and shadows.
+10. Only then add facade micro-detail or more buildings.
+
+## Acceptance checklist
+
+- [ ] Player can complete the ring in both directions without obstruction.
+- [ ] Tree and rocket site dominate the centre and remain visible from the gate.
+- [ ] The centre contains no unrelated building, road or tall prop.
+- [ ] Every primary building faces the ring deliberately.
+- [ ] Forge, Culture, Market and Arcane are identifiable without a map.
+- [ ] Gate, radial paths, doors and Plaza are collider-safe.
+- [ ] Visuals and colliders consume the same layout data.
+- [ ] World layout is identical after repeated reloads/remounts.
+- [ ] No mounted/unmounted mismatch or stale street description remains.
+- [ ] No fake social proof is introduced.
+- [ ] No Guild/Nostr/wallet truth lives in scene components.
+- [ ] Existing CC0 credits and `WORLD PROXY` semantics remain intact.
+- [ ] 1280×720 has no canvas/UI overflow.
+- [ ] Biome, typecheck, tests and production build pass.
+
+Capture and inspect four final views:
+
+1. spawn/gate looking directly toward tree and rocket site;
+2. centre showing Plaza and surrounding ring;
+3. Forge Yard with the central symbols still orienting the player;
+4. Culture side looking across the ring toward Arcane.
+
+## Final rule
+
+```text
+The rocket is the future.
+The tree is time.
+The Plaza is community.
+Locktard Street is the culture that connects them.
+```
