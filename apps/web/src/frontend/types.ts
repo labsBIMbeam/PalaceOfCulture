@@ -1,6 +1,6 @@
 export type ScreenId = "title" | "map" | "home" | "workshop" | "pleb";
 
-export type EngineTarget = "hq" | "home";
+export type EngineTarget = "hq" | "home" | "street";
 
 // The player identity + avatar record lives in the shared schema (client + server speak it).
 export type { Character } from "@600b/shared";

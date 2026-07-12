@@ -44,6 +44,7 @@ import { GrowableObject } from "./GrowableObject";
 import { Palace } from "./Palace";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
+import { STREET_GROUND, STREET_SPAWN as STREET_SPAWN_POINT, StreetWorld } from "./StreetWorld";
 import { findImport, importUrl } from "./avatarImports";
 import { type PlacedItem, loadDecor, newUid, saveDecor } from "./decorStore";
 import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
@@ -82,12 +83,42 @@ const ORBIT_POSITION = new THREE.Vector3(150, 110, 150);
 // On the plaza just short of the asset shelf (RESERVED_CORNER ~[0,0,52]); the default camera looks
 // +z, so the tree + spaceship sit ahead in view on spawn. Tune freely with RESERVED_CORNER.
 const SPAWN: [number, number, number] = [PALACE_SPAWN.x, PALACE_SPAWN.y, PALACE_SPAWN.z];
+const STREET_SPAWN: [number, number, number] = STREET_SPAWN_POINT;
 
 // The private Home is its OWN empty map (godot home_world parity): cream ground, cream fog,
 // nothing but what you build. Palace assets never load here.
 const HOME_SPAWN: [number, number, number] = [6, 3, 24];
 const HOME_GROUND_SIZE = 128;
 const HOME_CREAM = "#efe6d2";
+
+// Per-world knobs (spawn, title, travel order/label) in one place, so adding a world is data, not
+// another scattered ternary. Travel cycles the worlds in WORLD_ORDER.
+const SPAWN_FOR: Record<EngineTarget, [number, number, number]> = {
+  hq: SPAWN,
+  home: HOME_SPAWN,
+  street: STREET_SPAWN,
+};
+const WORLD_TITLE: Record<EngineTarget, string> = {
+  hq: "Palace of Culture HQ",
+  home: "Home — your map",
+  street: "Werkstattgasse — the culture street",
+};
+const WORLD_ORDER: EngineTarget[] = ["hq", "street", "home"];
+const TRAVEL_LABEL: Record<EngineTarget, string> = {
+  hq: "Travel: Palace",
+  home: "Travel: Home",
+  street: "Travel: Street",
+};
+const WORLD_WALK_SUBTITLE: Record<EngineTarget, string> = {
+  hq: "public — walk the palace",
+  home: "private — your plot",
+  street: "public — the workshop street",
+};
+const WORLD_IDLE_SUBTITLE: Record<EngineTarget, string> = {
+  hq: "3D engine — global palace",
+  home: "3D engine — private plot",
+  street: "3D engine — workshop street",
+};
 /** How long the travel curtain stays down (world swap happens under it). */
 const TRAVEL_SWAP_MS = 300;
 const TRAVEL_TOTAL_MS = 1500;
@@ -655,9 +686,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // Cozy poses: walk up to a chair/bed and sit/sleep. The pose clip plays if present on the rig, else
   // idle (placeholder). The mechanic — snap to the piece, park the controller, posed camera — is real.
   const [posed, setPosed] = useState<Posed | null>(null);
-  const [standPos, setStandPos] = useState<[number, number, number]>(
-    target === "home" ? HOME_SPAWN : SPAWN,
-  );
+  const [standPos, setStandPos] = useState<[number, number, number]>(SPAWN_FOR[target]);
   const [nearPose, setNearPose] = useState<PosePoint | null>(null);
   const posedRef = useRef<Posed | null>(null);
   posedRef.current = posed;
@@ -788,19 +817,15 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const treeProgress = treeLock ? lockProgress(treeLock) : 0.4;
   const rocketProgress = rocketLock ? lockProgress(rocketLock) : 0.2;
 
-  const title = world === "hq" ? "Palace of Culture HQ" : "Home — your map";
+  const title = WORLD_TITLE[world];
   const subtitle =
     mode === "build"
       ? "build — magnet captured, blocks + crafted decor"
       : mode === "decorate"
         ? "decorate — walk up, aim, and place"
         : mode === "walk"
-          ? world === "hq"
-            ? "public — walk the palace"
-            : "private — your plot"
-          : world === "hq"
-            ? "3D engine — global palace"
-            : "3D engine — private plot";
+          ? WORLD_WALK_SUBTITLE[world]
+          : WORLD_IDLE_SUBTITLE[world];
   const toggleDecorate = () => {
     getUp();
     setMode((value) => (value === "decorate" ? "walk" : "decorate"));
@@ -829,9 +854,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // Travel: swap the world behind a short loading curtain — Home is its own empty map, so the
   // swap (unmount palace / mount ground) happens while the screen is covered.
   const [traveling, setTraveling] = useState<EngineTarget | null>(null);
+  const nextWorld: EngineTarget =
+    WORLD_ORDER[(WORLD_ORDER.indexOf(world) + 1) % WORLD_ORDER.length] ?? "hq";
   const travel = () => {
     if (traveling) return;
-    const next: EngineTarget = world === "home" ? "hq" : "home";
+    const next = nextWorld;
     setTraveling(next);
     setMode("walk");
     setBuilderSelected("");
@@ -840,7 +867,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     setPosed(null);
     window.setTimeout(() => {
       setWorld(next);
-      setStandPos(next === "home" ? HOME_SPAWN : SPAWN);
+      setStandPos(SPAWN_FOR[next]);
     }, TRAVEL_SWAP_MS);
     window.setTimeout(() => setTraveling(null), TRAVEL_TOTAL_MS);
   };
@@ -866,7 +893,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             shadow-camera-top={200}
             shadow-mapSize={[2048, 2048]}
           />
-          {world === "hq" ? <Atmosphere /> : null}
+          {world !== "home" ? <Atmosphere /> : null}
           {world === "home" ? (
             <>
               <color args={[HOME_CREAM]} attach="background" />
@@ -876,17 +903,23 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <Suspense fallback={null}>
             <Physics key={world} timeStep={1 / 60}>
               {world === "hq" ? <Palace /> : null}
+              {world === "street" ? <StreetWorld /> : null}
               {/* Invisible flat floor at the deck level (y=0): the palace trimesh has gaps/glass the
                   ecctrl ground ray misses, leaving the controller stuck in "fall" so it never walks.
                   A guaranteed ground plane keeps the player grounded across the whole plaza.
-                  The Home map gets its own (smaller) slab under the visible cream ground. */}
+                  The Home map gets its own (smaller) slab under the visible cream ground; the Street
+                  gets a long slab under its lane. */}
               <RigidBody type="fixed" colliders={false}>
                 {/* Thick (10 m) so the capsule can't tunnel through it on spawn/respawn. Top at y=0. */}
                 <CuboidCollider
                   args={
-                    world === "hq" ? [300, 5, 300] : [HOME_GROUND_SIZE / 2, 5, HOME_GROUND_SIZE / 2]
+                    world === "hq"
+                      ? [300, 5, 300]
+                      : world === "street"
+                        ? STREET_GROUND.half
+                        : [HOME_GROUND_SIZE / 2, 5, HOME_GROUND_SIZE / 2]
                   }
-                  position={[0, -5, 0]}
+                  position={world === "street" ? STREET_GROUND.center : [0, -5, 0]}
                 />
               </RigidBody>
               {world === "home" ? (
@@ -953,7 +986,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   onActive={setActiveInteract}
                   onNearPose={setNearPose}
                   poseables={poseables}
-                  spawn={world === "home" ? HOME_SPAWN : SPAWN}
+                  spawn={SPAWN_FOR[world]}
                 />
               ) : null}
             </Physics>
@@ -1053,7 +1086,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           {mode !== "decorate" && mode !== "build" ? (
             <button className="nav-pill nav-pill--engine" onClick={travel} type="button">
               <Icon name="globe" size={16} />
-              <span>{world === "home" ? "Travel: Palace" : "Travel: Home"}</span>
+              <span>{TRAVEL_LABEL[nextWorld]}</span>
             </button>
           ) : null}
         </div>
