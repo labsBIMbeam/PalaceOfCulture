@@ -14,6 +14,13 @@ const T = 0.2; // wall thickness
 const COL = 0.34; // column size
 const DOOR_W = 1.7; // door opening width
 
+/** Building depth — exported so door-side dressing can hug the front face. */
+export const BUILDING_DEPTH = D;
+/** Local x of the door centre for a `rooms`-wide building (the middle bay). */
+export function buildingDoorX(rooms: 1 | 2 | 3 | 4): number {
+  return (-rooms * BAY) / 2 + BAY * (Math.floor(rooms / 2) + 0.5);
+}
+
 /** Wall collider boxes for a `rooms`-wide building, in LOCAL space (half-extents + centre). Back +
  *  two sides + the two front segments beside the door — so you collide with the walls but can walk in
  *  through the door. Used by StreetColliders (visuals live outside <Physics>). */

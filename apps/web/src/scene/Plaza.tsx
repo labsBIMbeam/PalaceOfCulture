@@ -9,9 +9,11 @@
  */
 
 import { Suspense, useMemo } from "react";
-import { Building } from "./Building";
+import { BUILDING_DEPTH, Building, buildingDoorX } from "./Building";
+import { Embers } from "./Embers";
 import { GlbModel } from "./GlbModel";
 import { GrowableObject } from "./GrowableObject";
+import { Signpost } from "./Signpost";
 import { mulberry32 } from "./rand";
 
 /** Game-space centre of the round plaza (x, z). */
@@ -48,6 +50,78 @@ function benchPlacements(): { pos: [number, number, number]; rotY: number }[] {
   });
 }
 
+/** Two market stalls flanking the approach mouth (outside the clear centre walk-lane). */
+const STALL_DEGS = [243, 297];
+const STALL_R = 30;
+
+function stallPlacements(): { pos: [number, number, number]; rotY: number }[] {
+  const [cx, cz] = PLAZA_CENTRE;
+  return STALL_DEGS.map((d, i) => {
+    const a = (d * Math.PI) / 180;
+    const x = cx + Math.cos(a) * STALL_R;
+    const z = cz + Math.sin(a) * STALL_R;
+    return { pos: [x, 0, z], rotY: Math.atan2(cx - x, cz - z) + (i === 0 ? 0.15 : -0.2) };
+  });
+}
+
+/** One small prop beside every ring-building door (a lived-in threshold, never a bare front). */
+const DOOR_PROPS = ["barrel-1", "crate-1", "plant-1", "vase", "barrel-2", "crate-2"];
+const DOOR_PROP_FITS = [1.05, 0.9, 1.0, 0.7, 1.0, 0.9];
+
+function doorDressing(): {
+  pos: [number, number, number];
+  url: string;
+  fit: number;
+  rotY: number;
+}[] {
+  return plazaRing().map((b, i) => {
+    const lx = buildingDoorX(b.rooms) + 2.3;
+    const lz = BUILDING_DEPTH / 2 + 1.0;
+    const cos = Math.cos(b.rotY);
+    const sin = Math.sin(b.rotY);
+    return {
+      pos: [b.pos[0] + lx * cos + lz * sin, 0, b.pos[2] - lx * sin + lz * cos],
+      url: `/props/${DOOR_PROPS[i % DOOR_PROPS.length]}.glb`,
+      fit: DOOR_PROP_FITS[i % DOOR_PROP_FITS.length] ?? 0.9,
+      rotY: b.rotY + 0.4,
+    };
+  });
+}
+
+/** The fire bowl by the north benches — a warm gathering accent (emissive only, no extra light). */
+const FIRE_BOWL: [number, number] = [
+  PLAZA_CENTRE[0] + Math.cos((88 * Math.PI) / 180) * 19,
+  PLAZA_CENTRE[1] + Math.sin((88 * Math.PI) / 180) * 19,
+];
+
+function FireBowl() {
+  const [fx, fz] = FIRE_BOWL;
+  return (
+    <group position={[fx, 0, fz]}>
+      <mesh castShadow position={[0, 0.28, 0]} receiveShadow>
+        <cylinderGeometry args={[0.55, 0.4, 0.56, 10]} />
+        <meshStandardMaterial color="#7d7469" flatShading roughness={1} />
+      </mesh>
+      <mesh position={[0, 0.57, 0]} rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[0.42, 10]} />
+        <meshStandardMaterial
+          color="#ff8a3c"
+          emissive="#ff6a1e"
+          emissiveIntensity={2}
+          toneMapped={false}
+        />
+      </mesh>
+      {[0.5, -0.6].map((r) => (
+        <mesh castShadow key={r} position={[r * 0.5, 0.62, r * 0.3]} rotation-z={r}>
+          <cylinderGeometry args={[0.06, 0.06, 0.7, 5]} />
+          <meshStandardMaterial color="#3a2c1c" roughness={1} />
+        </mesh>
+      ))}
+      <Embers count={8} height={1.3} position={[0, 0.6, 0]} spread={0.22} />
+    </group>
+  );
+}
+
 /** Everything solid on the plaza floor — consumed by StreetColliders so visuals + collision line up. */
 export function plazaSolids(): SolidSpec[] {
   const [cx, cz] = PLAZA_CENTRE;
@@ -58,9 +132,17 @@ export function plazaSolids(): SolidSpec[] {
     { pos: [cx - 8, 0.7, cz + 3.9], half: [1.7, 0.7, 1.7] },
     // the plank stack (low — steppable, but not walk-through)
     { pos: [cx - 7, 0.25, cz - 1.8], half: [1.2, 0.25, 0.8] },
+    // the fire bowl by the north benches
+    { pos: [FIRE_BOWL[0], 0.3, FIRE_BOWL[1]], half: [0.6, 0.3, 0.6] },
   ];
   for (const b of benchPlacements()) {
     out.push({ pos: [b.pos[0], 0.35, b.pos[2]], half: [1.05, 0.35, 0.4], rotY: b.rotY });
+  }
+  for (const s of stallPlacements()) {
+    out.push({ pos: [s.pos[0], 1.0, s.pos[2]], half: [1.4, 1.0, 1.1], rotY: s.rotY });
+  }
+  for (const d of doorDressing()) {
+    out.push({ pos: [d.pos[0], 0.45, d.pos[2]], half: [0.45, 0.45, 0.45] });
   }
   return out;
 }
@@ -203,6 +285,8 @@ export function plazaRing(): Ringed[] {
 export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
   const ring = useMemo(plazaRing, []);
   const benches = useMemo(benchPlacements, []);
+  const stalls = useMemo(stallPlacements, []);
+  const dressing = useMemo(doorDressing, []);
 
   return (
     <group>
@@ -246,7 +330,36 @@ export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
           rotationY={-0.6}
           url="/props/well.glb"
         />
+        {/* two market stalls flanking the approach mouth */}
+        {stalls.map((s) => (
+          <GlbModel
+            fitHeight={2.4}
+            key={`stall-${s.pos[0].toFixed(1)}`}
+            position={s.pos}
+            rotationY={s.rotY}
+            url="/props/stall.glb"
+          />
+        ))}
+        {/* a small prop beside every door — lived-in thresholds */}
+        {dressing.map((d) => (
+          <GlbModel
+            fitHeight={d.fit}
+            key={`door-${d.pos[0].toFixed(1)},${d.pos[2].toFixed(1)}`}
+            position={d.pos}
+            rotationY={d.rotY}
+            url={d.url}
+          />
+        ))}
       </Suspense>
+      <FireBowl />
+      {/* waypost where the approach meets the plaza */}
+      <Signpost
+        boards={[
+          { text: "Build Site", angle: -1.95 },
+          { text: "Forge", angle: 2.4 },
+        ]}
+        position={[10, 0, 64]}
+      />
       {ring.map((b) => (
         <Building
           key={`${b.pos[0].toFixed(1)},${b.pos[2].toFixed(1)}`}

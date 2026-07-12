@@ -301,6 +301,128 @@ function Bushes({ points, seed }: { points: THREE.Vector3[]; seed: number }) {
   return <instancedMesh args={[geo, mat, points.length]} castShadow receiveShadow ref={ref} />;
 }
 
+/** Mushroom clusters ringing the hero trees (Zelda forest-floor detail): stems + caps, two
+ *  instanced draws. Deterministic ring offsets around the same shared tree positions. */
+function mushroomPoints(): { pos: THREE.Vector3; scale: number }[] {
+  const rnd = mulberry32(909);
+  const out: { pos: THREE.Vector3; scale: number }[] = [];
+  for (const [tx, tz] of heroTreePositions().slice(0, 10)) {
+    const n = 4 + Math.floor(rnd() * 4);
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2;
+      const r = 1.1 + rnd() * 1.3;
+      out.push({
+        pos: new THREE.Vector3(tx + Math.cos(a) * r, 0, tz + Math.sin(a) * r),
+        scale: 0.5 + rnd() * 0.9,
+      });
+    }
+  }
+  return out;
+}
+
+function Mushrooms() {
+  const stemRef = useRef<THREE.InstancedMesh>(null);
+  const capRef = useRef<THREE.InstancedMesh>(null);
+  const points = useMemo(mushroomPoints, []);
+  const stemGeo = useMemo(() => new THREE.CylinderGeometry(0.05, 0.07, 0.22, 5), []);
+  const capGeo = useMemo(() => new THREE.SphereGeometry(0.14, 7, 5, 0, Math.PI * 2, 0, 1.35), []);
+  const stemMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#d8cdb4", roughness: 1 }),
+    [],
+  );
+  const capMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.9 }),
+    [],
+  );
+  useLayoutEffect(() => {
+    const stem = stemRef.current;
+    const cap = capRef.current;
+    if (!stem || !cap) return;
+    const rnd = mulberry32(910);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const s = new THREE.Vector3();
+    const caps = ["#b5533c", "#a05a32", "#8a6f3c", "#b5533c", "#7a4a2c"];
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (!p) continue;
+      s.set(p.scale, p.scale, p.scale);
+      m.compose(new THREE.Vector3(p.pos.x, 0.11 * p.scale, p.pos.z), q, s);
+      stem.setMatrixAt(i, m);
+      m.compose(new THREE.Vector3(p.pos.x, 0.2 * p.scale, p.pos.z), q, s);
+      cap.setMatrixAt(i, m);
+      cap.setColorAt(i, new THREE.Color(caps[Math.floor(rnd() * caps.length)] ?? "#b5533c"));
+    }
+    stem.instanceMatrix.needsUpdate = true;
+    cap.instanceMatrix.needsUpdate = true;
+    if (cap.instanceColor) cap.instanceColor.needsUpdate = true;
+  }, [points]);
+  return (
+    <group>
+      <instancedMesh args={[stemGeo, stemMat, points.length]} ref={stemRef} />
+      <instancedMesh args={[capGeo, capMat, points.length]} castShadow ref={capRef} />
+    </group>
+  );
+}
+
+const FIREFLY_COUNT = 40;
+
+/** Dusk fireflies drifting over the grass: ONE instanced emissive mesh, seeded orbits around
+ *  scattered base points, soft blink via scale pulse. No light, no shadow — pure mood. */
+function Fireflies() {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const bases = useMemo(() => scatter(777, FIREFLY_COUNT, 1, 3).slice(0, FIREFLY_COUNT), []);
+  const orbits = useMemo(() => {
+    const rnd = mulberry32(778);
+    return bases.map(() => ({
+      r: 0.8 + rnd() * 2.2,
+      speed: 0.25 + rnd() * 0.5,
+      phase: rnd() * Math.PI * 2,
+      blink: 0.6 + rnd() * 1.2,
+    }));
+  }, [bases]);
+  const geo = useMemo(() => new THREE.SphereGeometry(0.05, 5, 4), []);
+  const mat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: "#ffe28a",
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    [],
+  );
+  const m = useMemo(() => new THREE.Matrix4(), []);
+  const q = useMemo(() => new THREE.Quaternion(), []);
+  const s = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ clock }) => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const t = clock.elapsedTime;
+    for (let i = 0; i < bases.length; i++) {
+      const b = bases[i];
+      const o = orbits[i];
+      if (!b || !o) continue;
+      const a = t * o.speed + o.phase;
+      const pulse = 0.55 + 0.45 * Math.sin(t * o.blink * 2 + o.phase * 3);
+      s.set(pulse, pulse, pulse);
+      m.compose(
+        new THREE.Vector3(
+          b.x + Math.cos(a) * o.r,
+          0.7 + Math.sin(a * 1.7 + o.phase) * 0.5 + 0.6,
+          b.z + Math.sin(a * 0.8) * o.r,
+        ),
+        q,
+        s,
+      );
+      mesh.setMatrixAt(i, m);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+  return <instancedMesh args={[geo, mat, bases.length]} frustumCulled={false} ref={ref} />;
+}
+
 const nature = (n: string) => `/nature/${n}.glb`;
 // nicer CC0 trees (Quaternius), cycled for variety, with a fitted height
 const TREE_KINDS: { name: string; fit: number }[] = [
@@ -313,10 +435,10 @@ const TREE_KINDS: { name: string; fit: number }[] = [
 ];
 
 export function Vegetation() {
-  const grass = useMemo(() => [...scatter(1337, 520, 16, 5.5), ...baseTufts()], []);
-  const flowers = useMemo(() => scatter(99, 90, 5, 4), []);
+  const grass = useMemo(() => [...scatter(1337, 560, 16, 5.5), ...baseTufts()], []);
+  const flowers = useMemo(() => scatter(99, 150, 5, 4), []);
   const rocks = useMemo(() => scatter(7, 55, 3, 6), []);
-  const bushes = useMemo(() => scatter(4242, 60, 2, 5), []);
+  const bushes = useMemo(() => scatter(4242, 70, 2, 5), []);
   const trees = useMemo(() => scatter(88, 18, 1, 2).slice(0, 16), []);
   const detail = useMemo(() => scatter(303, 30, 2, 7).slice(0, 30), []);
 
@@ -357,6 +479,8 @@ export function Vegetation() {
       />
       <Rocks points={rocks} seed={11} />
       <Bushes points={bushes} seed={23} />
+      <Mushrooms />
+      <Fireflies />
       {/* nicer GLB trees + nature detail (ferns, stumps, big rocks) near the camp */}
       <Suspense fallback={null}>
         {trees.map((p, i) => {

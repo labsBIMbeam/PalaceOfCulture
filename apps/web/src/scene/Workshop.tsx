@@ -9,9 +9,11 @@
 import { useFrame } from "@react-three/fiber";
 import { Suspense, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { Embers } from "./Embers";
 import { GlbModel } from "./GlbModel";
 import { LampPost } from "./LampPost";
 import type { SolidSpec } from "./Plaza";
+import { Signpost } from "./Signpost";
 
 const tool = (name: string) => `/tools/${name}.glb`;
 
@@ -188,6 +190,8 @@ function Forge() {
       </mesh>
       {/* ember light — the yard's warm pool (one of the few real lights) */}
       <pointLight color="#ff7a30" decay={2} distance={22} intensity={55} position={[1.4, 1.2, 0]} />
+      {/* sparks drifting up from the hearth mouth */}
+      <Embers count={10} height={1.6} position={[1.0, 0.9, 0]} spread={0.4} />
       <ChimneySmoke />
     </group>
   );
@@ -228,6 +232,13 @@ export function Workshop() {
       </group>
       {/* a lamp where the yard meets the street ring */}
       <LampPost position={[-29, 0, 87]} />
+      <Signpost
+        boards={[
+          { text: "Werkstatt", angle: Math.PI },
+          { text: "Plaza", angle: -0.5 },
+        ]}
+        position={[-27.5, 0, 90]}
+      />
     </group>
   );
 }
