@@ -9,44 +9,68 @@
 import { useFrame } from "@react-three/fiber";
 import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { FENCE, GATE_X } from "./Enclosure";
 import { GlbModel } from "./GlbModel";
-import { PLAZA_CENTRE, PLAZA_RADIUS } from "./Plaza";
+import { PLAZA_CENTRE, PLAZA_RADIUS, plazaRing } from "./Plaza";
+import { WORKSHOP_CENTRE } from "./Workshop";
+import { mulberry32 } from "./rand";
 
-/** Small deterministic PRNG so the scatter is stable across reloads. */
-function mulberry32(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+// The ring buildings + workshop yard, precomputed once — scatter must not grow through floors.
+const RING = plazaRing();
 
-/** Keep vegetation off the plaza, the approach path and the immediate camp centre. */
+/** Keep vegetation off the plaza, the approach path, the buildings and the workshop yard. */
 function blocked(x: number, z: number): boolean {
   const dPlaza = Math.hypot(x - PLAZA_CENTRE[0], z - PLAZA_CENTRE[1]);
   if (dPlaza < PLAZA_RADIUS + 3) return true; // plaza + a little breathing room
   if (Math.abs(x) < 8 && z > 8 && z < PLAZA_CENTRE[1] - PLAZA_RADIUS + 2) return true; // approach path
+  if (Math.abs(x) < GATE_X + 3 && z < 20) return true; // the gate threshold
+  for (const b of RING) {
+    if (Math.hypot(x - b.pos[0], z - b.pos[2]) < 8.5) return true; // inside a ring building
+  }
+  if (Math.hypot(x - WORKSHOP_CENTRE[0], z - WORKSHOP_CENTRE[1]) < 9) return true; // workshop yard
   return false;
 }
 
-/** Clumped scatter (patches of vegetation, not a uniform carpet) within the camp bounds. */
+/** Clumped scatter (patches of vegetation, not a uniform carpet) within the camp bounds — the
+ *  bounds derive from FENCE so compaction moves the living layer with the world's edge. */
 function scatter(seed: number, clumps: number, perClump: number, spread: number): THREE.Vector3[] {
   const rnd = mulberry32(seed);
   const out: THREE.Vector3[] = [];
+  const w = FENCE.x1 - FENCE.x0 + 12;
+  const d = FENCE.z1 - FENCE.z0 + 18;
   for (let i = 0; i < clumps; i++) {
-    const cx = -58 + rnd() * 116;
-    const cz = -8 + rnd() * 220;
+    const cx = FENCE.x0 - 6 + rnd() * w;
+    const cz = FENCE.z0 - 8 + rnd() * d;
     const n = 1 + Math.floor(rnd() * perClump);
     for (let j = 0; j < n; j++) {
       const x = cx + (rnd() - 0.5) * spread;
       const z = cz + (rnd() - 0.5) * spread;
-      if (Math.abs(x) > 62 || z < -10 || z > 232 || blocked(x, z)) continue;
+      if (
+        x < FENCE.x0 - 10 ||
+        x > FENCE.x1 + 10 ||
+        z < FENCE.z0 - 12 ||
+        z > FENCE.z1 + 16 ||
+        blocked(x, z)
+      )
+        continue;
       out.push(new THREE.Vector3(x, 0, z));
     }
   }
   return out;
+}
+
+/** Grass tufts hugging every ring-building base — softens the hard wall/ground seam. */
+function baseTufts(): THREE.Vector3[] {
+  const rnd = mulberry32(606);
+  const out: THREE.Vector3[] = [];
+  for (const b of RING) {
+    for (let i = 0; i < 12; i++) {
+      const a = rnd() * Math.PI * 2;
+      const r = 8.8 + rnd() * 1.6;
+      out.push(new THREE.Vector3(b.pos[0] + Math.cos(a) * r, 0, b.pos[2] + Math.sin(a) * r));
+    }
+  }
+  return out.filter((p) => !blocked(p.x, p.z));
 }
 
 /** The hero-tree positions (same deterministic scatter as the visuals) — for trunk colliders. */
@@ -104,21 +128,17 @@ function bladeTexture(kind: "grass" | "flower"): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   if (!x) return t;
   if (kind === "grass") {
+    const rnd = mulberry32(303);
     for (let i = 0; i < 7; i++) {
-      const bx = 6 + Math.random() * (S - 12);
+      const bx = 6 + rnd() * (S - 12);
       const g = x.createLinearGradient(bx, S, bx, S * 0.1);
       g.addColorStop(0, "#3f6a2e");
       g.addColorStop(1, "#7fb04a");
       x.strokeStyle = g;
-      x.lineWidth = 2 + Math.random() * 2;
+      x.lineWidth = 2 + rnd() * 2;
       x.beginPath();
       x.moveTo(bx, S);
-      x.quadraticCurveTo(
-        bx + (Math.random() - 0.5) * 14,
-        S * 0.5,
-        bx + (Math.random() - 0.5) * 20,
-        S * 0.08,
-      );
+      x.quadraticCurveTo(bx + (rnd() - 0.5) * 14, S * 0.5, bx + (rnd() - 0.5) * 20, S * 0.08);
       x.stroke();
     }
   } else {
@@ -293,7 +313,7 @@ const TREE_KINDS: { name: string; fit: number }[] = [
 ];
 
 export function Vegetation() {
-  const grass = useMemo(() => scatter(1337, 520, 16, 5.5), []);
+  const grass = useMemo(() => [...scatter(1337, 520, 16, 5.5), ...baseTufts()], []);
   const flowers = useMemo(() => scatter(99, 90, 5, 4), []);
   const rocks = useMemo(() => scatter(7, 55, 3, 6), []);
   const bushes = useMemo(() => scatter(4242, 60, 2, 5), []);

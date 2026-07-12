@@ -184,31 +184,28 @@ curation, wallet state or Session truth.
 
 ## Existing code — useful facts
 
-The current scene already contains a good radial base:
+The current scene already contains a good radial base (compacted in the 2026-07 verdichten pass):
 
-- `PLAZA_CENTRE = [0, 120]`;
+- `PLAZA_CENTRE = [0, 88]`;
 - `PLAZA_RADIUS = 24`;
-- `plazaRing()` places inward-facing buildings at radius `35`;
-- the south arc is intentionally open for the approach;
-- Plaza visuals and building colliders already consume the same `plazaRing()` result;
+- `plazaRing()` places six inward-facing buildings at radius `35` with seeded yaw jitter;
+- the south arc (≈270°±) is intentionally open for the approach;
+- the workshop yard (`WORKSHOP_CENTRE = [-35, 88]`, forge chimney) fills the west ring;
+- Plaza/Workshop visuals and all colliders consume the same shared data (`plazaRing()`,
+  `plazaSolids()`, `workshopSolids()`, `depotSolids()`, `YOUNG_TREE`, `FENCE`, `GATE_ARCH`);
 - `STREET_SPAWN = [0, 3, 30]`;
-- the gate sits near `z=14`;
-- the current enclosure spans `x=-52…52`, `z=2…188`, with an 11 m half-width gate opening.
+- the gate arch sits at `z=14` (`GATE_ARCH`), posts collidable;
+- the enclosure spans `x=-44…44`, `z=2…136`, with an 11 m half-width gate opening; the forest
+  band and vegetation bounds derive from `FENCE`;
+- all procedural textures/scatter are seeded (`scene/rand.ts`) — no `Math.random()` anywhere in
+  the street, so the world is identical across remounts;
+- street interactables (build site, young tree, forge, well) live in `scene/interactables.ts`,
+  filtered per world.
 
 Preserve the shared-layout habit. Extend it rather than adding a second hand-maintained position
-list.
-
-Current inconsistencies to resolve:
-
-1. `StreetFacades.tsx` still builds a linear facade row from approximately `z=46…212` and is not
-   mounted by `StreetWorld`.
-2. `StreetShops.tsx` is also present but not mounted.
-3. `StreetWorld` comments still describe elements it does not render.
-4. The old linear facades would extend beyond the current north enclosure.
-5. Procedural facade and ground textures use `Math.random()`, so remounts can change the world.
-
-Either adapt useful facade/shop pieces to the radial system or remove the stale path. Do not retain
-parallel linear and circular town layouts.
+list. The former inconsistencies (unmounted `StreetFacades`/`StreetShops`, stale comments,
+unseeded textures) were resolved in the verdichten pass — the radial layout is the only town
+layout.
 
 ## One radial layout source
 

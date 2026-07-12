@@ -1,21 +1,79 @@
 /**
  * Plaza — the heart of the Werkstattgasse BETA sandbox: a round civic plaza. The ROCKET is NOT built
- * yet — only the prepared site (a foundation marker) waits at the centre for the 21-year timelock. The
- * young TREE (a shorter timelock) is already growing beside it. Ringed by complex single-storey
- * walkable buildings (Building.tsx). See memory: street-is-beta-sandbox-plaza.
+ * yet — only the prepared site (a foundation ring staged with scaffolding, materials and a surveyor's
+ * tripod) waits at the centre for the 21-year timelock. The young TREE (a shorter timelock) is already
+ * growing beside it, tended with a stone ring. Benches + a well ring the space so it reads as a
+ * gathering place. Ringed by walkable single-storey buildings (Building.tsx). All placement data that
+ * needs collision is exported (plazaRing, PLAZA_SOLIDS, YOUNG_TREE) so StreetColliders stays in
+ * lockstep. See memory: street-is-beta-sandbox-plaza.
  */
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { Building } from "./Building";
+import { GlbModel } from "./GlbModel";
 import { GrowableObject } from "./GrowableObject";
+import { mulberry32 } from "./rand";
 
 /** Game-space centre of the round plaza (x, z). */
-export const PLAZA_CENTRE: [number, number] = [0, 120];
+export const PLAZA_CENTRE: [number, number] = [0, 88];
 export const PLAZA_RADIUS = 24;
+/** The young apple tree beside the prepared site (shared with its trunk collider + interactable). */
+export const YOUNG_TREE: [number, number] = [PLAZA_CENTRE[0] + 9, PLAZA_CENTRE[1] - 4];
+/** The well on the plaza's east rim (shared with its collider + interactable). */
+export const PLAZA_WELL: [number, number] = [
+  PLAZA_CENTRE[0] + Math.cos((40 * Math.PI) / 180) * 17,
+  PLAZA_CENTRE[1] + Math.sin((40 * Math.PI) / 180) * 17,
+];
 
-/** The prepared build site at the plaza centre: a low foundation ring + a surveyor's stake with a
- *  small flag — "here the rocket + Palace of Culture will rise", not built yet. */
+/** A solid prop the player should bump into: world position + half-extents (+ optional yaw). */
+export type SolidSpec = {
+  pos: [number, number, number];
+  half: [number, number, number];
+  rotY?: number;
+};
+
+const TIMBER = "#6b4a2e";
+
+/** Benches ringing the plaza, facing the centre (south arc left open for the approach). */
+const BENCH_DEGS = [335, 20, 65, 110, 155, 200];
+const BENCH_R = 21;
+
+function benchPlacements(): { pos: [number, number, number]; rotY: number }[] {
+  const [cx, cz] = PLAZA_CENTRE;
+  return BENCH_DEGS.map((d) => {
+    const a = (d * Math.PI) / 180;
+    const x = cx + Math.cos(a) * BENCH_R;
+    const z = cz + Math.sin(a) * BENCH_R;
+    return { pos: [x, 0, z], rotY: Math.atan2(cx - x, cz - z) };
+  });
+}
+
+/** Everything solid on the plaza floor — consumed by StreetColliders so visuals + collision line up. */
+export function plazaSolids(): SolidSpec[] {
+  const [cx, cz] = PLAZA_CENTRE;
+  const out: SolidSpec[] = [
+    // the well
+    { pos: [PLAZA_WELL[0], 0.9, PLAZA_WELL[1]], half: [1.0, 0.9, 1.0] },
+    // staged build materials west of the foundation (crates + barrel as one block)
+    { pos: [cx - 8, 0.7, cz + 3.9], half: [1.7, 0.7, 1.7] },
+    // the plank stack (low — steppable, but not walk-through)
+    { pos: [cx - 7, 0.25, cz - 1.8], half: [1.2, 0.25, 0.8] },
+  ];
+  for (const b of benchPlacements()) {
+    out.push({ pos: [b.pos[0], 0.35, b.pos[2]], half: [1.05, 0.35, 0.4], rotY: b.rotY });
+  }
+  return out;
+}
+
+/** The prepared build site at the plaza centre: a foundation ring + surveyor's stake, now visibly
+ *  STAGED — scaffold frame, stacked materials, a tripod — "the build is coming", not built yet. */
 function FoundationSite({ centre }: { centre: [number, number] }) {
+  const posts: [number, number][] = [
+    [6.6, 6.6],
+    [-6.6, 6.6],
+    [-6.6, -6.6],
+    [6.6, -6.6],
+  ];
   return (
     <group position={[centre[0], 0, centre[1]]}>
       <mesh position={[0, 0.15, 0]} receiveShadow>
@@ -35,6 +93,73 @@ function FoundationSite({ centre }: { centre: [number, number] }) {
         <boxGeometry args={[0.7, 0.4, 0.03]} />
         <meshStandardMaterial color="#e8563d" roughness={0.8} />
       </mesh>
+      {/* scaffold frame around the site — four posts + top beams (a build is being prepared) */}
+      {posts.map(([px, pz]) => (
+        <mesh castShadow key={`${px},${pz}`} position={[px, 1.7, pz]}>
+          <boxGeometry args={[0.18, 3.4, 0.18]} />
+          <meshStandardMaterial color={TIMBER} roughness={0.95} />
+        </mesh>
+      ))}
+      {posts.map(([px, pz], i) => {
+        const [nx, nz] = posts[(i + 1) % posts.length] ?? [px, pz];
+        const mx = (px + nx) / 2;
+        const mz = (pz + nz) / 2;
+        const alongX = Math.abs(px - nx) > Math.abs(pz - nz);
+        return (
+          <mesh castShadow key={`beam-${px},${pz}`} position={[mx, 3.3, mz]}>
+            <boxGeometry args={alongX ? [13.2, 0.14, 0.14] : [0.14, 0.14, 13.2]} />
+            <meshStandardMaterial color={TIMBER} roughness={0.95} />
+          </mesh>
+        );
+      })}
+      {/* surveyor's tripod on the approach side — the first thing an arriving player reads */}
+      <group position={[2.5, 0, -7.5]}>
+        {[0, 1, 2].map((i) => {
+          const a = (i / 3) * Math.PI * 2;
+          return (
+            <mesh
+              castShadow
+              key={a}
+              position={[Math.cos(a) * 0.4, 0.75, Math.sin(a) * 0.4]}
+              rotation={[Math.sin(a) * 0.42, 0, -Math.cos(a) * 0.42]}
+            >
+              <cylinderGeometry args={[0.035, 0.05, 1.6, 5]} />
+              <meshStandardMaterial color="#4a3722" roughness={0.9} />
+            </mesh>
+          );
+        })}
+        <mesh castShadow position={[0, 1.55, 0]}>
+          <boxGeometry args={[0.3, 0.22, 0.3]} />
+          <meshStandardMaterial color="#8a6f3c" metalness={0.4} roughness={0.5} />
+        </mesh>
+      </group>
+      {/* staged materials west of the ring: crates, a barrel, a plank stack */}
+      <Suspense fallback={null}>
+        <GlbModel
+          fitHeight={0.9}
+          position={[-7.5, 0, 3.2]}
+          rotationY={0.3}
+          url="/props/crate-1.glb"
+        />
+        <GlbModel
+          fitHeight={0.9}
+          position={[-8.8, 0, 4.6]}
+          rotationY={-0.5}
+          url="/props/crate-2.glb"
+        />
+        <GlbModel fitHeight={1.05} position={[-8.1, 0, 1.6]} url="/props/barrel-1.glb" />
+      </Suspense>
+      {[0, 1, 2].map((i) => (
+        <mesh
+          castShadow
+          key={`plank-${i}`}
+          position={[-7, 0.09 + i * 0.16, -1.8]}
+          rotation-y={i * 0.06}
+        >
+          <boxGeometry args={[2.2, 0.14, 1.4]} />
+          <meshStandardMaterial color="#9c7a4e" roughness={0.95} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -44,51 +169,90 @@ export type Ringed = {
   rotY: number;
   rooms: 1 | 2 | 3 | 4;
   wall: string;
+  roof: string;
 };
 
-/** The ring building placements (shared by the visuals and the colliders so they line up). */
+/** The ring building placements (shared by the visuals and the colliders so they line up).
+ *  Six fronts spread around the whole ring — only the south arc stays open for the approach —
+ *  with a seeded per-building yaw jitter so the row never reads machine-placed. */
 export function plazaRing(): Ringed[] {
   const [cx, cz] = PLAZA_CENTRE;
   const R = 35;
   const walls = ["#cbb083", "#c7a271", "#d0c0a0", "#c2ab86", "#cbb083", "#bfa47c"];
+  const roofs = ["#7a4a2c", "#6d4530", "#7f5433", "#71452a", "#7a4e36", "#684026"];
   const roomPlan: (1 | 2 | 3 | 4)[] = [2, 1, 3, 2, 4, 1];
-  const degs = [16, 62, 108, 300, 344]; // south arc (≈180±) kept open for the approach
+  const degs = [318, 350, 22, 58, 94, 130]; // south arc (≈270°±) kept open for the approach
+  const rnd = mulberry32(517);
   return degs.map((d, i) => {
     const a = (d * Math.PI) / 180;
     const x = cx + Math.cos(a) * R;
     const z = cz + Math.sin(a) * R;
-    const rotY = Math.atan2(cx - x, cz - z); // front (+z) faces the centre
+    const rotY = Math.atan2(cx - x, cz - z) + (rnd() - 0.5) * 0.12; // front faces centre, jittered
     return {
       pos: [x, 0, z],
       rotY,
       rooms: roomPlan[i] ?? 1,
       wall: walls[i % walls.length] ?? "#cbb083",
+      roof: roofs[i % roofs.length] ?? "#7a4a2c",
     };
   });
 }
 
-/** The whole plaza: the prepared site + the young tree beside it, ringed by complex buildings. */
+/** The whole plaza: the staged site + the tended young tree, benches + well on the rim, ringed by
+ *  walkable buildings. */
 export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
-  const [cx, cz] = PLAZA_CENTRE;
   const ring = useMemo(plazaRing, []);
+  const benches = useMemo(benchPlacements, []);
 
   return (
     <group>
       <FoundationSite centre={PLAZA_CENTRE} />
-      {/* the young tree — a shorter timelock, already growing beside the site */}
-      <group position={[cx + 9, 0, cz - 4]}>
+      {/* the young tree — a shorter timelock, already growing beside the site, visibly tended */}
+      <group position={[YOUNG_TREE[0], 0, YOUNG_TREE[1]]}>
         <GrowableObject
           fitHeight={8}
           glbUrl="/growables/apple-tree.glb"
           manifestUrl="/growables/apple-tree.growth.json"
           progress={treeProgress}
         />
+        {/* a ring of tending stones + a water bucket at its foot */}
+        {Array.from({ length: 8 }, (_, i) => {
+          const a = (i / 8) * Math.PI * 2;
+          return (
+            <mesh castShadow key={a} position={[Math.cos(a) * 1.7, 0.14, Math.sin(a) * 1.7]}>
+              <dodecahedronGeometry args={[0.24, 0]} />
+              <meshStandardMaterial color="#8b8577" flatShading roughness={1} />
+            </mesh>
+          );
+        })}
+        <Suspense fallback={null}>
+          <GlbModel fitHeight={0.42} position={[1.6, 0, 1.3]} url="/props/bucket.glb" />
+        </Suspense>
       </group>
+      {/* benches + the well on the rim — the plaza is a place to gather, not a bare disc */}
+      <Suspense fallback={null}>
+        {benches.map((b) => (
+          <GlbModel
+            fitHeight={0.85}
+            key={`${b.pos[0].toFixed(1)},${b.pos[2].toFixed(1)}`}
+            position={b.pos}
+            rotationY={b.rotY}
+            url="/props/bench.glb"
+          />
+        ))}
+        <GlbModel
+          fitHeight={2.1}
+          position={[PLAZA_WELL[0], 0, PLAZA_WELL[1]]}
+          rotationY={-0.6}
+          url="/props/well.glb"
+        />
+      </Suspense>
       {ring.map((b) => (
         <Building
           key={`${b.pos[0].toFixed(1)},${b.pos[2].toFixed(1)}`}
           lit="#ffcf87"
           position={b.pos}
+          roof={b.roof}
           rooms={b.rooms}
           rotationY={b.rotY}
           wall={b.wall}

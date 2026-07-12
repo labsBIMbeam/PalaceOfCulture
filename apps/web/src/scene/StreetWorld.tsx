@@ -1,19 +1,20 @@
 /**
- * Werkstattgasse — the Palace of Culture workshop street. A walkable demo world (PC): a cobbled lane
- * running out from the palace gate, lined with the tall Gründerzeit/cypherpunk Street facades
- * and walk-in shops (StreetShops), with open-air WORKSHOP STALLS along the centre — the crafts that feed
- * the economy (sawmill, kiln, weaver, forge, lantern-maker, print) — plus market props and warm evening
- * lantern light. Everything is primitives + procedural canvas textures, so it loads offline with no asset
- * fetch. Art is static, state is data: nothing here reads or writes game state; it is pure scenery.
+ * Werkstattgasse — the Palace of Culture workshop camp. A walkable beta world: a south gate arch, a
+ * short staged approach, and a round civic PLAZA (Plaza.tsx) whose centre births the rocket + Palace —
+ * ringed by walkable buildings, with the WORKSHOP yard (forge + chimney smoke) on the west ring. A
+ * palisade + forest band (Enclosure.tsx) holds it all close. Primitives + procedural canvas textures +
+ * a few CC0 GLB props. Art is static, state is data: nothing here reads or writes game state.
  */
 
 import { useGLTF } from "@react-three/drei";
-import { Component, type ReactNode, Suspense, useMemo } from "react";
+import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { Enclosure } from "./Enclosure";
-import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza } from "./Plaza";
+import { Enclosure, GATE_ARCH } from "./Enclosure";
+import { LampPost } from "./LampPost";
+import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza, type SolidSpec, YOUNG_TREE } from "./Plaza";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
+import { mulberry32 } from "./rand";
 
 /** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
  *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
@@ -28,15 +29,15 @@ class PropBoundary extends Component<{ children: ReactNode }, { failed: boolean 
 }
 
 export const STREET_SPAWN: [number, number, number] = [0, 3, 30];
-/** Half-extents + centre of the flat walk collider under the whole lane (z runs 0→256). */
+/** Half-extents + centre of the flat walk collider under the whole camp (covers the forest band). */
 export const STREET_GROUND: {
   half: [number, number, number];
   center: [number, number, number];
-} = { half: [70, 5, 150], center: [0, -5, 132] };
+} = { half: [72, 5, 92], center: [0, -5, 74] };
 
 /** Rustic packed-earth ground: warm dirt with soft patches of lighter/darker soil and scattered
  *  gravel — the tiling texture. The worn centre path is a separate overlay plane in the render (baking
- *  it here would tile into stripes). */
+ *  it here would tile into stripes). Seeded — the ground must not reroll on remount. */
 function dirtTexture(): THREE.CanvasTexture {
   const S = 256;
   const c = document.createElement("canvas");
@@ -45,6 +46,7 @@ function dirtTexture(): THREE.CanvasTexture {
   const x = c.getContext("2d");
   const fallback = new THREE.CanvasTexture(c);
   if (!x) return fallback;
+  const rnd = mulberry32(404);
   x.fillStyle = "#6b5843"; // warm earth base
   x.fillRect(0, 0, S, S);
   const patches = ["#5a4835", "#7a6650", "#4f4030", "#75604a"];
@@ -53,11 +55,11 @@ function dirtTexture(): THREE.CanvasTexture {
     x.fillStyle = patches[i % patches.length] ?? "#5a4835";
     x.beginPath();
     x.ellipse(
-      Math.random() * S,
-      Math.random() * S,
-      8 + Math.random() * 22,
-      (8 + Math.random() * 22) * 0.7,
-      Math.random() * Math.PI,
+      rnd() * S,
+      rnd() * S,
+      8 + rnd() * 22,
+      (8 + rnd() * 22) * 0.7,
+      rnd() * Math.PI,
       0,
       Math.PI * 2,
     );
@@ -65,22 +67,22 @@ function dirtTexture(): THREE.CanvasTexture {
   }
   x.globalAlpha = 1;
   for (let i = 0; i < 90; i++) {
-    const pr = 1 + Math.random() * 2.2;
-    x.fillStyle = Math.random() > 0.5 ? "#8a8074" : "#5c5346"; // gravel
+    const pr = 1 + rnd() * 2.2;
+    x.fillStyle = rnd() > 0.5 ? "#8a8074" : "#5c5346"; // gravel
     x.beginPath();
-    x.ellipse(Math.random() * S, Math.random() * S, pr, pr * 0.8, 0, 0, Math.PI * 2);
+    x.ellipse(rnd() * S, rnd() * S, pr, pr * 0.8, 0, 0, Math.PI * 2);
     x.fill();
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = THREE.RepeatWrapping;
   t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(20, 60);
+  t.repeat.set(18, 24);
   t.anisotropy = 4;
   return t;
 }
 
-/** A lighter worn-path texture for the centre lane overlay (dustier packed earth). */
+/** A lighter worn-path texture for the centre lane overlay (dustier packed earth). Seeded. */
 function pathTexture(): THREE.CanvasTexture {
   const S = 128;
   const c = document.createElement("canvas");
@@ -89,21 +91,14 @@ function pathTexture(): THREE.CanvasTexture {
   const x = c.getContext("2d");
   const fallback = new THREE.CanvasTexture(c);
   if (!x) return fallback;
+  const rnd = mulberry32(505);
   x.fillStyle = "#9a8468";
   x.fillRect(0, 0, S, S);
   for (let i = 0; i < 70; i++) {
     x.globalAlpha = 0.28;
-    x.fillStyle = Math.random() > 0.5 ? "#8a745a" : "#a89279";
+    x.fillStyle = rnd() > 0.5 ? "#8a745a" : "#a89279";
     x.beginPath();
-    x.ellipse(
-      Math.random() * S,
-      Math.random() * S,
-      4 + Math.random() * 12,
-      3 + Math.random() * 8,
-      0,
-      0,
-      Math.PI * 2,
-    );
+    x.ellipse(rnd() * S, rnd() * S, 4 + rnd() * 12, 3 + rnd() * 8, 0, 0, Math.PI * 2);
     x.fill();
   }
   x.globalAlpha = 1;
@@ -111,49 +106,27 @@ function pathTexture(): THREE.CanvasTexture {
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = THREE.RepeatWrapping;
   t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(4, 60);
+  t.repeat.set(4, 14);
   t.anisotropy = 4;
   return t;
 }
 
-/** A cast-iron lamppost with a warm glowing head (emissive only — real lights are rationed for perf). */
-function LampPost({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh castShadow position={[0, 2.1, 0]}>
-        <cylinderGeometry args={[0.09, 0.12, 4.2, 8]} />
-        <meshStandardMaterial color="#2a2e34" metalness={0.5} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 4.3, 0]}>
-        <boxGeometry args={[0.4, 0.5, 0.4]} />
-        <meshStandardMaterial
-          color="#ffdca0"
-          emissive="#ffca70"
-          emissiveIntensity={1.7}
-          toneMapped={false}
-        />
-      </mesh>
-    </group>
-  );
-}
-
 function GateArch() {
-  const H = 7;
-  const span = 18;
+  const { z, halfSpan, height: H, postHalf } = GATE_ARCH;
   return (
-    <group position={[0, 0, 14]}>
-      {[-span / 2, span / 2].map((px) => (
+    <group position={[0, 0, z]}>
+      {[-halfSpan, halfSpan].map((px) => (
         <mesh castShadow key={px} position={[px, H / 2, 0]} receiveShadow>
-          <boxGeometry args={[2, H, 2]} />
+          <boxGeometry args={[postHalf * 2, H, postHalf * 2]} />
           <meshStandardMaterial color="#d8cdb4" roughness={0.9} />
         </mesh>
       ))}
       <mesh castShadow position={[0, H + 0.6, 0]}>
-        <boxGeometry args={[span + 3, 1.6, 2.4]} />
+        <boxGeometry args={[halfSpan * 2 + 3, 1.6, 2.4]} />
         <meshStandardMaterial color="#cfc3a6" roughness={0.9} />
       </mesh>
       <mesh position={[0, H + 0.6, 1.25]}>
-        <boxGeometry args={[span - 2, 0.7, 0.1]} />
+        <boxGeometry args={[halfSpan * 2 - 2, 0.7, 0.1]} />
         <meshStandardMaterial
           color="#ffca70"
           emissive="#ffb347"
@@ -207,30 +180,122 @@ function Prop({
 type PropSpec = { name: string; pos: [number, number, number]; fit: number; rotY?: number };
 
 // The approach path runs from the gate to the plaza edge; the plaza is the round civic centre.
-const APPROACH_Z0 = 12;
+const APPROACH_Z0 = GATE_ARCH.z - 2;
 const APPROACH_Z1 = PLAZA_CENTRE[1] - PLAZA_RADIUS;
 const APPROACH_MID = (APPROACH_Z0 + APPROACH_Z1) / 2;
-// A little depot clutter beside the walkable shells (a beta staging camp).
+// Depot clutter hugging the approach edges (a beta staging camp) + a parked cart by the gate.
 const DEPOT: PropSpec[] = [
-  { name: "crate-1", pos: [-9, 0, 40], fit: 0.9 },
-  { name: "barrel-1", pos: [-11, 0, 42], fit: 1.1 },
-  { name: "sack", pos: [10, 0, 44], fit: 0.6 },
-  { name: "crate-2", pos: [11, 0, 46], fit: 0.9, rotY: 0.4 },
-  { name: "log", pos: [-13, 0, 92], fit: 0.6, rotY: 0.5 },
-  { name: "barrel-2", pos: [13, 0, 96], fit: 1.0 },
+  { name: "cart", pos: [-13, 0, 26], fit: 1.7, rotY: 0.4 },
+  { name: "crate-1", pos: [-8.5, 0, 38], fit: 0.9 },
+  { name: "barrel-1", pos: [-10, 0, 40.5], fit: 1.1 },
+  { name: "sack", pos: [9.5, 0, 43], fit: 0.6 },
+  { name: "crate-2", pos: [10.5, 0, 45], fit: 0.9, rotY: 0.4 },
+  { name: "log", pos: [-11, 0, 55], fit: 0.6, rotY: 0.5 },
+  { name: "barrel-2", pos: [11, 0, 57], fit: 1.0 },
 ];
-const DEPOT_LAMPS: [number, number][] = [
-  [-8, APPROACH_MID],
-  [8, APPROACH_MID],
-  [-8, APPROACH_Z1 - 4],
-  [8, APPROACH_Z1 - 4],
+/** Solid depot props (the cart) — consumed by StreetColliders. */
+export function depotSolids(): SolidSpec[] {
+  return [{ pos: [-13, 0.75, 26], half: [1.1, 0.75, 1.7], rotY: 0.4 }];
+}
+// Approach lamps, staggered L/R (asymmetric on purpose); both carry a real light pool.
+const APPROACH_LAMPS: [number, number][] = [
+  [-7.5, 44],
+  [7.5, 54],
 ];
 
-/** The Werkstattgasse beta sandbox: a round plaza whose centre births the rocket + Palace, an approach
- *  path from the gate, and walkable shells ringing the plaza (see Plaza.tsx). */
+// Lamp posts on the plaza rim; the garland strings hang between them. South stays open.
+const RIM_LAMP_DEGS = [330, 30, 90, 150, 210];
+const RIM_LAMP_R = PLAZA_RADIUS + 2;
+function rimLampPositions(): [number, number, number][] {
+  const [cx, cz] = PLAZA_CENTRE;
+  return RIM_LAMP_DEGS.map((d) => {
+    const a = (d * Math.PI) / 180;
+    return [cx + Math.cos(a) * RIM_LAMP_R, 0, cz + Math.sin(a) * RIM_LAMP_R];
+  });
+}
+
+const GARLAND_SEGS = 12; // cable segments per span
+const GARLAND_LANTERNS = 7; // lanterns per span
+const GARLAND_TOP = 4.32; // lamp-head height the cable hangs from
+const GARLAND_SAG = 1.15;
+
+/** Lantern strings between consecutive posts: ONE instanced cable mesh + ONE instanced emissive
+ *  lantern mesh for all spans (two draw calls). Static + deterministic. */
+function Garland({ posts }: { posts: [number, number, number][] }) {
+  const cableRef = useRef<THREE.InstancedMesh>(null);
+  const lanternRef = useRef<THREE.InstancedMesh>(null);
+  const spans = posts.length - 1;
+  const cableGeo = useMemo(() => new THREE.CylinderGeometry(0.022, 0.022, 1, 4), []);
+  const cableMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#2c2620", roughness: 0.9 }),
+    [],
+  );
+  const lanternGeo = useMemo(() => new THREE.BoxGeometry(0.18, 0.26, 0.18), []);
+  const lanternMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#ffdca0",
+        emissive: "#ffc26a",
+        emissiveIntensity: 1.6,
+        toneMapped: false,
+      }),
+    [],
+  );
+  useLayoutEffect(() => {
+    const cable = cableRef.current;
+    const lantern = lanternRef.current;
+    if (!cable || !lantern) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const s = new THREE.Vector3(1, 1, 1);
+    const up = new THREE.Vector3(0, 1, 0);
+    const dir = new THREE.Vector3();
+    const at = (a: [number, number, number], b: [number, number, number], t: number) =>
+      new THREE.Vector3(
+        a[0] + (b[0] - a[0]) * t,
+        GARLAND_TOP - Math.sin(Math.PI * t) * GARLAND_SAG,
+        a[2] + (b[2] - a[2]) * t,
+      );
+    for (let p = 0; p < spans; p++) {
+      const a = posts[p];
+      const b = posts[p + 1];
+      if (!a || !b) continue;
+      for (let k = 0; k < GARLAND_SEGS; k++) {
+        const p0 = at(a, b, k / GARLAND_SEGS);
+        const p1 = at(a, b, (k + 1) / GARLAND_SEGS);
+        dir.subVectors(p1, p0);
+        const len = dir.length();
+        q.setFromUnitVectors(up, dir.normalize());
+        s.set(1, len, 1);
+        m.compose(p0.add(p1).multiplyScalar(0.5), q, s);
+        cable.setMatrixAt(p * GARLAND_SEGS + k, m);
+      }
+      q.identity();
+      s.set(1, 1, 1);
+      for (let k = 0; k < GARLAND_LANTERNS; k++) {
+        const point = at(a, b, (k + 1) / (GARLAND_LANTERNS + 1));
+        point.y -= 0.16;
+        m.compose(point, q, s);
+        lantern.setMatrixAt(p * GARLAND_LANTERNS + k, m);
+      }
+    }
+    cable.instanceMatrix.needsUpdate = true;
+    lantern.instanceMatrix.needsUpdate = true;
+  }, [posts, spans]);
+  return (
+    <group>
+      <instancedMesh args={[cableGeo, cableMat, spans * GARLAND_SEGS]} ref={cableRef} />
+      <instancedMesh args={[lanternGeo, lanternMat, spans * GARLAND_LANTERNS]} ref={lanternRef} />
+    </group>
+  );
+}
+
+/** The Werkstattgasse beta sandbox: gate → staged approach → the round plaza that births the rocket
+ *  + Palace, workshop yard on the west ring, all held by the palisade + forest. */
 export function StreetWorld() {
   const dirt = useMemo(dirtTexture, []);
   const path = useMemo(pathTexture, []);
+  const rimLamps = useMemo(rimLampPositions, []);
   return (
     <group>
       {/* rustic packed-earth ground */}
@@ -250,7 +315,7 @@ export function StreetWorld() {
       {/* the approach path from the gate to the plaza */}
       <mesh position={[0, 0.03, APPROACH_MID]} receiveShadow rotation-x={-Math.PI / 2}>
         <planeGeometry args={[13, APPROACH_Z1 - APPROACH_Z0]} />
-        <meshStandardMaterial map={path} roughness={1} transparent opacity={0.9} />
+        <meshStandardMaterial map={path} opacity={0.9} roughness={1} transparent />
       </mesh>
 
       <GateArch />
@@ -261,18 +326,18 @@ export function StreetWorld() {
       {/* the living layer — Zelda-style grass, rocks, bushes, flowers & trees around the camp */}
       <Vegetation />
 
-      {/* work stations with real tools — this is a Werkstatt */}
+      {/* the workshop yard (forge, chimney smoke, stations) — the second focal point */}
       <PropBoundary>
         <Workshop />
       </PropBoundary>
 
-      {/* the plaza: prepared site + the young tree, ringed by walkable buildings */}
+      {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}
       <PropBoundary>
         <Plaza />
       </PropBoundary>
 
-      {/* warm lamps — the key light source at dusk (bright glow heads + real pools of light) */}
-      {DEPOT_LAMPS.map(([lx, lz]) => (
+      {/* approach lamps — the guiding light pools between gate and plaza */}
+      {APPROACH_LAMPS.map(([lx, lz]) => (
         <group key={`${lx},${lz}`}>
           <LampPost position={[lx, 0, lz]} />
           <pointLight
@@ -284,11 +349,40 @@ export function StreetWorld() {
           />
         </group>
       ))}
+      {/* plaza rim lamps + the lantern garland between them (emissive; two carry real light) */}
+      {rimLamps.map((p) => (
+        <LampPost key={`${p[0].toFixed(1)},${p[2].toFixed(1)}`} position={p} />
+      ))}
+      <Garland posts={rimLamps} />
+      {[rimLamps[2], rimLamps[4]].map((p) =>
+        p ? (
+          <pointLight
+            color="#ffc36a"
+            decay={2}
+            distance={24}
+            intensity={45}
+            key={`l-${p[0].toFixed(1)},${p[2].toFixed(1)}`}
+            position={[p[0], 4.4, p[2]]}
+          />
+        ) : null,
+      )}
       {/* a warm lantern glow over the plaza site + the young tree */}
-      <pointLight color="#ffb86a" decay={2} distance={40} intensity={70} position={[0, 6, 120]} />
-      <pointLight color="#ffcf87" decay={2} distance={22} intensity={30} position={[11, 4, 122]} />
+      <pointLight
+        color="#ffb86a"
+        decay={2}
+        distance={40}
+        intensity={70}
+        position={[PLAZA_CENTRE[0], 6, PLAZA_CENTRE[1]]}
+      />
+      <pointLight
+        color="#ffcf87"
+        decay={2}
+        distance={22}
+        intensity={30}
+        position={[YOUNG_TREE[0] + 1.5, 4, YOUNG_TREE[1] + 1]}
+      />
 
-      {/* beta-camp depot clutter beside the approach */}
+      {/* beta-camp depot clutter hugging the approach */}
       <PropBoundary>
         <Suspense fallback={null}>
           {DEPOT.map((p) => (

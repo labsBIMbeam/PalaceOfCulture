@@ -7,7 +7,8 @@
 > **Money buys style. Time builds legend.**
 
 > ⚠️ **This is the raw stone — the statue still has to be carved.**
-> Early proof-of-concept. A walkable multiplayer Palace HQ, signed ownership verifier, and
+> Playable pre-alpha. Three walkable worlds (Palace HQ, the Werkstattgasse street, your private
+> Home), multiplayer presence, growable timelock assets, a signed ownership verifier and an
 > append-only audit core run today; the end-to-end timelock flow and world-agent integration remain
 > scaffolding. Contributions welcome — see [Contributing](#contributing).
 
@@ -30,17 +31,24 @@ documentation package.
   protocols and domain packages are shared. See ADR 0007.
 
 Start with **[BUILD-BRIEF.md](BUILD-BRIEF.md)** and **[ADR 0001](docs/adr/0001-stack-and-runtime-topology.md)**
-(what runs where, in which language). The invariants are in [CLAUDE.md](CLAUDE.md).
+(what runs where, in which language); ADRs 0001–0008 cover realtime, avatars, media, voice, guild
+lenses and the desktop/mobile split. The invariants are in [CLAUDE.md](CLAUDE.md). World and
+feature handoffs live in [`docs/`](docs/) — e.g. [STREET-HANDOFF.md](docs/STREET-HANDOFF.md) (the
+street world), [HOME-TOWN.md](docs/HOME-TOWN.md), [GAME-LOOP.md](docs/GAME-LOOP.md) and
+[PALACE-CORE.md](docs/PALACE-CORE.md).
 
 ## Stack
 
 - **Client** (`apps/web`) — Three.js + react-three-fiber, `@pixiv/three-vrm` avatars + `ecctrl`,
-  GLTF/Draco/KTX2, data-driven instancing & LOD. TypeScript.
+  `@react-three/rapier` physics, GLTF/Draco/KTX2, data-driven instancing & LOD. TypeScript.
 - **Server** (`apps/server`) — Colyseus (authoritative movement) + Node HTTP API + SQLite audit core
   worker. SQLite → Postgres, append-only event log. TypeScript.
 - **Shared core** (`packages/*`) — event/asset-model types, the signed-hash-chain ownership engine,
   and the Blender→glTF asset pipeline.
 - **World-agent** (`services/world-agent`) — suggestion-only, isolated behind a queue/API. Python.
+- **Godot client** (`godot/`) — Godot 4.7 (typed GDScript, code-first scenes) exploring the 3D
+  social world / homebuilder as its own module; contract in
+  [`godot/ARCHITECTURE.md`](godot/ARCHITECTURE.md).
 
 ## Layout
 
@@ -55,8 +63,9 @@ Start with **[BUILD-BRIEF.md](BUILD-BRIEF.md)** and **[ADR 0001](docs/adr/0001-s
 │   └── assets-pipeline/      GLB/VRM cleanup → Draco/meshopt → LOD → hash → manifest (+ Blender)
 ├── services/
 │   └── world-agent/          suggestion-only world-agent             — Python, Tier 3
-├── docs/adr/                 architecture decision records
-├── infra/                    deployment topology (one app / one worker / one DB)
+├── godot/                    Godot 4.7 client module (homebuilder / 3D social) — GDScript
+├── docs/                     world + feature handoffs; docs/adr/ decision records
+├── infra/                    hosting + deployment topology (infra/HOSTING.md)
 └── viewers/                  drag-and-drop GLB/VRM budget viewer
 ```
 
@@ -81,15 +90,29 @@ Requires Node ≥ 20 and pnpm (`corepack enable`); the world-agent needs Python 
 
 ## Status
 
-Early proof-of-concept.
+Playable pre-alpha — one engine, three walkable worlds, in-engine **Travel** between them.
 
-- ✅ Monorepo scaffold; architecture decided (ADR 0001); asset/budget viewer.
-- ✅ A walkable 3D Palace HQ scene — the real Revit model, game-ified through the Blender pipeline
-  ([packages/assets-pipeline/HANDOFF.md](packages/assets-pipeline/HANDOFF.md)).
-- ✅ Frontend shell: intro → start flow → walkable doors (`ecctrl`).
-- ✅ Colyseus public-HQ presence with authoritative movement and collision-free player clustering.
+- ✅ Monorepo scaffold; architecture decided (ADRs 0001–0008); asset/budget viewer.
+- ✅ **Palace HQ** (public) — the real Revit model, game-ified through the Blender pipeline
+  ([packages/assets-pipeline/HANDOFF.md](packages/assets-pipeline/HANDOFF.md)); Colyseus presence
+  with authoritative movement, chat + voice scaffold, collision-free player markers.
+- ✅ **Werkstattgasse street** (public beta sandbox) — a compact dusk-lit workshop camp: a round
+  civic plaza whose staged foundation will birth the rocket + Palace, a growing apple tree, six
+  walkable buildings, a forge yard with chimney smoke, lantern garlands, palisade + forest edge.
+  Deterministic data-driven scenery; colliders derive from the same layout data
+  ([docs/STREET-HANDOFF.md](docs/STREET-HANDOFF.md)).
+- ✅ **Home** (private) — your own empty map: magnet block-builder (M), uncapped decoration, and
+  your timelocks living on the plot (21M tree, 21Y starship) — they grow purely by waiting.
+- ✅ Decorate mode (B) in every world (21-piece anti-spam cap in public), cozy poses (sit/sleep),
+  per-world interactables (E).
+- ✅ Growable timelock assets — growth manifests morph a GLB by lock progress; art is static,
+  state is data.
+- ✅ Frontend economy surfaces: Home, Culture (Wavlake / Podcasting 2.0 / Nostr discovery),
+  Politics ("Clown News" — the factual Citadel Wire feed, satire only via a future world agent),
+  Workshop and Pleb Market.
 - ✅ BIP340 signed ownership-chain verifier and SQLite append-only audit core (not yet wired to UI).
-- ⏳ Timelock adapters, authenticated commands, identity/seal UI, and world-agent integration.
+- ⏳ Timelock adapters (Boltz/LNbits), authenticated commands, identity/seal UI, and world-agent
+  integration.
 
 The first milestone is "tree first" — the playable MVP slice in `BUILD-BRIEF.md` §4/§6.
 
