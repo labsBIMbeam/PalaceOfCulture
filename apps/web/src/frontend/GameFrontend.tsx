@@ -29,6 +29,7 @@ import {
   markIntroSeen,
   shouldShowIntro,
 } from "./onboarding";
+import { type CitadelWireItem, POLITICS_CATEGORIES, type PoliticsCategory } from "./politics";
 import type {
   Character,
   EngineTarget,
@@ -506,7 +507,7 @@ function ScreenFrame({
         onToggleNav={onToggleNav}
       />
       {children}
-      {screen === "culture" ? null : screen === "home" ? (
+      {screen === "culture" || screen === "politics" ? null : screen === "home" ? (
         <CircleRail feed={feeds.home} friends={circleFriends} />
       ) : (
         <FeedRail feed={feeds[screen]} />
@@ -1390,6 +1391,154 @@ function CultureScreen() {
   );
 }
 
+function ClownNewsCard({ item, featured = false }: { item: CitadelWireItem; featured?: boolean }) {
+  return (
+    <article
+      className={`satire-card satire-card--${item.category}${featured ? " satire-card--featured" : ""}`}
+    >
+      <header>
+        <span>{item.publishedAt}</span>
+        <small>LIVE · CITADEL WIRE</small>
+      </header>
+      {item.marketLine ? <p className="wire-market-line">{item.marketLine}</p> : null}
+      <h2>{item.title}</h2>
+      <section className="clown-fact">
+        <small>Factual wire</small>
+        <p>{item.factualBody}</p>
+      </section>
+      <footer>
+        <span>{item.category}</span>
+        <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">
+          Open on Citadel Wire
+        </a>
+      </footer>
+    </article>
+  );
+}
+
+/** Politics starts as a read-only, deduplicated Citadel Wire surface. */
+function PoliticsScreen() {
+  const [category, setCategory] = useState<PoliticsCategory>("all");
+  const [items, setItems] = useState<CitadelWireItem[] | null>(null);
+  const [wireError, setWireError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void import("../net/clownNews").then(({ loadCitadelWireNews }) =>
+      loadCitadelWireNews().then(
+        (loaded) => {
+          if (active) setItems(loaded);
+        },
+        () => {
+          if (active) {
+            setItems([]);
+            setWireError(true);
+          }
+        },
+      ),
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visible =
+    category === "all" ? (items ?? []) : (items ?? []).filter((item) => item.category === category);
+  const [featured, ...rest] = visible;
+
+  return (
+    <section className="politics-layout">
+      <header className="politics-hero">
+        <div>
+          <span className="politics-edition">Citadel Wire · politics + memes</span>
+          <h1>Clown News</h1>
+          <p>For now: a clean live wire. The circus comes later.</p>
+        </div>
+        <div className="politics-warning">
+          <strong>LIVE FACTUAL WIRE</strong>
+          <span>Citadel Wire text, deduplicated and linked to source.</span>
+        </div>
+      </header>
+
+      <div aria-label="Wire topics" className="clown-ticker">
+        <span>FACTUAL SOURCE · CITADEL WIRE</span>
+        <span>GOVERNMENT</span>
+        <span>OPPOSITION</span>
+        <span>MARKETS</span>
+        <span>MEDIA</span>
+        <span>TECH</span>
+        <span>BITCOINERS TOO</span>
+      </div>
+
+      <div className="politics-workspace">
+        <main className="politics-feed">
+          <nav aria-label="Politics categories" className="politics-filters">
+            {POLITICS_CATEGORIES.map((option) => (
+              <button
+                aria-pressed={category === option.id}
+                className={
+                  category === option.id
+                    ? "politics-filter politics-filter--active"
+                    : "politics-filter"
+                }
+                key={option.id}
+                onClick={() => setCategory(option.id)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </nav>
+
+          {items === null ? <div className="wire-state">Reading Citadel Wire…</div> : null}
+          {wireError ? (
+            <div className="wire-state wire-state--error">
+              <strong>The live wire is temporarily unavailable.</strong>
+              <a href="https://citadelwire.com/" rel="noopener noreferrer" target="_blank">
+                Open Citadel Wire
+              </a>
+            </div>
+          ) : null}
+          {!wireError && items !== null && visible.length === 0 ? (
+            <div className="wire-state">No live items match this filter.</div>
+          ) : null}
+          {featured ? (
+            <>
+              <ClownNewsCard item={featured} featured />
+              <div className="satire-grid">
+                {rest.map((item) => (
+                  <ClownNewsCard item={item} key={item.id} />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </main>
+
+        <aside className="clown-charter">
+          <section>
+            <small>Source contract</small>
+            <h2>Facts stay facts.</h2>
+            <ol>
+              <li>Read only from the public Citadel Wire RSS feed.</li>
+              <li>Preserve publication time, title and factual body.</li>
+              <li>Deduplicate recurring stories across hourly digests.</li>
+              <li>Render text only and keep every source link visible.</li>
+            </ol>
+          </section>
+          <section className="clown-source-note">
+            <small>Live connection</small>
+            <strong>Citadel Wire RSS</strong>
+            <p>Up to sixteen current stories from the five newest wire editions.</p>
+            <a href="https://citadelwire.com/" rel="noopener noreferrer" target="_blank">
+              Visit source
+            </a>
+          </section>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
 /** The card thumbnail: the real product photo when the listing has one, else the category icon. */
 function MarketThumb({ item }: { item: MarketItem }) {
   const [showImage, setShowImage] = useState(Boolean(item.image));
@@ -1533,6 +1682,8 @@ function renderScreen(screen: ScreenId, props: ScreenProps) {
       return <HomeScreen {...props} />;
     case "culture":
       return <CultureScreen />;
+    case "politics":
+      return <PoliticsScreen />;
     case "workshop":
       return <WorkshopScreen />;
     case "pleb":
