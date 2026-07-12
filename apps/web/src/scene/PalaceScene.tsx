@@ -110,7 +110,7 @@ const WORLD_ORDER: EngineTarget[] = ["hq", "street", "home"];
 const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number }> = {
   hq: { color: "#c4d1db", near: 55, far: 470 },
   home: { color: HOME_CREAM, near: 30, far: 120 },
-  street: { color: "#d9c39c", near: 30, far: 300 },
+  street: { color: "#6a5a70", near: 30, far: 250 },
 };
 const TRAVEL_LABEL: Record<EngineTarget, string> = {
   hq: "Travel: Palace",
@@ -897,15 +897,15 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         >
           {/* Low flat fill so shadows + the warm key carry the contrast (Nordic-overcast look); the
               skybox IBL (SceneFx) supplies most of the soft ambient, so ambient/hemi stay gentle. */}
-          <ambientLight intensity={0.18} />
-          {/* golden-hour fill: warm sky above, deeper warm bounce below */}
-          <hemisphereLight args={["#e6d3b4", "#7a6248", 0.34]} />
-          {/* low, warm key light — golden hour: long soft shadows, amber colour */}
+          <ambientLight intensity={0.14} />
+          {/* dusk fill: cool violet sky above, dim warm bounce below */}
+          <hemisphereLight args={["#3f4a72", "#5a4530", 0.3]} />
+          {/* low, dim, warm key — the sun just set; lamps + glowing windows carry the scene */}
           <directionalLight
             castShadow
-            color="#ffbd6e"
-            intensity={3.2}
-            position={[210, 150, 90]}
+            color="#ff9a5a"
+            intensity={1.9}
+            position={[210, 90, 90]}
             shadow-bias={-0.0004}
             shadow-camera-bottom={-200}
             shadow-camera-far={1200}

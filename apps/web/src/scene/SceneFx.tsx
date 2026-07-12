@@ -19,9 +19,9 @@ import {
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
-/** An equirectangular golden-hour sky as a canvas gradient: zenith blue → warm horizon → ground haze,
- *  plus a soft warm sun glow near the horizon. Canvas top (v=1) is the zenith; the middle is the
- *  horizon line. Used as both background and IBL environment. */
+/** An equirectangular DUSK sky as a canvas gradient: deep indigo zenith → violet → a warm ember band
+ *  at the horizon where the sun just set, fading to a dark ground haze. Plus a low sunset glow. Canvas
+ *  top (v=1) is the zenith; the middle is the horizon. Used as both background and IBL environment. */
 function goldenSkyTexture(): THREE.CanvasTexture {
   const W = 1024;
   const H = 512;
@@ -31,19 +31,21 @@ function goldenSkyTexture(): THREE.CanvasTexture {
   const x = c.getContext("2d");
   if (!x) return new THREE.CanvasTexture(c);
   const g = x.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0.0, "#5b79a8"); // zenith blue
-  g.addColorStop(0.34, "#8ea6c6"); // upper sky
-  g.addColorStop(0.5, "#e6c69c"); // horizon — warm gold
-  g.addColorStop(0.58, "#d7a373"); // just below horizon
-  g.addColorStop(1.0, "#7c6552"); // ground haze (rarely seen behind terrain)
+  g.addColorStop(0.0, "#232a4d"); // zenith — deep dusk indigo
+  g.addColorStop(0.3, "#3a3a68"); // upper — violet
+  g.addColorStop(0.44, "#7a5a86"); // mauve band
+  g.addColorStop(0.5, "#e2895a"); // horizon — warm ember where the sun set
+  g.addColorStop(0.56, "#a85a44"); // just below — deep orange
+  g.addColorStop(1.0, "#2c2230"); // ground haze
   x.fillStyle = g;
   x.fillRect(0, 0, W, H);
-  // soft warm sun glow near the horizon on one side (the key-light direction)
+  // low sunset glow near the horizon on the key-light side
   const sx = W * 0.72;
-  const sy = H * 0.49;
-  const rg = x.createRadialGradient(sx, sy, 0, sx, sy, W * 0.3);
-  rg.addColorStop(0, "rgba(255,228,184,0.85)");
-  rg.addColorStop(1, "rgba(255,228,184,0)");
+  const sy = H * 0.5;
+  const rg = x.createRadialGradient(sx, sy, 0, sx, sy, W * 0.34);
+  rg.addColorStop(0, "rgba(255,180,110,0.8)");
+  rg.addColorStop(0.5, "rgba(230,120,90,0.3)");
+  rg.addColorStop(1, "rgba(230,120,90,0)");
   x.fillStyle = rg;
   x.fillRect(0, 0, W, H);
   const t = new THREE.CanvasTexture(c);
@@ -63,7 +65,8 @@ function Skybox() {
     const prevIntensity = scene.environmentIntensity;
     scene.background = texture;
     scene.environment = texture;
-    scene.environmentIntensity = 0.6;
+    // dimmer at dusk — the warm point lights (lamps, glowing windows, campfire) carry the scene
+    scene.environmentIntensity = 0.38;
     return () => {
       scene.background = prevBg;
       scene.environment = prevEnv;

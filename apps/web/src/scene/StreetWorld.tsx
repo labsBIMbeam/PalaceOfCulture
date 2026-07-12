@@ -10,6 +10,7 @@
 import { useGLTF } from "@react-three/drei";
 import { Component, type ReactNode, Suspense, useMemo } from "react";
 import * as THREE from "three";
+import { Enclosure } from "./Enclosure";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza } from "./Plaza";
 import { Vegetation } from "./Vegetation";
 
@@ -253,29 +254,33 @@ export function StreetWorld() {
 
       <GateArch />
 
+      {/* the world's edge — a palisade fence + a dense forest band enclosing the camp */}
+      <Enclosure />
+
       {/* the living layer — Zelda-style grass, rocks, bushes, flowers & trees around the camp */}
       <Vegetation />
 
-      {/* the plaza: rocket + palace construction at the centre, ringed by walkable shells */}
+      {/* the plaza: prepared site + the young tree, ringed by walkable buildings */}
       <PropBoundary>
         <Plaza />
       </PropBoundary>
 
-      {/* warm lamps lighting the approach into the plaza */}
-      {DEPOT_LAMPS.map(([lx, lz], i) => (
+      {/* warm lamps — the key light source at dusk (bright glow heads + real pools of light) */}
+      {DEPOT_LAMPS.map(([lx, lz]) => (
         <group key={`${lx},${lz}`}>
           <LampPost position={[lx, 0, lz]} />
-          {i % 2 === 0 ? (
-            <pointLight
-              color="#ffcf87"
-              decay={2}
-              distance={30}
-              intensity={34}
-              position={[lx, 5, lz]}
-            />
-          ) : null}
+          <pointLight
+            color="#ffc36a"
+            decay={2}
+            distance={26}
+            intensity={60}
+            position={[lx, 4.4, lz]}
+          />
         </group>
       ))}
+      {/* a warm lantern glow over the plaza site + the young tree */}
+      <pointLight color="#ffb86a" decay={2} distance={40} intensity={70} position={[0, 6, 120]} />
+      <pointLight color="#ffcf87" decay={2} distance={22} intensity={30} position={[11, 4, 122]} />
 
       {/* beta-camp depot clutter beside the approach */}
       <PropBoundary>
