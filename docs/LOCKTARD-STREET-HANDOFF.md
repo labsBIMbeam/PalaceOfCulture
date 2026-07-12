@@ -15,6 +15,25 @@ The player enters from the south, immediately sees the centre and may walk eithe
 the whole city. Web and world will later project the same guilds, Activities, Sessions and places;
 this scene establishes their spatial grammar without owning their business state.
 
+## Current implementation snapshot
+
+Updated after commit `a979a1c` (`feat: add citadel wire politics page`). The handoff remains the
+spatial target, while these shipped web facts now constrain the world projection:
+
+- the main web menu contains `Home`, `Culture`, `Politics`, `Workshop` and `Pleb Market`;
+- `Culture` uses curated Wavlake, Podcasting 2.0 and Nostr discovery surfaces;
+- `Politics` is branded **Clown News**, but currently renders factual content only;
+- Politics reads the public [Citadel Wire RSS feed](https://citadelwire.com/feed.xml), extracts text,
+  limits input size, deduplicates recurring headlines and keeps source links visible;
+- no demo headline, fake social proof or browser-generated satire is shown;
+- the future `Clownfaktor:` contract is commented at the `WORLD AGENT EXTENSION POINT` in
+  `apps/web/src/net/clownNews.ts`; only a separate world agent may implement it.
+
+The current browser adapter is a demo acquisition layer, not permanent world truth. Before Politics
+appears in the 3D engine, normalize accepted wire items into Palace Core records so web and world
+project the same id and source fields. The scene must never fetch, rewrite or independently classify
+news.
+
 ## Top-down plan
 
 ```text
@@ -56,6 +75,18 @@ this scene establishes their spatial grammar without owning their business state
 
 The drawing communicates hierarchy, not exact scale. The centre must remain visually dominant.
 Buildings frame it; they do not form an opaque wall around it.
+
+Politics is a civic surface rather than a mandatory guild quarter. Add a small inward-facing wire
+board between the Commons, Culture and Market routes:
+
+```text
+INNER PLAZA  ->  CITADEL WIRE BOARD  ->  CULTURE / MARKET
+                     facts only
+               future agent layer beside it
+```
+
+This is a board, notice wall or town crier station—not another landmark competing with the tree and
+rocket site.
 
 ## Visual recipe
 
@@ -125,6 +156,7 @@ All primary entrances face the ring. Recommended distribution:
 | West / north-west | Craft Lodge and Shelter Hall | materials, joinery, building and repair |
 | North | Arcane Portal | strongest technical silhouette; action on demand |
 | East / north-east | Culture Library and Listening Stage | music, podcasts, reading and performance |
+| East / south-east inner edge | Citadel Wire Board | factual politics wire; future satire shown separately |
 | South-east | Market and Inn | trading, hospitality and low-friction social arrival |
 
 Use stable spatial ids from the beginning:
@@ -135,6 +167,7 @@ place:guild:forge
 place:guild:craft
 place:guild:shelter
 place:guild:culture
+place:commons:citadel-wire
 place:market:ring
 place:arcade:portal
 ```
@@ -236,10 +269,43 @@ Street-level design must communicate verbs:
 - Culture: **Listen · Read · Perform**
 - Market: **Browse · Trade · Exhibit**
 - Arcane: **Play · Form party · Challenge**
+- Politics: **Read · Verify** (add **Satirize** only after the world agent exists)
 - Commons: **Meet · Invite · Attend**
 
 Use doors, porches, signs, props, lighting and silhouette before adding floating UI. Empty places
 may be quiet, but never fake populated: no fake users, chat, presence dots or invented Sessions.
+
+## Politics / Clown News projection
+
+The visual joke is the town crier and clown framing; the data remains factual until the separate
+agent layer exists.
+
+Current factual fields:
+
+```text
+publishedAt
+marketLine?
+title
+factualBody
+sourceUrl
+category
+```
+
+Projection rules:
+
+1. Preserve date, title, factual body and Citadel Wire link exactly as accepted by the source
+   adapter.
+2. Render provider content as text, never provider HTML.
+3. Show an honest empty/unavailable board when the live source cannot be read.
+4. Guilds may later curate the canonical item through Palace Core; they do not copy or alter it.
+5. Do not display a `Clownfaktor:` placeholder, canned joke, score or clown meter.
+6. A future world agent may append one fresh satire record referencing the factual item id. That
+   record is adjacent presentation, never a mutation of the factual record.
+7. Web cards, world boards and later VR views must resolve to the same canonical source item.
+
+Suggested visual treatment: parchment headline strips, a brass wire terminal, a small jester bell
+and a clear source seal. Keep the cyber layer functional and restrained. The board may be funny;
+the provenance must be obvious.
 
 ## Collision and walkability
 
@@ -300,6 +366,10 @@ Spawn ← Gate ← Ring counter-clockwise ← Forge ← Craft/Shelter
 - [ ] World layout is identical after repeated reloads/remounts.
 - [ ] No mounted/unmounted mismatch or stale street description remains.
 - [ ] No fake social proof is introduced.
+- [ ] The Citadel Wire Board shows factual source fields or an honest unavailable state.
+- [ ] Source time and link remain visible in both web and world projections.
+- [ ] No `Clownfaktor:` appears before a separate world agent is connected.
+- [ ] Future satire is stored and rendered beside the factual record, never inside it.
 - [ ] No Guild/Nostr/wallet truth lives in scene components.
 - [ ] Existing CC0 credits and `WORLD PROXY` semantics remain intact.
 - [ ] 1280×720 has no canvas/UI overflow.
@@ -311,6 +381,7 @@ Capture and inspect four final views:
 2. centre showing Plaza and surrounding ring;
 3. Forge Yard with the central symbols still orienting the player;
 4. Culture side looking across the ring toward Arcane.
+5. Citadel Wire Board showing its relationship to Plaza, Culture and Market.
 
 ## Final rule
 
