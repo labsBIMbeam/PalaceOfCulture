@@ -1,0 +1,15 @@
+[
+  { "id": "iMNqRzPwwe", "as": "chair-a" },
+  { "id": "Rlyhe93NNe", "as": "chair-b" },
+  { "id": "UfKvrZBK6C", "as": "chair-office" },
+  { "id": "rAEBvfb1FT", "as": "table-a" },
+  { "id": "oEArSZykyi", "as": "table-round" },
+  { "id": "V86Go2rlnq", "as": "desk" },
+  { "id": "auXnXwXD7S", "as": "lamp-table" },
+  { "id": "9L6lLUl9sD", "as": "lamp-stand" },
+  { "id": "uJDWrSJGVH", "as": "lamp-desk" },
+  { "id": "suqpa3jKWg", "as": "tool-saw" },
+  { "id": "UIXvQ73DS1", "as": "tool-hammer" },
+  { "id": "oNBQSf87ZJ", "as": "tool-shovel" },
+  { "id": "FkzZ6I1zjT", "as": "tool-axe" }
+]

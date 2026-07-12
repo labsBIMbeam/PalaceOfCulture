@@ -37,6 +37,26 @@ apps/web/public/furniture/*.glb
 # Street building assets (CC-BY/CC0 GLBs) — fetched/dropped in; keep CREDITS.md
 apps/web/public/buildings/*.glb
 
+# Street props (CC0 Kenney/Quaternius GLBs) — fetched/dropped in; keep CREDITS.md
+apps/web/public/props/*.glb
+apps/web/public/props/_manifest.json
+
+# Modular house kit (CC0 Kenney City/House kit GLBs) — fetched/dropped in; keep CREDITS.md
+apps/web/public/housekit/*.glb
+apps/web/public/housekit/_manifest.json
+
+# Village buildings (CC0 Quaternius fantasy-town + Kenney tech GLBs) — fetched/dropped in; keep CREDITS.md
+apps/web/public/village/*.glb
+apps/web/public/village/_manifest.json
+
+# Workshop tools (CC0 Kenney/CreativeTrio/Quaternius GLBs) — fetched/dropped in
+apps/web/public/tools/*.glb
+apps/web/public/tools/_manifest.json
+
+# Nature — trees/bushes/rocks/ferns (CC0 Quaternius GLBs) — fetched/dropped in
+apps/web/public/nature/*.glb
+apps/web/public/nature/_manifest.json
+
 # Sky HDRI (CC0 Poly Haven puresky) — fetched/dropped in, never committed
 apps/web/public/sky/
 
@@ -49,3 +69,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Godot web build synced into the site (artifact — rebuild via pnpm game:sync)
+apps/web/public/game/

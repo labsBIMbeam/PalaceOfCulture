@@ -1,5 +1,5 @@
 /**
- * Locktard Street — the avenue running out from the palace, lined both sides with buildings. Style:
+ * Street facades — the avenue running out from the palace, lined both sides with buildings. Style:
  * Viennese Gründerzeit (5–6 storeys, stucco facades, mansard roofs) crossed with a Western-town ground
  * floor (rusticated base, big shop fronts) and a cypherpunk streak (neon shopfronts + lit windows).
  * Built from primitives with procedural facade textures (window grid baked into the map + a matching
@@ -201,7 +201,7 @@ function Building({
 }
 
 /** The street lined both sides — open centre lane along z (the palace → tree → rocket axis at x=0). */
-export function LocktardStreet() {
+export function StreetFacades() {
   const skins = useMemo(() => VARIANTS.map(facade), []);
   const buildings = useMemo(() => {
     const lane = B_W / 2 + 15; // facade row offset — set back so the walk-in shops sit in front

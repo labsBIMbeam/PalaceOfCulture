@@ -16,9 +16,11 @@ import mathutils
 
 def _args() -> tuple[str, str]:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     if len(rest) < 2:
-        raise SystemExit("usage: blender -b --python inspect_fbx.py -- <in.fbx> <out.json>")
+        raise SystemExit(
+            "usage: blender -b --python inspect_fbx.py -- <in.fbx> <out.json>"
+        )
     return rest[0], rest[1]
 
 
@@ -40,10 +42,24 @@ def main() -> None:
 
     ext = fbx_path.lower().rsplit(".", 1)[-1]
     if ext == "fbx":
-        _enable("fbx", ("io_scene_fbx", "bl_ext.blender_org.io_scene_fbx", "bl_ext.system.io_scene_fbx"))
+        _enable(
+            "fbx",
+            (
+                "io_scene_fbx",
+                "bl_ext.blender_org.io_scene_fbx",
+                "bl_ext.system.io_scene_fbx",
+            ),
+        )
         bpy.ops.import_scene.fbx(filepath=fbx_path)
     elif ext in ("glb", "gltf"):
-        _enable("gltf", ("io_scene_gltf2", "bl_ext.blender_org.io_scene_gltf2", "bl_ext.system.io_scene_gltf2"))
+        _enable(
+            "gltf",
+            (
+                "io_scene_gltf2",
+                "bl_ext.blender_org.io_scene_gltf2",
+                "bl_ext.system.io_scene_gltf2",
+            ),
+        )
         bpy.ops.import_scene.gltf(filepath=fbx_path)
     else:
         raise SystemExit("unsupported format: " + ext)

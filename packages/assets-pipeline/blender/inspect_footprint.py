@@ -11,7 +11,7 @@ from mathutils import Vector
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src = rest[0]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -40,11 +40,17 @@ def main() -> None:
         rows.append((max(sx, sy), sx, sy, sz, min(zs), max(zs), o.name))
 
     rows.sort(reverse=True)
-    print(f"OVERALL bbox min={[round(v, 1) for v in gmin]} max={[round(v, 1) for v in gmax]}")
-    print(f"building-ish span guess: X={round(gmax[0] - gmin[0])} Y={round(gmax[1] - gmin[1])}")
+    print(
+        f"OVERALL bbox min={[round(v, 1) for v in gmin]} max={[round(v, 1) for v in gmax]}"
+    )
+    print(
+        f"building-ish span guess: X={round(gmax[0] - gmin[0])} Y={round(gmax[1] - gmin[1])}"
+    )
     print("--- largest XY-footprint meshes ---")
     for span, sx, sy, sz, z0, z1, name in rows[:28]:
-        print(f"  span={span:7.1f}  dims=[{sx:6.1f},{sy:6.1f},{sz:6.1f}]  z=[{z0:7.1f},{z1:7.1f}]  {name[:46]}")
+        print(
+            f"  span={span:7.1f}  dims=[{sx:6.1f},{sy:6.1f},{sz:6.1f}]  z=[{z0:7.1f},{z1:7.1f}]  {name[:46]}"
+        )
 
 
 if __name__ == "__main__":

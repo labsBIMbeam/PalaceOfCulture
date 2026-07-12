@@ -1,0 +1,17 @@
+[
+  { "id": "N8d0nkQGOn", "as": "wall" },
+  { "id": "srKpJQaMcU", "as": "wall-low" },
+  { "id": "qivZBDjfUM", "as": "wall-window" },
+  { "id": "qq4Gsg5gCP", "as": "wall-window-round" },
+  { "id": "8PcjloG3fl", "as": "wall-doorway" },
+  { "id": "ayuahL6pe3", "as": "wall-corner" },
+  { "id": "lnL3jmd4sV", "as": "wall-corner-round" },
+  { "id": "NjrIKzZLYv", "as": "door" },
+  { "id": "ZIueKgYj4i", "as": "door-front" },
+  { "id": "FW820t0WM4", "as": "floor" },
+  { "id": "3p7TC7xVGC", "as": "floor-wood" },
+  { "id": "knGVbMS5SV", "as": "roof-center" },
+  { "id": "neSzafasdB", "as": "roof-corner" },
+  { "id": "LsKKZRC8Gt", "as": "roof-side" },
+  { "id": "8bxM26uxjH", "as": "roof-structure" }
+]

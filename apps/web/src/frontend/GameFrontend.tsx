@@ -1,43 +1,35 @@
 import type { FeatureCollection } from "geojson";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { GeoJSON, MapContainer, ZoomControl, useMap, useMapEvents } from "react-leaflet";
+import { MATERIALS } from "../builder/catalog";
+import { useEconomy } from "../builder/economy";
 import { createCharacterStore } from "../character/store";
+import { DEMO_WRITES_ENABLED, REAL_PAYMENTS_ENABLED } from "../config/safety";
 import { ENTITY_NPUBS } from "../identity/entities";
-import { demoNpub, getOrCreateDemoSigner } from "../identity/keyStore";
-import { type Article, loadArticles } from "../net/articles";
-import { loadPlebListings } from "../net/market";
-import { RELAYS, setSigner } from "../net/nostr";
-import {
-  type FeedNote,
-  type FeedTab,
-  PRESET_TABS,
-  customTab,
-  loadFeedNotes,
-  localNote,
-  publishNote,
-  repostNote,
-} from "../net/social";
-import { PalaceScene } from "../scene/PalaceScene";
-import { MemberSelect } from "../ui/MemberSelect";
+import type { Article } from "../net/articles";
+import { RELAYS } from "../net/nostrConfig";
+import { type FeedNote, type FeedTab, PRESET_TABS, customTab, localNote } from "../net/socialModel";
+import { CultureDirectory } from "../ui/CultureDirectory";
+import { MediaPlayer } from "../ui/MediaPlayer";
+import { WorkshopPanel } from "../ui/WorkshopPanel";
 import { GrowthSprite } from "./GrowthSprite";
 import { IntroScreen } from "./IntroScreen";
-import { LevelBuildHandoff } from "./LevelBuildHandoff";
 import { StartScreen } from "./StartScreen";
-import {
-  circleFriends,
-  feeds,
-  navItems,
-  styleDrops,
-  timelockTiers,
-  timelocks,
-  worldAssets,
-} from "./data";
+import { circleFriends, feeds, navItems, styleDrops, timelocks, worldAssets } from "./data";
 import { loadTabs, saveTabs } from "./feedTabs";
 import { growthStage, kindForTier } from "./growth";
 import { Icon } from "./icons";
+import { type MapSearchLocation, findMapLocation } from "./mapSearch";
+import {
+  characterPersistenceEnabled,
+  getBrowserIntroStorage,
+  markIntroSeen,
+  shouldShowIntro,
+} from "./onboarding";
+import { type CitadelWireItem, POLITICS_CATEGORIES, type PoliticsCategory } from "./politics";
 import type {
   Character,
   EngineTarget,
@@ -50,6 +42,16 @@ import type {
   Timelock,
 } from "./types";
 import "./frontend.css";
+
+const LazyMemberSelect = lazy(async () => {
+  const module = await import("../ui/MemberSelect");
+  return { default: module.MemberSelect };
+});
+
+const LazyPalaceScene = lazy(async () => {
+  const module = await import("../scene/PalaceScene");
+  return { default: module.PalaceScene };
+});
 
 type ScreenProps = {
   onStartEngine: (target: EngineTarget) => void;
@@ -68,6 +70,14 @@ type GeoNode = {
   name: string;
 };
 
+const MAP_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "community", label: "Community" },
+  { id: "personal", label: "Personal" },
+] as const;
+
+type MapAssetFilter = (typeof MAP_FILTERS)[number]["id"];
+
 const HQ_LATLNG: [number, number] = [32.7583, -16.9419];
 
 const fallbackNav: NavItem = {
@@ -78,8 +88,7 @@ const fallbackNav: NavItem = {
   icon: "play",
 };
 
-// The Natural Earth GeoJSON (~838 KB) is fetched once per session and cached here, so re-opening the
-// Map is instant. Preloaded on app start (see GameFrontend) so the first open doesn't wait either.
+// The Natural Earth GeoJSON (~838 KB) is fetched on first Map entry and cached for later re-opens.
 let countriesPromise: Promise<FeatureCollection> | null = null;
 function loadCountries(): Promise<FeatureCollection> {
   if (!countriesPromise) {
@@ -228,7 +237,13 @@ function NavBadge({
 }) {
   return (
     <div className="nav-cluster">
-      <button className="nav-pill" onClick={onToggle} type="button">
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="nav-pill"
+        onClick={onToggle}
+        type="button"
+      >
         <Icon name="sprout" size={22} />
         <strong>600B</strong>
         <span>{current.label}</span>
@@ -238,6 +253,7 @@ function NavBadge({
         <div className="nav-menu">
           {navItems.map((item) => (
             <button
+              aria-current={item.id === current.id ? "page" : undefined}
               className={item.id === current.id ? "nav-row nav-row--active" : "nav-row"}
               key={item.id}
               onClick={() => onSelect(item.id)}
@@ -259,14 +275,12 @@ function TopChrome({
   navOpen,
   onToggleNav,
   onSelectScreen,
-  showCoins,
   character,
 }: {
   current: NavItem;
   navOpen: boolean;
   onToggleNav: () => void;
   onSelectScreen: (screen: ScreenId) => void;
-  showCoins: boolean;
   character: Character;
 }) {
   return (
@@ -275,20 +289,14 @@ function TopChrome({
       <div className="block-pill">
         <span className="live-dot" />
         <Icon name="block" size={15} />
-        <span>BLOCK 905,432</span>
-        <small>the world clock</small>
+        <span>DEMO BLOCK 905,432</span>
+        <small>demo world clock</small>
       </div>
       <div className="status-cluster">
         {character.pubkey ? (
           <span className="demo-key-pill" title={`DEMO key (throwaway) · ${character.pubkey}`}>
             <Icon name="zap" size={11} />
             demo · {character.pubkey.slice(0, 9)}…
-          </span>
-        ) : null}
-        {showCoins ? (
-          <span className="coins-pill">
-            <Icon name="coins" size={15} />
-            12,400
           </span>
         ) : null}
         <span className="days-pill">
@@ -308,7 +316,15 @@ function TopChrome({
   );
 }
 
-function PostCard({ post, onRepost }: { post: FeedPost; onRepost?: () => void }) {
+function PostCard({
+  post,
+  onRepost,
+  onZap,
+}: {
+  post: FeedPost;
+  onRepost?: () => void;
+  onZap?: () => void;
+}) {
   return (
     <article className={post.pinned ? "post-card post-card--pinned" : "post-card"}>
       <div className="post-author">
@@ -317,6 +333,7 @@ function PostCard({ post, onRepost }: { post: FeedPost; onRepost?: () => void })
           <strong>
             {post.author}
             {post.founder ? <Icon className="founder-crown" name="crown" size={12} /> : null}
+            {post.source === "demo" ? <span className="demo-placeholder">demo</span> : null}
           </strong>
           <small>{post.meta}</small>
         </div>
@@ -338,10 +355,22 @@ function PostCard({ post, onRepost }: { post: FeedPost; onRepost?: () => void })
             {post.actions.reposts}
           </span>
         )}
-        <span className="zap-count">
-          <Icon name="zap" size={14} />
-          {post.actions.zaps.toLocaleString("en-US")}
-        </span>
+        {onZap ? (
+          <button
+            className="post-action zap-count"
+            onClick={onZap}
+            title="Zap 21 sats (NIP-57)"
+            type="button"
+          >
+            <Icon name="zap" size={14} />
+            {post.actions.zaps.toLocaleString("en-US")}
+          </button>
+        ) : (
+          <span className="zap-count">
+            <Icon name="zap" size={14} />
+            {post.actions.zaps.toLocaleString("en-US")}
+          </span>
+        )}
       </div>
     </article>
   );
@@ -367,15 +396,11 @@ function FeedHead({ feed }: { feed: FeedConfig }) {
 
 function FeedCompose({ feed }: { feed: FeedConfig }) {
   return (
-    <div className="feed-compose">
-      <button className="compose-input" type="button">
-        {feed.placeholder}
-      </button>
-      <button className="coral-button coral-button--compact" type="button">
-        <Icon name={feed.icon} size={15} />
-        {feed.action}
-      </button>
-    </div>
+    <output className="feed-compose feed-compose--readonly">
+      <span className="compose-input compose-input--readonly">
+        {feed.placeholder} Read-only preview; connect an identity to publish.
+      </span>
+    </output>
   );
 }
 
@@ -480,10 +505,9 @@ function ScreenFrame({
         navOpen={navOpen}
         onSelectScreen={onSelectScreen}
         onToggleNav={onToggleNav}
-        showCoins={screen === "style"}
       />
       {children}
-      {screen === "home" ? (
+      {screen === "culture" || screen === "politics" ? null : screen === "home" ? (
         <CircleRail feed={feeds.home} friends={circleFriends} />
       ) : (
         <FeedRail feed={feeds[screen]} />
@@ -493,9 +517,6 @@ function ScreenFrame({
 }
 
 function TitleScreen({ onStartEngine }: ScreenProps) {
-  const [selectedTier, setSelectedTier] = useState<(typeof timelockTiers)[number]>("21Y");
-  const [destinationOpen, setDestinationOpen] = useState(false);
-
   return (
     <section className="title-layout">
       <div className="command-card">
@@ -513,38 +534,16 @@ function TitleScreen({ onStartEngine }: ScreenProps) {
           </div>
         </div>
         <div className="field-block">
-          <label htmlFor="destination-button">Destination</label>
-          <button
-            className="destination-button"
-            id="destination-button"
-            onClick={() => setDestinationOpen((value) => !value)}
-            type="button"
-          >
+          <span className="field-label" id="destination-label">
+            Destination
+          </span>
+          <div aria-labelledby="destination-label" className="destination-summary">
             <Icon name="crown" size={18} />
             <span>
               Palace of Culture HQ
-              <small>Madeira - default</small>
+              <small>Pico Ruivo, Madeira</small>
             </span>
-            <Icon name="chevron" size={16} />
-          </button>
-          {destinationOpen ? (
-            <div className="destination-menu">
-              <button onClick={() => onStartEngine("hq")} type="button">
-                <Icon name="palace" size={17} />
-                <span>
-                  Palace of Culture HQ
-                  <small>engine handoff point</small>
-                </span>
-              </button>
-              <button onClick={() => setDestinationOpen(false)} type="button">
-                <Icon name="map" size={17} />
-                <span>
-                  National palaces
-                  <small>coming after HQ</small>
-                </span>
-              </button>
-            </div>
-          ) : null}
+          </div>
         </div>
         <button
           className="coral-button coral-button--hero"
@@ -555,25 +554,6 @@ function TitleScreen({ onStartEngine }: ScreenProps) {
           Enter the Palace
           <small>come home</small>
         </button>
-        <section className="timelock-card">
-          <div>
-            <strong>How much time will you commit?</strong>
-            <small>starts at 21 days</small>
-          </div>
-          <div className="tier-row">
-            {timelockTiers.map((tier) => (
-              <button
-                className={selectedTier === tier ? "tier-chip tier-chip--active" : "tier-chip"}
-                key={tier}
-                onClick={() => setSelectedTier(tier)}
-                type="button"
-              >
-                {tier === "21Y" ? <Icon name="crown" size={13} /> : null}
-                {tier}
-              </button>
-            ))}
-          </div>
-        </section>
       </div>
     </section>
   );
@@ -737,6 +717,7 @@ function HqMarker({ onStartEngine }: { onStartEngine: (target: EngineTarget) => 
       html: `<span class="hq-doubloon">HQ</span><span class="hq-leaflet-label"><strong>Palace of Culture HQ</strong><small>Pico Ruivo, Madeira</small><small class="hq-npub">${shortNpub}</small></span>`,
     });
     const marker = L.marker(HQ_LATLNG, { icon }).addTo(map);
+    marker.getElement()?.setAttribute("aria-label", "Enter the Palace of Culture HQ");
     const enter = () => onStartEngine("hq");
     marker.on("click", enter);
 
@@ -750,11 +731,13 @@ function HqMarker({ onStartEngine }: { onStartEngine: (target: EngineTarget) => 
 }
 
 /** Placed assets as a dot cluster around HQ — the ever-growing town (personal + community). */
-function AssetMarkers() {
+function AssetMarkers({ filter }: { filter: MapAssetFilter }) {
   const map = useMap();
 
   useEffect(() => {
-    const markers = worldAssets.map((asset) => {
+    const assets =
+      filter === "all" ? worldAssets : worldAssets.filter((asset) => asset.category === filter);
+    const markers = assets.map((asset) => {
       const icon = L.divIcon({
         className: "asset-leaflet",
         iconSize: [0, 0],
@@ -768,13 +751,15 @@ function AssetMarkers() {
         direction: "top",
         offset: [0, -5],
       });
+      marker.bindPopup(`${asset.name} — ${asset.category} marker`);
+      marker.getElement()?.setAttribute("aria-label", `${asset.name}, ${asset.category} marker`);
       return marker;
     });
 
     return () => {
       for (const marker of markers) marker.remove();
     };
-  }, [map]);
+  }, [filter, map]);
 
   return null;
 }
@@ -793,8 +778,11 @@ function LabelZoom() {
 }
 
 function MapScreen({ onStartEngine }: ScreenProps) {
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState<MapAssetFilter>("all");
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
+  const [query, setQuery] = useState("");
+  const [searchStatus, setSearchStatus] = useState("");
+  const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -824,6 +812,62 @@ function MapScreen({ onStartEngine }: ScreenProps) {
       .filter((node) => Number.isFinite(node.lat) && Number.isFinite(node.lng));
   }, [geo]);
 
+  const searchLocations = useMemo<MapSearchLocation[]>(
+    () => [
+      {
+        id: "hq",
+        name: "Palace of Culture HQ",
+        lat: HQ_LATLNG[0],
+        lng: HQ_LATLNG[1],
+        kind: "hq",
+        aliases: ["HQ", "Madeira", "Pico Ruivo"],
+      },
+      ...worldAssets.map((asset) => ({
+        id: asset.id,
+        name: asset.name,
+        lat: HQ_LATLNG[0] + asset.offset[0],
+        lng: HQ_LATLNG[1] + asset.offset[1],
+        kind: asset.category,
+      })),
+      ...nodes.map((node) => ({ ...node, id: `country:${node.name}`, kind: "country" as const })),
+    ],
+    [nodes],
+  );
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      setSearchStatus("Enter a palace, country, or landmark.");
+      return;
+    }
+
+    const result = findMapLocation(searchLocations, trimmedQuery);
+    if (!result) {
+      setSearchStatus(`No mapped place matches “${trimmedQuery}”.`);
+      return;
+    }
+
+    const map = mapRef.current;
+    if (!map) {
+      setSearchStatus("The map is still loading. Try again.");
+      return;
+    }
+
+    if (result.kind === "community" || result.kind === "personal") setFilter(result.kind);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.flyTo([result.lat, result.lng], result.kind === "country" ? 5 : 8, {
+      animate: !reducedMotion,
+      duration: reducedMotion ? 0 : 0.6,
+    });
+    setSearchStatus(`Centered on ${result.name}.`);
+  };
+
+  const visibleAssetCount =
+    filter === "all"
+      ? worldAssets.length
+      : worldAssets.filter((asset) => asset.category === filter).length;
+
   return (
     <section className="map-layout">
       <MatrixField />
@@ -838,6 +882,7 @@ function MapScreen({ onStartEngine }: ScreenProps) {
         maxBoundsViscosity={0.9}
         maxZoom={8}
         minZoom={2}
+        ref={mapRef}
         zoom={3}
         zoomControl={false}
       >
@@ -866,32 +911,51 @@ function MapScreen({ onStartEngine }: ScreenProps) {
         ) : null}
         <NodeNetwork nodes={nodes} />
         <HqMarker onStartEngine={onStartEngine} />
-        <AssetMarkers />
+        <AssetMarkers filter={filter} />
         <LabelZoom />
         <ZoomControl position="bottomright" />
       </MapContainer>
       <div className="map-toolbar">
-        <div className="map-search">
+        <form aria-label="Search mapped places" className="map-search" onSubmit={submitSearch}>
           <Icon name="search" size={16} />
-          <span>SEARCH PALACES, COUNTRIES...</span>
-        </div>
-        {["All", "National palaces", "Plazas"].map((label) => (
-          <button
-            className={filter === label ? "filter-chip filter-chip--active" : "filter-chip"}
-            key={label}
-            onClick={() => setFilter(label)}
-            type="button"
-          >
-            {label}
+          <label className="visually-hidden" htmlFor="map-search-input">
+            Palace, country, or landmark
+          </label>
+          <input
+            autoComplete="off"
+            id="map-search-input"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Palace, country, landmark"
+            type="search"
+            value={query}
+          />
+          <button disabled={!query.trim()} type="submit">
+            Find
           </button>
-        ))}
+        </form>
+        <fieldset className="map-filter-row">
+          <legend className="visually-hidden">Map marker filters</legend>
+          {MAP_FILTERS.map((option) => (
+            <button
+              aria-pressed={filter === option.id}
+              className={filter === option.id ? "filter-chip filter-chip--active" : "filter-chip"}
+              key={option.id}
+              onClick={() => setFilter(option.id)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </fieldset>
+        <output aria-live="polite" className="map-search-status">
+          {searchStatus}
+        </output>
       </div>
-      <div className="map-empty">Only the HQ is charted. The rest is unbuilt.</div>
+      <div className="map-summary">
+        Showing {visibleAssetCount} {filter === "all" ? "local markers" : `${filter} markers`} near
+        HQ.
+      </div>
       <div className="compass">N</div>
-      <button className="signal-fab" type="button">
-        <Icon name="community" size={18} />
-        The Signal
-      </button>
     </section>
   );
 }
@@ -921,7 +985,11 @@ function Legendwall({ locks, compact }: { locks: Timelock[]; compact?: boolean }
           >
             <div className={`lock-thumb lock-thumb--${lock.tone}`}>
               {/* Dynamic Tamagotchi sprite: grows with the lock's age (tree/ship/special × stage). */}
-              <GrowthSprite kind={kindForTier(lock.tier)} stage={growthStage(lock)} />
+              <GrowthSprite
+                kind={kindForTier(lock.tier)}
+                stage={growthStage(lock)}
+                tier={lock.tier}
+              />
               <span className="lock-tier">
                 {lock.tier === "21Y" ? <Icon name="crown" size={11} /> : null}
                 {lock.tier}
@@ -953,7 +1021,7 @@ function Legendwall({ locks, compact }: { locks: Timelock[]; compact?: boolean }
   );
 }
 
-/** A NIP-23 long-form article (kind 30023), shown in Home's Articles tab. Read opens it on habla.news. */
+/** A NIP-23 long-form article (kind 30023). Read opens it on habla.news. */
 function ArticleCard({ article }: { article: Article }) {
   const [showImage, setShowImage] = useState(Boolean(article.image));
   return (
@@ -983,10 +1051,10 @@ function ArticleCard({ article }: { article: Article }) {
   );
 }
 
-/** Home's hero: an Iris-style Nostr feed with mood tabs — PoC + Guild built in, add your own moods. */
-function HomeFeed() {
+/** Culture's social layer: an Iris-style Nostr feed with configurable topic tabs. */
+function SocialFeed() {
   const [tabs, setTabs] = useState<FeedTab[]>(() => loadTabs());
-  const [activeId, setActiveId] = useState<string>(() => loadTabs()[0]?.id ?? "general");
+  const [activeId, setActiveId] = useState<string>("poc");
   const [notes, setNotes] = useState<FeedNote[] | null>(null);
   const [articles, setArticles] = useState<Article[] | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1000,8 +1068,12 @@ function HomeFeed() {
   // Publish the player's note (signed by the demo signer) and show it instantly at the top of the feed.
   const submitPost = async () => {
     const text = draft.trim();
-    if (!text || posting) return;
+    if (!DEMO_WRITES_ENABLED || !text || posting) return;
     setPosting(true);
+    const [{ publishNote }, { demoNpub }] = await Promise.all([
+      import("../net/social"),
+      import("../identity/keyStore"),
+    ]);
     const id = await publishNote(text);
     setPosting(false);
     if (id) {
@@ -1010,8 +1082,28 @@ function HomeFeed() {
     }
   };
 
+  // Zap a note 21 sats (NIP-57): signed request -> author's LNURL -> invoice -> WebLN wallet.
+  // Counted only when the wallet confirms; without WebLN the lightning: URI opens the OS wallet.
+  const handleZap = async (note: FeedNote) => {
+    const { zapNote } = await import("../net/lightning");
+    const result = await zapNote(note, 21, "\u26a1 from the Palace of Culture");
+    if (result.paid) {
+      setNotes(
+        (prev) =>
+          prev?.map((entry) =>
+            entry.id === note.id
+              ? { ...entry, actions: { ...entry.actions, zaps: entry.actions.zaps + 21 } }
+              : entry,
+          ) ?? prev,
+      );
+    } else if (result.fallbackUri) {
+      window.open(result.fallbackUri, "_self");
+    }
+  };
+
   // Repost a note (NIP-18 kind:6), bumping its count optimistically.
   const handleRepost = (note: FeedNote) => {
+    if (!DEMO_WRITES_ENABLED) return;
     setNotes(
       (prev) =>
         prev?.map((entry) =>
@@ -1020,7 +1112,7 @@ function HomeFeed() {
             : entry,
         ) ?? prev,
     );
-    void repostNote(note);
+    void import("../net/social").then(({ repostNote }) => repostNote(note));
   };
 
   // Load the active tab's content whenever the tab (or the tab set) changes. The Articles tab loads
@@ -1031,14 +1123,18 @@ function HomeFeed() {
     let alive = true;
     if (tab.algo === "articles") {
       setArticles(null);
-      loadArticles().then((list) => {
-        if (alive) setArticles(list);
-      });
+      void import("../net/articles").then(({ loadArticles }) =>
+        loadArticles().then((list) => {
+          if (alive) setArticles(list);
+        }),
+      );
     } else {
       setNotes(null);
-      loadFeedNotes(tab).then((list) => {
-        if (alive) setNotes(list);
-      });
+      void import("../net/social").then(({ loadFeedNotes }) =>
+        loadFeedNotes(tab).then((list) => {
+          if (alive) setNotes(list);
+        }),
+      );
     }
     return () => {
       alive = false;
@@ -1068,6 +1164,8 @@ function HomeFeed() {
   };
 
   const available = PRESET_TABS.filter((preset) => !tabs.some((tab) => tab.id === preset.id));
+  const liveCount = notes?.filter((note) => note.source !== "demo").length ?? 0;
+  const placeholderCount = notes?.filter((note) => note.source === "demo").length ?? 0;
 
   return (
     <section className="home-feed">
@@ -1076,7 +1174,13 @@ function HomeFeed() {
           <Icon name="zap" size={18} />
           <div>
             <strong>The Feed</strong>
-            <small>live off nostr · pick a mood</small>
+            <small>
+              {isArticles
+                ? "live NIP-23 · long-form"
+                : notes === null
+                  ? "connecting to nostr…"
+                  : `${liveCount} live${placeholderCount ? ` · ${placeholderCount} demo` : ""}`}
+            </small>
           </div>
         </div>
         <span className="feed-status feed-status--green">
@@ -1164,12 +1268,17 @@ function HomeFeed() {
           <div className="feed-note-state">Quiet here. Try another mood.</div>
         ) : (
           notes.map((note) => (
-            <PostCard key={note.id} onRepost={() => handleRepost(note)} post={note} />
+            <PostCard
+              key={note.id}
+              onRepost={DEMO_WRITES_ENABLED ? () => handleRepost(note) : undefined}
+              onZap={REAL_PAYMENTS_ENABLED ? () => void handleZap(note) : undefined}
+              post={note}
+            />
           ))
         )}
       </div>
 
-      {isArticles ? null : (
+      {isArticles ? null : DEMO_WRITES_ENABLED ? (
         <div className="feed-compose">
           <input
             className="compose-input"
@@ -1190,21 +1299,39 @@ function HomeFeed() {
             {posting ? "Posting…" : "Post"}
           </button>
         </div>
+      ) : (
+        <div className="feed-note-state">Posting is disabled in this build.</div>
       )}
     </section>
   );
 }
 
 /** The Home screen: a compact timelock strip stacked above the Iris-style Nostr feed (the hero). */
+function HomeResourceStrip() {
+  const economy = useEconomy();
+  return (
+    <div className="resource-strip">
+      {Object.entries(MATERIALS).map(([id, def]) => (
+        <span className="resource-chip" key={id}>
+          <span className="builder-swatch" style={{ background: def.color }} />
+          <strong>{economy.getMaterial(id)}</strong>
+          {def.display}
+        </span>
+      ))}
+      <small>drip: real time · craft in the Workshop</small>
+    </div>
+  );
+}
+
 function HomeScreen({ onStartEngine, onBuild }: ScreenProps) {
   return (
-    <section className="home-layout home-layout--feed">
+    <section className="home-layout">
       <div className="screen-heading">
         <h1>Home</h1>
-        <p>your timelocks / the feed / pick a mood</p>
+        <p>your timelocks / your circle / your private plot</p>
       </div>
-      <Legendwall compact locks={timelocks} />
-      <HomeFeed />
+      <HomeResourceStrip />
+      <Legendwall locks={timelocks} />
       <div className="build-dock build-dock--slim">
         <button className="coral-button coral-button--compact" onClick={onBuild} type="button">
           <Icon name="hammer" size={17} />
@@ -1224,8 +1351,196 @@ function HomeScreen({ onStartEngine, onBuild }: ScreenProps) {
   );
 }
 
+/** Culture brings Nostr notes, open media and the V4V ecosystem into one social screen. */
+function CultureScreen() {
+  return (
+    <section className="culture-layout">
+      <header className="culture-hero">
+        <div>
+          <span className="culture-kicker">The open social layer</span>
+          <h1>Culture</h1>
+          <p>notes, sound, live rooms, video and long-form — carried by open protocols</p>
+        </div>
+        <div className="culture-protocols" aria-label="Integrated protocols">
+          <span>Nostr notes</span>
+          <span>Podcasting 2.0</span>
+          <span>NIP-53 live</span>
+          <span>NIP-23 articles</span>
+          <span className="culture-protocol--zap">NIP-57 zaps</span>
+        </div>
+      </header>
+      <div className="culture-workspace">
+        <div className="culture-feed">
+          <SocialFeed />
+        </div>
+        <aside className="culture-side">
+          <section className="culture-media">
+            <header className="culture-panel-head">
+              <div>
+                <small>Listen now</small>
+                <strong>Audio · Music · Live</strong>
+              </div>
+              <span>V4V ready</span>
+            </header>
+            <MediaPlayer />
+          </section>
+          <CultureDirectory />
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function ClownNewsCard({ item, featured = false }: { item: CitadelWireItem; featured?: boolean }) {
+  return (
+    <article
+      className={`satire-card satire-card--${item.category}${featured ? " satire-card--featured" : ""}`}
+    >
+      <header>
+        <span>{item.publishedAt}</span>
+        <small>LIVE · CITADEL WIRE</small>
+      </header>
+      {item.marketLine ? <p className="wire-market-line">{item.marketLine}</p> : null}
+      <h2>{item.title}</h2>
+      <section className="clown-fact">
+        <small>Factual wire</small>
+        <p>{item.factualBody}</p>
+      </section>
+      <footer>
+        <span>{item.category}</span>
+        <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">
+          Open on Citadel Wire
+        </a>
+      </footer>
+    </article>
+  );
+}
+
+/** Politics starts as a read-only, deduplicated Citadel Wire surface. */
+function PoliticsScreen() {
+  const [category, setCategory] = useState<PoliticsCategory>("all");
+  const [items, setItems] = useState<CitadelWireItem[] | null>(null);
+  const [wireError, setWireError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void import("../net/clownNews").then(({ loadCitadelWireNews }) =>
+      loadCitadelWireNews().then(
+        (loaded) => {
+          if (active) setItems(loaded);
+        },
+        () => {
+          if (active) {
+            setItems([]);
+            setWireError(true);
+          }
+        },
+      ),
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visible =
+    category === "all" ? (items ?? []) : (items ?? []).filter((item) => item.category === category);
+  const [featured, ...rest] = visible;
+
+  return (
+    <section className="politics-layout">
+      <header className="politics-hero">
+        <div>
+          <span className="politics-edition">Citadel Wire · politics + memes</span>
+          <h1>Clown News</h1>
+          <p>For now: a clean live wire. The circus comes later.</p>
+        </div>
+        <div className="politics-warning">
+          <strong>LIVE FACTUAL WIRE</strong>
+          <span>Citadel Wire text, deduplicated and linked to source.</span>
+        </div>
+      </header>
+
+      <div aria-label="Wire topics" className="clown-ticker">
+        <span>FACTUAL SOURCE · CITADEL WIRE</span>
+        <span>GOVERNMENT</span>
+        <span>OPPOSITION</span>
+        <span>MARKETS</span>
+        <span>MEDIA</span>
+        <span>TECH</span>
+        <span>BITCOINERS TOO</span>
+      </div>
+
+      <div className="politics-workspace">
+        <main className="politics-feed">
+          <nav aria-label="Politics categories" className="politics-filters">
+            {POLITICS_CATEGORIES.map((option) => (
+              <button
+                aria-pressed={category === option.id}
+                className={
+                  category === option.id
+                    ? "politics-filter politics-filter--active"
+                    : "politics-filter"
+                }
+                key={option.id}
+                onClick={() => setCategory(option.id)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </nav>
+
+          {items === null ? <div className="wire-state">Reading Citadel Wire…</div> : null}
+          {wireError ? (
+            <div className="wire-state wire-state--error">
+              <strong>The live wire is temporarily unavailable.</strong>
+              <a href="https://citadelwire.com/" rel="noopener noreferrer" target="_blank">
+                Open Citadel Wire
+              </a>
+            </div>
+          ) : null}
+          {!wireError && items !== null && visible.length === 0 ? (
+            <div className="wire-state">No live items match this filter.</div>
+          ) : null}
+          {featured ? (
+            <>
+              <ClownNewsCard item={featured} featured />
+              <div className="satire-grid">
+                {rest.map((item) => (
+                  <ClownNewsCard item={item} key={item.id} />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </main>
+
+        <aside className="clown-charter">
+          <section>
+            <small>Source contract</small>
+            <h2>Facts stay facts.</h2>
+            <ol>
+              <li>Read only from the public Citadel Wire RSS feed.</li>
+              <li>Preserve publication time, title and factual body.</li>
+              <li>Deduplicate recurring stories across hourly digests.</li>
+              <li>Render text only and keep every source link visible.</li>
+            </ol>
+          </section>
+          <section className="clown-source-note">
+            <small>Live connection</small>
+            <strong>Citadel Wire RSS</strong>
+            <p>Up to sixteen current stories from the five newest wire editions.</p>
+            <a href="https://citadelwire.com/" rel="noopener noreferrer" target="_blank">
+              Visit source
+            </a>
+          </section>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
 /** The card thumbnail: the real product photo when the listing has one, else the category icon. */
-function MarketThumb({ item, mode }: { item: MarketItem; mode: "pleb" | "style" }) {
+function MarketThumb({ item }: { item: MarketItem }) {
   const [showImage, setShowImage] = useState(Boolean(item.image));
   return (
     <div className={`market-thumb market-thumb--${item.tone}`}>
@@ -1241,15 +1556,16 @@ function MarketThumb({ item, mode }: { item: MarketItem; mode: "pleb" | "style" 
         <Icon name={item.icon} size={42} />
       )}
       {item.badge ? <span className="market-badge">{item.badge}</span> : null}
-      {mode === "style" && !item.locked ? <span className="stock-badge">12 left</span> : null}
     </div>
   );
 }
 
-function MarketCard({ item, mode }: { item: MarketItem; mode: "pleb" | "style" }) {
-  return (
+function MarketCard({ item }: { item: MarketItem }) {
+  // The WHOLE card is the link (plebeian.market pattern): click anywhere -> the product page on
+  // their domain, where the Lightning checkout lives. We never custody the payment.
+  const card = (
     <article className={item.locked ? "market-card market-card--locked" : "market-card"}>
-      <MarketThumb item={item} mode={mode} />
+      <MarketThumb item={item} />
       <div className="market-info">
         <h2>{item.title}</h2>
         <small>{item.meta}</small>
@@ -1259,26 +1575,23 @@ function MarketCard({ item, mode }: { item: MarketItem; mode: "pleb" | "style" }
             {item.price}
           </span>
           {item.href && !item.locked ? (
-            <a
-              className="coral-button coral-button--compact"
-              href={item.href}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              {mode === "pleb" ? "Buy" : "Get"}
-              <Icon name="chevron" size={13} />
-            </a>
+            <span className="market-open">
+              plebeian.market
+              <Icon name="chevron" size={12} />
+            </span>
           ) : (
-            <button
-              className={item.locked ? "ghost-button" : "coral-button coral-button--compact"}
-              type="button"
-            >
-              {item.locked ? "Earned" : mode === "pleb" ? "Offer" : "Get"}
-            </button>
+            <span className="ghost-button">{item.locked ? "Earned" : "Offer"}</span>
           )}
         </div>
       </div>
     </article>
+  );
+  return item.href && !item.locked ? (
+    <a className="market-card-link" href={item.href} rel="noopener noreferrer" target="_blank">
+      {card}
+    </a>
+  ) : (
+    card
   );
 }
 
@@ -1297,9 +1610,11 @@ function PlebMarketScreen() {
   // Pull real plebeian.market listings (NIP-15 / NIP-99) off the relays; mock fallback if quiet.
   useEffect(() => {
     let alive = true;
-    loadPlebListings().then((items) => {
-      if (alive) setListings(items);
-    });
+    void import("../net/market").then(({ loadPlebListings }) =>
+      loadPlebListings().then((items) => {
+        if (alive) setListings(items);
+      }),
+    );
     return () => {
       alive = false;
     };
@@ -1337,41 +1652,22 @@ function PlebMarketScreen() {
         ) : visible.length === 0 ? (
           <div className="market-empty">No listings in this category yet.</div>
         ) : (
-          visible.map((item) => <MarketCard item={item} key={item.id} mode="pleb" />)
+          visible.map((item) => <MarketCard item={item} key={item.id} />)
         )}
       </div>
     </section>
   );
 }
 
-function StyleMarketScreen() {
-  const [filter, setFilter] = useState("Outfits");
-
+/** The Workshop: crafting + resources as a frontend window (menu), same economy as the 3D builder. */
+function WorkshopScreen() {
   return (
-    <section className="market-layout">
-      <div className="market-head">
-        <div>
-          <h1>Style Market</h1>
-          <p>digital assets / money buys style / wear it now</p>
-        </div>
-        <div className="market-filters">
-          {["Outfits", "Vehicle", "Pet", "Decor"].map((label) => (
-            <button
-              className={filter === label ? "filter-chip filter-chip--coral" : "filter-chip"}
-              key={label}
-              onClick={() => setFilter(label)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+    <section className="workshop-layout">
+      <div className="screen-heading">
+        <h1>Workshop</h1>
+        <p>resources drip / crafts take real time / patience becomes decor</p>
       </div>
-      <div className="market-grid">
-        {styleDrops.map((item) => (
-          <MarketCard item={item} key={item.id} mode="style" />
-        ))}
-      </div>
+      <WorkshopPanel />
     </section>
   );
 }
@@ -1384,25 +1680,32 @@ function renderScreen(screen: ScreenId, props: ScreenProps) {
       return <MapScreen {...props} />;
     case "home":
       return <HomeScreen {...props} />;
+    case "culture":
+      return <CultureScreen />;
+    case "politics":
+      return <PoliticsScreen />;
+    case "workshop":
+      return <WorkshopScreen />;
     case "pleb":
       return <PlebMarketScreen />;
-    case "style":
-      return <StyleMarketScreen />;
   }
 }
 
-// TESTING: when false, the saved character is neither loaded nor persisted, so the member-select
-// gate always shows (no "skip to last character"). Flip back to true to restore device persistence.
-const PERSIST_CHARACTER = false;
+// Device persistence is the safe default. Tests/demos can explicitly disable it at build time.
+const PERSIST_CHARACTER = characterPersistenceEnabled(import.meta.env.VITE_PERSIST_CHARACTER);
 
 export function GameFrontend() {
   const [started, setStarted] = useState(false);
-  const [introDone, setIntroDone] = useState(false);
+  const [introDone, setIntroDone] = useState(() => {
+    const search = typeof window === "undefined" ? "" : window.location.search;
+    return !shouldShowIntro(getBrowserIntroStorage(), search);
+  });
   const [character, setCharacter] = useState<Character | null>(null);
   const [screen, setScreen] = useState<ScreenId>("title");
   const [navOpen, setNavOpen] = useState(false);
   const [engineTarget, setEngineTarget] = useState<EngineTarget | null>(null);
-  const [buildMode, setBuildMode] = useState(false);
+  // Home "Build" jumps straight into the 3D engine's magnet build mode (godot parity).
+  const [engineBuild, setEngineBuild] = useState(false);
   const store = useMemo(() => createCharacterStore(), []);
   const [storeChecked, setStoreChecked] = useState(false);
 
@@ -1413,25 +1716,30 @@ export function GameFrontend() {
       return;
     }
     let active = true;
-    store.loadCurrent().then((saved) => {
-      if (!active) return;
-      if (saved) setCharacter(saved);
-      setStoreChecked(true);
-    });
+    store
+      .loadCurrent()
+      .then((saved) => {
+        if (!active) return;
+        if (saved) setCharacter(saved);
+      })
+      .catch(() => {
+        // Storage can be unavailable in privacy modes; fall back to an in-memory character.
+      })
+      .finally(() => {
+        if (active) setStoreChecked(true);
+      });
     return () => {
       active = false;
     };
   }, [store]);
 
-  // Warm the Map's GeoJSON in the background so it's ready before the user ever opens the Map.
-  useEffect(() => {
-    loadCountries().catch(() => {});
-  }, []);
-
   // Wire the DEMO Nostr signer at startup so every write (post/react/zap/chat) is signed. ⚠️ throwaway
   // key — the secure NIP-07/bunker flow replaces this behind net/nostr's setSigner later.
   useEffect(() => {
-    setSigner(getOrCreateDemoSigner());
+    if (!DEMO_WRITES_ENABLED) return;
+    void Promise.all([import("../net/nostr"), import("../identity/keyStore")]).then(
+      ([{ setSigner }, { getOrCreateDemoSigner }]) => setSigner(getOrCreateDemoSigner()),
+    );
   }, []);
 
   const selectScreen = (nextScreen: ScreenId) => {
@@ -1444,32 +1752,49 @@ export function GameFrontend() {
   }
 
   if (!introDone) {
-    return <IntroScreen onComplete={() => setIntroDone(true)} />;
+    const completeIntro = () => {
+      markIntroSeen(getBrowserIntroStorage());
+      setIntroDone(true);
+    };
+    return <IntroScreen onComplete={completeIntro} />;
   }
 
   if (!character) {
     if (!storeChecked) return null;
     const onCreated = (created: Character) => {
-      // Stamp the player's demo npub onto the character so the HUD can show their identity.
-      const withKey: Character = { ...created, pubkey: demoNpub(), keySource: "demo" };
-      if (PERSIST_CHARACTER) void store.save(withKey);
-      setCharacter(withKey);
+      const finish = (withKey: Character) => {
+        if (PERSIST_CHARACTER) void store.save(withKey).catch(() => {});
+        setCharacter(withKey);
+      };
+      if (!DEMO_WRITES_ENABLED) {
+        finish(created);
+        return;
+      }
+      void import("../identity/keyStore")
+        .then(({ demoNpub }) => finish({ ...created, pubkey: demoNpub(), keySource: "demo" }))
+        .catch(() => finish(created));
     };
-    return <MemberSelect onComplete={onCreated} />;
+    return (
+      <Suspense fallback={null}>
+        <LazyMemberSelect onComplete={onCreated} />
+      </Suspense>
+    );
   }
 
   if (engineTarget) {
     return (
-      <PalaceScene
-        character={character}
-        onExit={() => setEngineTarget(null)}
-        target={engineTarget}
-      />
+      <Suspense fallback={null}>
+        <LazyPalaceScene
+          character={character}
+          onExit={() => {
+            setEngineTarget(null);
+            setEngineBuild(false);
+          }}
+          startInBuild={engineBuild}
+          target={engineTarget}
+        />
+      </Suspense>
     );
-  }
-
-  if (buildMode) {
-    return <LevelBuildHandoff onExit={() => setBuildMode(false)} />;
   }
 
   return (
@@ -1482,7 +1807,10 @@ export function GameFrontend() {
     >
       {renderScreen(screen, {
         onStartEngine: setEngineTarget,
-        onBuild: () => setBuildMode(true),
+        onBuild: () => {
+          setEngineBuild(true);
+          setEngineTarget("home");
+        },
       })}
     </ScreenFrame>
   );

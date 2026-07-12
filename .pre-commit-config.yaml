@@ -1,0 +1,23 @@
+repos:
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: pnpm lint
+        entry: corepack pnpm lint
+        language: system
+        pass_filenames: false
+        files: ^(apps|packages)/|^(biome\.json|package\.json|pnpm-lock\.yaml)$
+
+      - id: world-agent-ruff-check
+        name: Python ruff check
+        entry: uv run --frozen --project services/world-agent ruff check packages/assets-pipeline services/world-agent
+        language: system
+        pass_filenames: false
+        files: ^(packages/assets-pipeline/.*\.py|services/world-agent/(.*\.py|pyproject\.toml|uv\.lock))$
+
+      - id: world-agent-ruff-format
+        name: Python ruff format check
+        entry: uv run --frozen --project services/world-agent ruff format --check packages/assets-pipeline services/world-agent
+        language: system
+        pass_filenames: false
+        files: ^(packages/assets-pipeline/.*\.py|services/world-agent/(.*\.py|pyproject\.toml|uv\.lock))$

@@ -27,15 +27,45 @@ COL_SIDES = 8
 
 GROUPS = [
     (("rammedearth",), "RammedEarth", (0.80, 0.62, 0.40, 1.0), False),
-    (("geländer", "gelander", "aluminco", "crystaline"), "Glass", (0.62, 0.88, 0.80, 0.45), False),
-    (("glassfacade", "facade", "systemelement glass"), "Glass", (0.62, 0.88, 0.80, 0.45), False),
+    (
+        ("geländer", "gelander", "aluminco", "crystaline"),
+        "Glass",
+        (0.62, 0.88, 0.80, 0.45),
+        False,
+    ),
+    (
+        ("glassfacade", "facade", "systemelement glass"),
+        "Glass",
+        (0.62, 0.88, 0.80, 0.45),
+        False,
+    ),
     (("textil",), "Textil", (0.96, 0.90, 0.78, 1.0), True),
-    (("roofpalm", "palm", "piratespot", "rovepalm"), "Palapa", (0.72, 0.52, 0.24, 1.0), True),
-    (("pvsemitransparent", "semitransparent", " pv"), "PV", (0.12, 0.24, 0.34, 1.0), False),
+    (
+        ("roofpalm", "palm", "piratespot", "rovepalm"),
+        "Palapa",
+        (0.72, 0.52, 0.24, 1.0),
+        True,
+    ),
+    (
+        ("pvsemitransparent", "semitransparent", " pv"),
+        "PV",
+        (0.12, 0.24, 0.34, 1.0),
+        False,
+    ),
     # vertical supports -> orange (before concrete so columns win; concrete *beams* still go grey)
     (
-        ("rechteckiger pfosten", "pfosten", "columnconcretesquare", "säule", "saule", "stütze",
-         "stutze", "structuralcolumn", "fenster", "window"),
+        (
+            "rechteckiger pfosten",
+            "pfosten",
+            "columnconcretesquare",
+            "säule",
+            "saule",
+            "stütze",
+            "stutze",
+            "structuralcolumn",
+            "fenster",
+            "window",
+        ),
         "Column",
         (0.93, 0.51, 0.15, 1.0),
         False,
@@ -76,7 +106,9 @@ def get_mat(key, rgba):
 
 
 CURVED = {"Textil", "Palapa", "RammedEarth"}  # keep their shape: NO flattening dissolve
-ROOF = {"Textil"}  # solidify only Textil; Palapa membranes blow up on solidify -> keep them flat
+ROOF = {
+    "Textil"
+}  # solidify only Textil; Palapa membranes blow up on solidify -> keep them flat
 
 
 def process_mesh(mesh, key):
@@ -85,11 +117,20 @@ def process_mesh(mesh, key):
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=WELD)
     bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=bm.edges)
     if not bm.faces:
-        bm.to_mesh(mesh); bm.free(); mesh.update(); return False
-    if key not in CURVED:  # flat geometry -> straighten + merge coplanar (curves keep their facets)
-        bmesh.ops.dissolve_limit(bm, angle_limit=DISSOLVE, verts=bm.verts, edges=bm.edges)
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
+        return False
+    if (
+        key not in CURVED
+    ):  # flat geometry -> straighten + merge coplanar (curves keep their facets)
+        bmesh.ops.dissolve_limit(
+            bm, angle_limit=DISSOLVE, verts=bm.verts, edges=bm.edges
+        )
     did_sol = False
-    if key in ROOF and bm.faces:  # roof membranes are single surfaces -> always give thickness
+    if (
+        key in ROOF and bm.faces
+    ):  # roof membranes are single surfaces -> always give thickness
         try:
             bmesh.ops.solidify(bm, geom=list(bm.faces), thickness=SOLIDIFY_THIN)
             did_sol = True
@@ -116,7 +157,9 @@ def is_column(obj):
 
 def columnize(obj, mat):
     bb = [obj.matrix_world @ Vector(c[:]) for c in obj.bound_box]
-    xs = [v.x for v in bb]; ys = [v.y for v in bb]; zs = [v.z for v in bb]
+    xs = [v.x for v in bb]
+    ys = [v.y for v in bb]
+    zs = [v.z for v in bb]
     cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
     z0, z1 = min(zs), max(zs)
     radius = (max(xs) - min(xs) + max(ys) - min(ys)) / 4.0
@@ -124,8 +167,11 @@ def columnize(obj, mat):
     bpy.data.objects.remove(obj, do_unlink=True)
     before = {o.name for o in bpy.data.objects}
     bpy.ops.mesh.primitive_cylinder_add(
-        vertices=COL_SIDES, radius=max(radius, 0.02), depth=max(z1 - z0, 0.02),
-        location=(cx, cy, (z0 + z1) / 2.0), end_fill_type="NGON",
+        vertices=COL_SIDES,
+        radius=max(radius, 0.02),
+        depth=max(z1 - z0, 0.02),
+        location=(cx, cy, (z0 + z1) / 2.0),
+        end_fill_type="NGON",
     )
     fresh = [o.name for o in bpy.data.objects if o.name not in before]
     cyl = bpy.data.objects.get(fresh[0]) if fresh else None
@@ -138,7 +184,7 @@ def columnize(obj, mat):
 
 def main():
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, dst = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -153,9 +199,15 @@ def main():
     dropped = 0
     for obj in list(bpy.data.objects):
         if obj.type != "MESH":
-            bpy.data.objects.remove(obj, do_unlink=True); dropped += 1
-        elif obj.data is None or len(obj.data.polygons) == 0 or max(obj.dimensions) < MIN_SIZE:
-            bpy.data.objects.remove(obj, do_unlink=True); dropped += 1
+            bpy.data.objects.remove(obj, do_unlink=True)
+            dropped += 1
+        elif (
+            obj.data is None
+            or len(obj.data.polygons) == 0
+            or max(obj.dimensions) < MIN_SIZE
+        ):
+            bpy.data.objects.remove(obj, do_unlink=True)
+            dropped += 1
     print(f"dropped {dropped} non-mesh/tiny objects")
 
     # --- columnize pass (per object) ---
@@ -202,7 +254,9 @@ def main():
         mat = get_mat(key, rgba)
         obj.data.materials.clear()
         obj.data.materials.append(mat)
-        groups.setdefault(key, {"rgba": rgba, "anim": anim, "objs": []})["objs"].append(obj)
+        groups.setdefault(key, {"rgba": rgba, "anim": anim, "objs": []})["objs"].append(
+            obj
+        )
 
     info = {}
     for key, grp in groups.items():

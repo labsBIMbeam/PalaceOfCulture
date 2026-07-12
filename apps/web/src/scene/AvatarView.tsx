@@ -1,6 +1,6 @@
 import type { AvatarConfig } from "@600b/shared";
 import type { RapierRigidBody } from "@react-three/rapier";
-import { type RefObject, Suspense } from "react";
+import { Component, type ReactNode, type RefObject, Suspense } from "react";
 import { CharacterModel } from "./CharacterModel";
 import { RiggedAvatar } from "./RiggedAvatar";
 import { findImport } from "./avatarImports";
@@ -37,6 +37,21 @@ function presetUrl(config: AvatarConfig): string {
   return set[config.outfit] ?? set.casual ?? "";
 }
 
+class AvatarAssetBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override render(): ReactNode {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
 /**
  * The single switch point for the player avatar. An **imported model** (`config.modelUrl`, the
  * Meshy→rig pipeline output) wins outright; otherwise the cute Quaternius preset for the chosen
@@ -62,15 +77,10 @@ export function AvatarView({
   // Imported models carry their locomotion + pose clips in extra GLBs; skip them for a static preview.
   const clipUrls = locomotion ? findImport(config.modelUrl)?.clipUrls : undefined;
   return (
-    <Suspense fallback={null}>
-      <RiggedAvatar
-        bodyRef={bodyRef}
-        clipUrls={clipUrls}
-        config={config}
-        key={url}
-        pose={pose}
-        url={url}
-      />
-    </Suspense>
+    <AvatarAssetBoundary fallback={<CharacterModel config={config} />} key={url}>
+      <Suspense fallback={null}>
+        <RiggedAvatar bodyRef={bodyRef} clipUrls={clipUrls} config={config} pose={pose} url={url} />
+      </Suspense>
+    </AvatarAssetBoundary>
   );
 }

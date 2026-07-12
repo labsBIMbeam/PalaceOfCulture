@@ -14,6 +14,7 @@ export function DecorPicker({
   pendingDefId,
   selected,
   count,
+  limit,
   onPick,
   onPlace,
   onRotatePending,
@@ -28,6 +29,8 @@ export function DecorPicker({
   pendingDefId: string | null;
   selected: Selected;
   count: number;
+  /** Anti-spam cap (public palace): picking/placing locks when count reaches it. */
+  limit?: number;
   onPick: (defId: string) => void;
   onPlace: () => void;
   onRotatePending: (deltaRad: number) => void;
@@ -45,6 +48,7 @@ export function DecorPicker({
     if (selected) setMediaDraft(selected.item.mediaUrl ?? selected.def.defaultMedia ?? "");
   }, [selectedUid]);
 
+  const full = limit !== undefined && count >= limit;
   const pending = pendingDefId ? catalog.find((def) => def.id === pendingDefId) : undefined;
   const hasMedia = selected?.def.kind === "frame" || selected?.def.kind === "screen";
 
@@ -53,13 +57,14 @@ export function DecorPicker({
       <header className="decor-head">
         <Icon name="brush" size={16} />
         <span>Decorate</span>
-        <small>{count} placed</small>
+        <small>{limit !== undefined ? `${count} / ${limit} placed` : `${count} placed`}</small>
       </header>
 
       <div className="decor-grid">
         {catalog.map((def) => (
           <button
             className={`decor-tile${pendingDefId === def.id ? " decor-tile--active" : ""}`}
+            disabled={full}
             key={def.id}
             onClick={() => onPick(def.id)}
             type="button"
@@ -70,6 +75,12 @@ export function DecorPicker({
         ))}
       </div>
 
+      {full && !selected ? (
+        <p className="decor-hint decor-hint--limit">
+          Palace limit reached — absorb one of your pieces to place another. The cap keeps the
+          shared plaza generous for everyone.
+        </p>
+      ) : null}
       {pending ? (
         <div className="decor-controls">
           <p className="decor-hint">

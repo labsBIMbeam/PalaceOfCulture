@@ -1,4 +1,5 @@
 import NDK, { type NDKEvent, type NDKFilter, type NDKSigner } from "@nostr-dev-kit/ndk";
+import { RELAYS } from "./nostrConfig";
 
 // The shared Nostr client is now NDK (@nostr-dev-kit/ndk) — the higher-level FOSS toolkit — replacing
 // the hand-rolled nostr-tools SimplePool. One NDK instance owns the relay pool + connection lifecycle;
@@ -7,20 +8,14 @@ import NDK, { type NDKEvent, type NDKFilter, type NDKSigner } from "@nostr-dev-k
 // gives us NIP wrapper classes (NDKArticle for NIP-23, NDKClassified for NIP-99), `event.encode()` for
 // naddr deeplinks, and a signer seam for the later read→write (NIP-07 / per-seal key, ADR 0002).
 
-export const RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.primal.net",
-  "wss://relay.nostr.band",
-  "wss://relay.zap.stream",
-];
+export { RELAYS } from "./nostrConfig";
 
 let ndk: NDK | null = null;
 let connected: Promise<void> | null = null;
 
 /** The shared NDK instance (lazy). Adapters that want NIP wrapper classes import this. */
 export function getNdk(): NDK {
-  if (!ndk) ndk = new NDK({ explicitRelayUrls: RELAYS });
+  if (!ndk) ndk = new NDK({ explicitRelayUrls: [...RELAYS] });
   return ndk;
 }
 

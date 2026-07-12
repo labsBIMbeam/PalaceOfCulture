@@ -1,53 +1,120 @@
-// Tier 2 — the truth-tier entrypoint. First real endpoint: the podcast discovery proxy (ADR 0004)
-// so the browser can search the full catalog + fetch RSS feeds without CORS. Built on Node's http
-// (zero runtime deps) for now; folds into Fastify + the event log / state machine per BUILD-BRIEF §6.
+import type { Server } from "node:http";
+import type { AddressInfo } from "node:net";
 
-import { createServer } from "node:http";
-import { fetchFeed, searchPodcasts } from "./api/podcasts";
+import { createPodcastServer, loadServerConfig } from "./app.js";
+import { AuditStore } from "./db/auditStore.js";
+import { MultiplayerServer, loadMultiplayerConfig } from "./multiplayer/server.js";
 
-const PORT = Number(process.env.PORT) || 8787;
+/** Start HTTP, SQLite, and volatile multiplayer as one process lifecycle. */
+async function startServer(): Promise<void> {
+  let auditStore: AuditStore | undefined;
+  let httpServer: Server | undefined;
+  let multiplayer: MultiplayerServer | undefined;
+  let shutdownPromise: Promise<void> | undefined;
 
-const server = createServer(async (req, res) => {
-  res.setHeader("access-control-allow-origin", "*");
-  res.setHeader("access-control-allow-methods", "GET, OPTIONS");
-  if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
-
-  const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   try {
-    if (url.pathname === "/api/health") {
-      res.writeHead(200, { "content-type": "text/plain" });
-      res.end("ok");
-      return;
-    }
-    if (url.pathname === "/api/podcasts/search") {
-      const shows = await searchPodcasts(url.searchParams.get("q") ?? "");
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ shows }));
-      return;
-    }
-    if (url.pathname === "/api/podcasts/feed") {
-      const xml = await fetchFeed(url.searchParams.get("url") ?? "");
-      if (xml === null) {
-        res.writeHead(502, { "content-type": "text/plain" });
-        res.end("feed fetch failed");
-        return;
-      }
-      res.writeHead(200, { "content-type": "application/rss+xml; charset=utf-8" });
-      res.end(xml);
-      return;
-    }
-    res.writeHead(404, { "content-type": "text/plain" });
-    res.end("not found");
-  } catch {
-    res.writeHead(500, { "content-type": "text/plain" });
-    res.end("error");
-  }
-});
+    const config = loadServerConfig();
+    const multiplayerConfig = loadMultiplayerConfig();
+    const runningAuditStore = new AuditStore({ databasePath: config.auditDbPath });
+    auditStore = runningAuditStore;
+    const runningHttpServer = createPodcastServer(config);
+    httpServer = runningHttpServer;
+    const runningMultiplayer = new MultiplayerServer(multiplayerConfig);
+    multiplayer = runningMultiplayer;
 
-server.listen(PORT, () => {
-  process.stdout.write(`[600b] feed proxy listening on http://localhost:${PORT}\n`);
-});
+    await runningMultiplayer.listen();
+    await listenHttp(runningHttpServer, config.port, config.host);
+
+    const httpAddress = runningHttpServer.address() as AddressInfo;
+    const multiplayerAddress = runningMultiplayer.address;
+    process.stdout.write(
+      `[600b] feed proxy listening on http://${formatHost(config.host)}:${httpAddress.port}\n`,
+    );
+    if (multiplayerAddress) {
+      process.stdout.write(
+        `[600b] multiplayer listening on ws://${formatHost(multiplayerConfig.host)}:${multiplayerAddress.port}\n`,
+      );
+    }
+
+    const shutdown = (failed = false): Promise<void> => {
+      if (shutdownPromise) return shutdownPromise;
+      shutdownPromise = shutdownServices(
+        runningHttpServer,
+        runningMultiplayer,
+        runningAuditStore,
+        config.shutdownGraceMs,
+        failed,
+      );
+      return shutdownPromise;
+    };
+
+    runningHttpServer.on("error", (error) => {
+      process.stderr.write(`[600b] HTTP server failed: ${error.message}\n`);
+      void shutdown(true);
+    });
+    runningMultiplayer.transport.server?.on("error", (error) => {
+      process.stderr.write(`[600b] multiplayer server failed: ${error.message}\n`);
+      void shutdown(true);
+    });
+    process.once("SIGINT", () => void shutdown());
+    process.once("SIGTERM", () => void shutdown());
+  } catch (error) {
+    await Promise.allSettled([multiplayer?.shutdown(), closeHttpServer(httpServer)]);
+    auditStore?.close();
+    const message = error instanceof Error ? error.message : "Unknown startup error.";
+    process.stderr.write(`[600b] server startup failed: ${message}\n`);
+    process.exitCode = 1;
+  }
+}
+
+async function shutdownServices(
+  httpServer: Server,
+  multiplayer: MultiplayerServer,
+  auditStore: AuditStore,
+  graceMs: number,
+  failed: boolean,
+): Promise<void> {
+  const forceCloseTimer = setTimeout(() => {
+    httpServer.closeAllConnections();
+    multiplayer.transport.server?.closeAllConnections();
+  }, graceMs);
+  forceCloseTimer.unref();
+
+  try {
+    await Promise.allSettled([closeHttpServer(httpServer), multiplayer.shutdown()]);
+  } finally {
+    clearTimeout(forceCloseTimer);
+    auditStore.close();
+    process.exitCode = failed ? 1 : 0;
+  }
+}
+
+function listenHttp(server: Server, port: number, host: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onError = (error: Error): void => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = (): void => {
+      server.off("error", onError);
+      resolve();
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port, host);
+  });
+}
+
+function closeHttpServer(server: Server | undefined): Promise<void> {
+  if (!server?.listening) return Promise.resolve();
+  return new Promise((resolve) => {
+    server.close(() => resolve());
+    server.closeIdleConnections();
+  });
+}
+
+function formatHost(host: string): string {
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+}
+
+void startServer();

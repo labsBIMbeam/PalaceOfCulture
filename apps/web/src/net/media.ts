@@ -24,6 +24,8 @@ export interface MediaItem {
   valueRecipient?: string;
   /** Live only: current listener count (from the NIP-53 event participants). */
   listeners?: number;
+  /** Live comes from an approved feed/event; demo is the small playable offline fallback. */
+  source?: "live" | "demo";
 }
 
 export interface MediaCatalog {
@@ -102,17 +104,21 @@ const MOCK: MediaItem[] = [
   },
 ];
 
+function demoItems(kind?: MediaKind): MediaItem[] {
+  return MOCK.filter((item) => !kind || item.kind === kind).map((item) => ({
+    ...item,
+    source: "demo",
+  }));
+}
+
 /** The plug-and-play catalog: on-brand mock items with real playable audio across all three kinds. */
 export function createMockMediaCatalog(): MediaCatalog {
   return {
-    load: () => Promise.resolve(MOCK),
+    load: () => Promise.resolve(demoItems()),
   };
 }
 
-/**
- * Factory the player calls. Mock today; swap to PC2.0 feed parsing (music/podcasts) + a NIP-53 live
- * subscription (live) behind this same interface. See ADR 0004.
- */
+/** Real media adapters stay behind this catalog interface. See ADR 0004. */
 // --- Real Nostr data ---------------------------------------------------------------------------
 
 /** NIP-53 live event (kind 30311) → a live MediaItem. Streaming URL is usually HLS. */
@@ -130,33 +136,7 @@ function liveItem(event: Event): MediaItem | null {
     tone: "coral",
     valueRecipient: event.pubkey,
     listeners: Number.isFinite(listeners) && listeners > 0 ? listeners : undefined,
-  };
-}
-
-/** Nostr audio track (kind 31337 Zapstr tags, or kind 32123 Wavlake JSON content) → a music item. */
-function musicItem(event: Event): MediaItem | null {
-  let url = tag(event, "media") ?? tag(event, "url") ?? tag(event, "enclosure");
-  let title = tag(event, "title") ?? tag(event, "subject");
-  let author = tag(event, "c") ?? tag(event, "creator") ?? tag(event, "artist");
-  if (!url || !title) {
-    try {
-      const doc = JSON.parse(event.content) as Record<string, string>;
-      url = url ?? doc.enclosure ?? doc.media ?? doc.url ?? doc.link;
-      title = title ?? doc.title ?? doc.name;
-      author = author ?? doc.creator ?? doc.artist ?? doc.author;
-    } catch {
-      /* content isn't a JSON track document */
-    }
-  }
-  if (!url || !/^https?:/.test(url) || !title) return null;
-  return {
-    id: `mus:${event.id}`,
-    title,
-    author: author ?? "Nostr artist",
-    kind: "music",
-    audioUrl: url,
-    tone: "teal",
-    valueRecipient: event.pubkey,
+    source: "live",
   };
 }
 
@@ -171,11 +151,6 @@ function dedupe(items: MediaItem[]): MediaItem[] {
   return out;
 }
 
-/**
- * Real data off Nostr: live = NIP-53 (kind 30311), music = kind 31337/32123. Podcasts stay mock
- * (they're Podcasting 2.0 RSS, not a Nostr kind — a feed parser comes next). Falls back to the full
- * mock catalog if relays return nothing, so the player always has content.
- */
 const isItem = (x: MediaItem | null): x is MediaItem => x !== null;
 
 async function loadLive(): Promise<MediaItem[]> {
@@ -187,38 +162,30 @@ async function loadLive(): Promise<MediaItem[]> {
   }
 }
 
-async function loadMusic(): Promise<MediaItem[]> {
+async function loadCuratedMedia(): Promise<MediaItem[]> {
   try {
-    const events = await queryEvents({ kinds: [31337, 32123], limit: 60 });
-    return dedupe(events.map(musicItem).filter(isItem)).slice(0, 12);
-  } catch {
-    return [];
-  }
-}
-
-async function loadPodcasts(): Promise<MediaItem[]> {
-  try {
-    return dedupe(await loadFeedItems()).slice(0, 12);
+    return dedupe(await loadFeedItems()).slice(0, 24);
   } catch {
     return [];
   }
 }
 
 /**
- * Factory the player calls. Real data: music + live = Nostr (kind 31337/32123, NIP-53 30311);
- * podcasts = Podcasting 2.0 RSS (the same open catalog Fountain uses). Each kind falls back to its
- * mock if its source is empty, so the player always has content. See ADR 0004.
+ * Factory the player calls. Music and podcasts come only from approved Podcasting 2.0 feeds found
+ * through Wavlake/Fountain; live events stay on NIP-53. Empty categories get a marked demo fallback.
  */
 export function createMediaCatalog(): MediaCatalog {
   return {
     async load() {
-      const [music, podcasts, live] = await Promise.all([loadMusic(), loadPodcasts(), loadLive()]);
+      const [curated, live] = await Promise.all([loadCuratedMedia(), loadLive()]);
+      const music = curated.filter((item) => item.kind === "music");
+      const podcasts = curated.filter((item) => item.kind === "podcast");
       const merged = [
-        ...(music.length ? music : MOCK.filter((m) => m.kind === "music")),
-        ...(podcasts.length ? podcasts : MOCK.filter((m) => m.kind === "podcast")),
-        ...(live.length ? live : MOCK.filter((m) => m.kind === "live")),
+        ...(music.length ? music : demoItems("music")),
+        ...(podcasts.length ? podcasts : demoItems("podcast")),
+        ...(live.length ? live : demoItems("live")),
       ];
-      return merged.length ? merged : MOCK;
+      return merged.length ? merged : demoItems();
     },
   };
 }

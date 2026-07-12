@@ -7,9 +7,9 @@
 > **Money buys style. Time builds legend.**
 
 > ⚠️ **This is the raw stone — the statue still has to be carved.**
-> Early proof-of-concept. A walkable 3D Palace HQ runs today; the load-bearing systems (timelock
-> flow, signed ownership chain, world-agent) are scaffolding, not yet implemented. Contributions
-> welcome — see [Contributing](#contributing).
+> Early proof-of-concept. A walkable multiplayer Palace HQ, signed ownership verifier, and
+> append-only audit core run today; the end-to-end timelock flow and world-agent integration remain
+> scaffolding. Contributions welcome — see [Contributing](#contributing).
 
 This repository is the **application** — a web-first, stylized 3D social MMO. The product vision,
 whitepaper, concept bible, and design brief are maintained separately in the 600 Billion
@@ -21,13 +21,13 @@ documentation package.
   no federation, no shitcoins.
 - **The app owns the truth.** A deterministic state machine + append-only audit log + per-asset
   **signed hash-chain** ownership. Boltz / LNbits / Nostr are swappable adapters, never the source
-  of truth — and the same ownership-verification code runs on client **and** server.
+  of truth — and one platform-neutral ownership verifier is ready for both client and server paths.
 - **Non-custodial by design.** The locked principal stays the user's and is claimable without our
   servers. You commit time; you do not spend it.
 - **Earned, not bought.** Cosmetics sell for small sats; maturity, provenance, and legend are
   earned only. No loot boxes, no gacha, no pay-to-win.
-- **Mobile 30 FPS is a hard budget.** Data-driven 3D (`InstancedMesh` + LOD), not thousands of
-  components.
+- **Desktop web first; mobile is a separate app.** UI and controls have separate release surfaces;
+  protocols and domain packages are shared. See ADR 0007.
 
 Start with **[BUILD-BRIEF.md](BUILD-BRIEF.md)** and **[ADR 0001](docs/adr/0001-stack-and-runtime-topology.md)**
 (what runs where, in which language). The invariants are in [CLAUDE.md](CLAUDE.md).
@@ -36,7 +36,7 @@ Start with **[BUILD-BRIEF.md](BUILD-BRIEF.md)** and **[ADR 0001](docs/adr/0001-s
 
 - **Client** (`apps/web`) — Three.js + react-three-fiber, `@pixiv/three-vrm` avatars + `ecctrl`,
   GLTF/Draco/KTX2, data-driven instancing & LOD. TypeScript.
-- **Server** (`apps/server`) — Colyseus (authoritative movement) + Fastify (REST) + reconcile
+- **Server** (`apps/server`) — Colyseus (authoritative movement) + Node HTTP API + SQLite audit core
   worker. SQLite → Postgres, append-only event log. TypeScript.
 - **Shared core** (`packages/*`) — event/asset-model types, the signed-hash-chain ownership engine,
   and the Blender→glTF asset pipeline.
@@ -48,7 +48,7 @@ Start with **[BUILD-BRIEF.md](BUILD-BRIEF.md)** and **[ADR 0001](docs/adr/0001-s
 .
 ├── apps/
 │   ├── web/                  r3f client (three + react-three-fiber)   — TypeScript, Tier 0
-│   └── server/               Colyseus rooms + Fastify API + worker    — TypeScript, Tier 2
+│   └── server/               Colyseus rooms + HTTP API + audit core   — TypeScript, Tier 2
 ├── packages/
 │   ├── shared/               event / asset-model / state-machine types
 │   ├── ownership/            signed hash-chain build + local verify (imported by web AND server)
@@ -87,7 +87,9 @@ Early proof-of-concept.
 - ✅ A walkable 3D Palace HQ scene — the real Revit model, game-ified through the Blender pipeline
   ([packages/assets-pipeline/HANDOFF.md](packages/assets-pipeline/HANDOFF.md)).
 - ✅ Frontend shell: intro → start flow → walkable doors (`ecctrl`).
-- ⏳ Timelock flow, signed ownership chain, identity/seal, world-agent — **not built yet.**
+- ✅ Colyseus public-HQ presence with authoritative movement and collision-free player clustering.
+- ✅ BIP340 signed ownership-chain verifier and SQLite append-only audit core (not yet wired to UI).
+- ⏳ Timelock adapters, authenticated commands, identity/seal UI, and world-agent integration.
 
 The first milestone is "tree first" — the playable MVP slice in `BUILD-BRIEF.md` §4/§6.
 

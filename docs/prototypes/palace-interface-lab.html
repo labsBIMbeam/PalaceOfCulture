@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Palace Interface Lab</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #080d14;
+        --panel: #101923;
+        --panel-2: #162331;
+        --line: rgba(226, 183, 87, 0.25);
+        --gold: #e2b757;
+        --gold-soft: #8e713b;
+        --cream: #f2e6ca;
+        --muted: #8fa0ad;
+        --coral: #df8068;
+        --teal: #4fb5a8;
+        --blue: #759ed0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 1024px;
+        min-height: 100vh;
+        margin: 0;
+        padding: 22px;
+        overflow-x: auto;
+        color: var(--cream);
+        background:
+          radial-gradient(circle at 16% 0%, rgba(117, 158, 208, 0.15), transparent 32%),
+          radial-gradient(circle at 82% 12%, rgba(226, 183, 87, 0.1), transparent 28%),
+          var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .lab-header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        max-width: 1500px;
+        margin: 0 auto 18px;
+      }
+
+      .eyebrow {
+        margin: 0 0 4px;
+        color: var(--gold);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: Georgia, serif;
+        font-size: clamp(28px, 3vw, 44px);
+        font-weight: 500;
+      }
+
+      .lab-header p:last-child {
+        max-width: 560px;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+        text-align: right;
+      }
+
+      .concept-picker {
+        display: flex;
+        gap: 8px;
+        max-width: 1500px;
+        margin: 0 auto 12px;
+      }
+
+      .concept-picker input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .concept-picker label {
+        padding: 9px 15px;
+        border: 1px solid rgba(143, 160, 173, 0.18);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgba(16, 25, 35, 0.8);
+        cursor: pointer;
+        transition: 150ms ease;
+      }
+
+      .concept-picker label:hover,
+      .concept-picker input:focus-visible + label {
+        color: var(--cream);
+        border-color: var(--gold-soft);
+      }
+
+      body:has(#pick-prism:checked) label[for="pick-prism"],
+      body:has(#pick-quarter:checked) label[for="pick-quarter"],
+      body:has(#pick-bell:checked) label[for="pick-bell"],
+      body:has(#pick-arcane:checked) label[for="pick-arcane"] {
+        color: var(--ink);
+        border-color: var(--gold);
+        background: var(--gold);
+      }
+
+      .concept {
+        display: none;
+        max-width: 1500px;
+        min-height: 690px;
+        margin: auto;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(8, 13, 20, 0.92);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+      }
+
+      body:has(#pick-prism:checked) .concept--prism,
+      body:has(#pick-quarter:checked) .concept--quarter,
+      body:has(#pick-bell:checked) .concept--bell,
+      body:has(#pick-arcane:checked) .concept--arcane {
+        display: grid;
+      }
+
+      body:has(#pick-forge:checked) label[for="pick-forge"] {
+        color: var(--ink);
+        border-color: var(--gold);
+        background: var(--gold);
+      }
+
+      body:has(#pick-forge:checked) .concept--forge {
+        display: grid;
+      }
+
+      .topbar {
+        display: flex;
+        grid-column: 1 / -1;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 58px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(11, 18, 26, 0.95);
+      }
+
+      .brand,
+      .top-actions,
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-mark,
+      .crest {
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        color: var(--gold);
+        background: linear-gradient(145deg, #223447, #101923);
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        font-family: Georgia, serif;
+      }
+
+      .brand strong,
+      .section-title {
+        font-family: Georgia, serif;
+        font-weight: 500;
+      }
+
+      .brand small,
+      .muted,
+      small {
+        color: var(--muted);
+      }
+
+      .surface-toggle,
+      .chip,
+      .action {
+        border: 1px solid rgba(143, 160, 173, 0.18);
+        border-radius: 999px;
+        background: rgba(22, 35, 49, 0.85);
+      }
+
+      .surface-toggle {
+        padding: 5px;
+      }
+
+      .surface-toggle span {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .surface-toggle .active {
+        color: var(--ink);
+        background: var(--cream);
+      }
+
+      .chip {
+        padding: 6px 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .action {
+        padding: 9px 13px;
+        color: var(--cream);
+      }
+
+      .action--gold {
+        color: var(--ink);
+        border-color: var(--gold);
+        background: var(--gold);
+        font-weight: 800;
+      }
+
+      .guild-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 10px;
+        border-right: 1px solid var(--line);
+        background: #0d151e;
+      }
+
+      .crest {
+        width: 42px;
+        height: 42px;
+        border-radius: 13px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .crest.active {
+        color: var(--ink);
+        border-color: var(--gold);
+        background: var(--gold);
+        box-shadow: 0 0 24px rgba(226, 183, 87, 0.18);
+      }
+
+      .context-panel,
+      .people-panel,
+      .content-panel {
+        padding: 18px;
+        min-width: 0;
+      }
+
+      .context-panel {
+        border-right: 1px solid var(--line);
+        background: rgba(16, 25, 35, 0.82);
+      }
+
+      .context-panel h2,
+      .people-panel h2 {
+        margin: 3px 0 18px;
+        font-size: 20px;
+      }
+
+      .context-nav {
+        display: grid;
+        gap: 5px;
+      }
+
+      .context-nav div {
+        padding: 9px 10px;
+        border-radius: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .context-nav .active {
+        color: var(--cream);
+        background: var(--panel-2);
+      }
+
+      .context-nav .spacer {
+        height: 12px;
+      }
+
+      .content-panel {
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(10, 17, 25, 0.3), rgba(8, 13, 20, 0.95)),
+          radial-gradient(circle at 80% 0%, rgba(79, 181, 168, 0.12), transparent 35%);
+      }
+
+      .content-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 15px;
+      }
+
+      .content-head h2 {
+        margin: 4px 0 0;
+        font-family: Georgia, serif;
+        font-size: 29px;
+        font-weight: 500;
+      }
+
+      .hero-card {
+        min-height: 245px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background:
+          linear-gradient(90deg, rgba(11, 18, 26, 0.98) 0 45%, rgba(11, 18, 26, 0.2)),
+          radial-gradient(circle at 80% 35%, rgba(223, 128, 104, 0.7), transparent 23%),
+          radial-gradient(circle at 76% 42%, rgba(117, 158, 208, 0.7), transparent 38%),
+          #172434;
+      }
+
+      .hero-card h3 {
+        max-width: 470px;
+        margin: 20px 0 8px;
+        font-family: Georgia, serif;
+        font-size: 32px;
+        font-weight: 500;
+      }
+
+      .hero-card p {
+        max-width: 430px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .hero-card .row {
+        margin-top: 20px;
+      }
+
+      .activity-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 13px;
+      }
+
+      .activity-card,
+      .person,
+      .metric,
+      .room-card,
+      .program-step {
+        border: 1px solid rgba(143, 160, 173, 0.15);
+        border-radius: 12px;
+        background: rgba(22, 35, 49, 0.68);
+      }
+
+      .activity-card {
+        min-height: 122px;
+        padding: 14px;
+      }
+
+      .activity-card strong,
+      .person strong {
+        display: block;
+        margin: 9px 0 5px;
+      }
+
+      .people-panel {
+        border-left: 1px solid var(--line);
+        background: rgba(13, 21, 30, 0.94);
+      }
+
+      .person {
+        display: grid;
+        grid-template-columns: 32px 1fr auto;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 9px;
+        padding: 9px;
+      }
+
+      .avatar {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--blue), var(--coral));
+        color: #fff;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .person strong {
+        margin: 0;
+        font-size: 13px;
+      }
+
+      .person small {
+        font-size: 11px;
+      }
+
+      .session-dock {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: 1.4fr 1fr auto;
+        align-items: center;
+        gap: 18px;
+        min-height: 68px;
+        padding: 10px 17px;
+        border-top: 1px solid var(--line);
+        background: #0a1119;
+      }
+
+      .session-dock strong {
+        display: block;
+        margin-bottom: 2px;
+      }
+
+      .session-people {
+        display: flex;
+      }
+
+      .session-people .avatar {
+        margin-left: -7px;
+        border: 2px solid #0a1119;
+      }
+
+      .session-people .avatar:first-child {
+        margin-left: 0;
+      }
+
+      .concept--prism {
+        grid-template: 58px minmax(0, 1fr) 68px / 64px 218px minmax(460px, 1fr) 250px;
+      }
+
+      .concept--quarter,
+      .concept--bell,
+      .concept--arcane {
+        grid-template-rows: 58px minmax(0, 1fr) 68px;
+      }
+
+      .concept--forge {
+        grid-template: 58px minmax(0, 1fr) 68px / 220px minmax(520px, 1fr) 280px;
+      }
+
+      .quarter-main,
+      .bell-main,
+      .arcane-main {
+        min-height: 0;
+        padding: 24px;
+        overflow: hidden;
+      }
+
+      .forge-tree,
+      .forge-main,
+      .forge-side {
+        min-width: 0;
+        padding: 20px;
+      }
+
+      .forge-tree {
+        border-right: 1px solid var(--line);
+        background: #0d151e;
+      }
+
+      .forge-tree h2,
+      .forge-side h2 {
+        margin: 4px 0 18px;
+        font-family: Georgia, serif;
+        font-size: 23px;
+        font-weight: 500;
+      }
+
+      .forge-tree .context-nav div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .forge-main {
+        background:
+          radial-gradient(circle at 88% 5%, rgba(226, 183, 87, 0.13), transparent 28%),
+          #0a1119;
+      }
+
+      .forge-main h2 {
+        max-width: 720px;
+        margin: 5px 0 10px;
+        font-family: Georgia, serif;
+        font-size: 34px;
+        font-weight: 500;
+      }
+
+      .forge-main > p.muted {
+        max-width: 730px;
+        line-height: 1.5;
+      }
+
+      .forge-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .forge-card {
+        min-height: 155px;
+        padding: 16px;
+        border: 1px solid rgba(143, 160, 173, 0.17);
+        border-radius: 13px;
+        background: linear-gradient(145deg, rgba(22, 35, 49, 0.88), rgba(13, 21, 30, 0.78));
+      }
+
+      .forge-card strong {
+        display: block;
+        margin: 9px 0 7px;
+        font-family: Georgia, serif;
+        font-size: 21px;
+      }
+
+      .forge-card .row {
+        justify-content: space-between;
+        margin-top: 16px;
+      }
+
+      .forge-side {
+        border-left: 1px solid var(--line);
+        background: rgba(13, 21, 30, 0.94);
+      }
+
+      .source-box {
+        margin-top: 12px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(22, 35, 49, 0.68);
+      }
+
+      .source-box strong {
+        display: block;
+        margin: 6px 0;
+      }
+
+      .quarter-main {
+        display: grid;
+        grid-template-columns: 1.25fr 0.75fr;
+        gap: 18px;
+        background:
+          linear-gradient(180deg, rgba(8, 13, 20, 0.1), rgba(8, 13, 20, 0.92)),
+          radial-gradient(circle at 30% 30%, rgba(226, 183, 87, 0.16), transparent 35%);
+      }
+
+      .quarter-map {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background:
+          linear-gradient(30deg, transparent 48%, rgba(226, 183, 87, 0.08) 49% 51%, transparent 52%),
+          linear-gradient(-30deg, transparent 48%, rgba(226, 183, 87, 0.06) 49% 51%, transparent 52%),
+          #101923;
+        background-size: 90px 90px;
+      }
+
+      .quarter-label {
+        position: absolute;
+        padding: 11px 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(8, 13, 20, 0.9);
+      }
+
+      .quarter-label:nth-child(1) {
+        top: 12%;
+        left: 12%;
+      }
+
+      .quarter-label:nth-child(2) {
+        top: 26%;
+        right: 11%;
+      }
+
+      .quarter-label:nth-child(3) {
+        bottom: 20%;
+        left: 30%;
+      }
+
+      .quarter-label:nth-child(4) {
+        right: 15%;
+        bottom: 8%;
+      }
+
+      .quarter-side {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        align-content: start;
+      }
+
+      .quarter-side h2 {
+        grid-column: 1 / -1;
+        margin: 0 0 2px;
+        font-family: Georgia, serif;
+        font-size: 30px;
+        font-weight: 500;
+      }
+
+      .metric {
+        min-height: 112px;
+        padding: 15px;
+      }
+
+      .metric b {
+        display: block;
+        margin: 8px 0;
+        color: var(--gold);
+        font-family: Georgia, serif;
+        font-size: 27px;
+      }
+
+      .bell-main {
+        background: radial-gradient(circle at 50% 0%, rgba(226, 183, 87, 0.11), transparent 42%);
+      }
+
+      .bell-title {
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .bell-title h2,
+      .arcane-title h2 {
+        margin: 4px 0;
+        font-family: Georgia, serif;
+        font-size: 35px;
+        font-weight: 500;
+      }
+
+      .bell-columns {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .bell-column {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(16, 25, 35, 0.72);
+      }
+
+      .bell-column h3 {
+        margin: 0 0 12px;
+        color: var(--gold);
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .room-card {
+        min-height: 126px;
+        margin-top: 10px;
+        padding: 14px;
+      }
+
+      .room-card strong {
+        display: block;
+        margin: 6px 0;
+        font-family: Georgia, serif;
+        font-size: 20px;
+      }
+
+      .room-card .row {
+        justify-content: space-between;
+        margin-top: 15px;
+      }
+
+      .arcane-main {
+        display: grid;
+        align-content: center;
+        padding-inline: 6vw;
+        background:
+          radial-gradient(circle at 17% 38%, rgba(117, 158, 208, 0.25), transparent 24%),
+          radial-gradient(circle at 82% 58%, rgba(223, 128, 104, 0.22), transparent 26%),
+          #0b121a;
+      }
+
+      .arcane-title {
+        max-width: 760px;
+        margin-bottom: 30px;
+      }
+
+      .program {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+
+      .program::before {
+        position: absolute;
+        top: 24px;
+        right: 7%;
+        left: 7%;
+        height: 1px;
+        background: linear-gradient(90deg, var(--blue), var(--gold), var(--coral));
+        content: "";
+      }
+
+      .program-step {
+        position: relative;
+        min-height: 175px;
+        padding: 52px 17px 17px;
+      }
+
+      .program-step::before {
+        position: absolute;
+        top: 17px;
+        left: 18px;
+        width: 15px;
+        height: 15px;
+        border: 3px solid var(--ink);
+        border-radius: 50%;
+        background: var(--gold);
+        box-shadow: 0 0 0 1px var(--gold);
+        content: "";
+      }
+
+      .program-step.active {
+        border-color: var(--gold);
+        background: linear-gradient(145deg, rgba(226, 183, 87, 0.15), var(--panel-2));
+      }
+
+      .program-step strong {
+        display: block;
+        margin: 7px 0;
+        font-family: Georgia, serif;
+        font-size: 20px;
+      }
+
+      @media (max-width: 1180px) {
+        .concept--prism {
+          grid-template-columns: 56px 190px minmax(430px, 1fr);
+        }
+
+        .concept--prism .people-panel {
+          display: none;
+        }
+
+        .activity-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .activity-card:last-child {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="lab-header">
+      <div>
+        <p class="eyebrow">600 Billion · Product Study</p>
+        <h1>Palace Interface Lab</h1>
+      </div>
+      <p>
+        Five surviving interface proposals. Same Palace Core, different emphasis: global lens,
+        persistent belonging, live Session or programmed action.
+      </p>
+    </header>
+
+    <nav class="concept-picker" aria-label="Interface concepts">
+      <input checked id="pick-prism" name="concept" type="radio" />
+      <label for="pick-prism">1 · Palace Prism</label>
+      <input id="pick-quarter" name="concept" type="radio" />
+      <label for="pick-quarter">2 · Guild Quarter</label>
+      <input id="pick-bell" name="concept" type="radio" />
+      <label for="pick-bell">3 · Bell Mode</label>
+      <input id="pick-arcane" name="concept" type="radio" />
+      <label for="pick-arcane">4 · Arcane Night</label>
+      <input id="pick-forge" name="concept" type="radio" />
+      <label for="pick-forge">5 · Citadel Forge</label>
+    </nav>
+
+    <main>
+      <section class="concept concept--prism">
+        <header class="topbar">
+          <div class="brand">
+            <span class="brand-mark">P</span>
+            <span><strong>Palace</strong><br /><small>Electronic Music lens</small></span>
+          </div>
+          <div class="top-actions">
+            <span class="chip">⌘ Search people, guilds, activities</span>
+            <span class="surface-toggle"><span class="active">Web</span><span>World</span></span>
+            <span class="chip">FLX · 21 sats</span>
+          </div>
+        </header>
+        <aside class="guild-rail">
+          <span class="crest">PC</span><span class="crest">ALL</span><span class="crest active">EM</span>
+          <span class="crest">B</span><span class="crest">VIE</span><span class="crest">+</span>
+        </aside>
+        <aside class="context-panel">
+          <p class="eyebrow">Electronic Music</p>
+          <h2>Guild Lens</h2>
+          <div class="context-nav">
+            <div class="active">◉ Now <small>3</small></div><div>◷ Next</div><div>∞ Anytime</div>
+            <div class="spacer"></div><div>♫ Culture</div><div>⚒ Making</div><div>◇ Market</div>
+            <div>✦ Arcane Games</div><div>⌂ Guild Quarter</div>
+          </div>
+        </aside>
+        <section class="content-panel">
+          <div class="content-head">
+            <div><p class="eyebrow">Curated by this guild</p><h2>Something is happening</h2></div>
+            <span class="chip">View: Now · Next · Anytime</span>
+          </div>
+          <article class="hero-card">
+            <span class="chip">LIVE · 5 people · Wavlake</span>
+            <h3>Signals from the Other Side</h3>
+            <p>A shared listening room hosted by Anna. Enter on web or meet at the Palace stage.</p>
+            <div class="row"><button class="action action--gold">Join Session</button><button class="action">Enter world</button></div>
+          </article>
+          <div class="activity-grid">
+            <article class="activity-card"><small>NEXT · SAT 20:00</small><strong>Moon Night broadcast</strong><small>8 going · RSVP</small></article>
+            <article class="activity-card"><small>ANYTIME · ARCADE</small><strong>Need one more player</strong><small>Guild challenge · Join</small></article>
+            <article class="activity-card"><small>CURATOR NOTE</small><strong>Three new releases</strong><small>Selected by Ben · Browse</small></article>
+          </div>
+        </section>
+        <aside class="people-panel">
+          <p class="eyebrow">Real presence</p><h2>People & Now</h2>
+          <div class="person"><span class="avatar">A</span><span><strong>Anna</strong><small>Listening · Join</small></span><small>●</small></div>
+          <div class="person"><span class="avatar">B</span><span><strong>Ben</strong><small>Arcade · Invite</small></span><small>●</small></div>
+          <div class="person"><span class="avatar">C</span><span><strong>Clara</strong><small>At the stage</small></span><small>●</small></div>
+          <p class="eyebrow" style="margin-top: 24px">Next bell</p>
+          <p>Moon Night<br /><small>Saturday · 20:00 · 8 going</small></p>
+          <button class="action">Open event</button>
+        </aside>
+        <footer class="session-dock">
+          <div><strong>♫ Signals from the Other Side</strong><small>Session: Music Guild · 02:18 / 04:41</small></div>
+          <div class="row"><span class="session-people"><span class="avatar">A</span><span class="avatar">B</span><span class="avatar">C</span></span><small>Chat · Voice · Invite</small></div>
+          <div class="row"><button class="action">Chat</button><button class="action action--gold">Enter world</button></div>
+        </footer>
+      </section>
+
+      <section class="concept concept--quarter">
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">EM</span><span><strong>Electronic Music Quarter</strong><br /><small>One of your four guild homes</small></span></div>
+          <div class="top-actions"><span class="chip">Commons</span><span class="chip">Joined</span><span class="surface-toggle"><span class="active">Ledger</span><span>Enter</span></span></div>
+        </header>
+        <div class="quarter-main">
+          <div class="quarter-map">
+            <div class="quarter-label"><strong>Listening Hall</strong><br /><small>3 people here</small></div>
+            <div class="quarter-label"><strong>Culture Wall</strong><br /><small>8 curated Activities</small></div>
+            <div class="quarter-label"><strong>Arcane Cellar</strong><br /><small>2 game portals</small></div>
+            <div class="quarter-label"><strong>Bell Tower</strong><br /><small>62% complete</small></div>
+          </div>
+          <aside class="quarter-side">
+            <p class="eyebrow" style="grid-column: 1 / -1">Persistent guild identity</p>
+            <h2>A place that remembers</h2>
+            <div class="metric"><small>MONUMENT</small><b>62%</b><small>Bell Tower · 83 days aging</small></div>
+            <div class="metric"><small>MEMBERS</small><b>21</b><small>3 here · 7 this week</small></div>
+            <div class="metric"><small>CULTURE</small><b>8</b><small>curated · 2 Sessions live</small></div>
+            <div class="metric"><small>NEXT</small><b>20:00</b><small>Moon Night · Saturday</small></div>
+            <div class="metric" style="grid-column: 1 / -1"><small>GUILD MEMORY</small><b>143 days</b><small>Oldest placed artifact · inspect the chronological plaque</small></div>
+          </aside>
+        </div>
+        <footer class="session-dock">
+          <div><strong>Quarter chat</strong><small>History persists outside the world renderer</small></div>
+          <div class="row"><span class="chip">Curators: Anna · Ben</span><span class="chip">Roles & audit</span></div>
+          <div class="row"><button class="action">Culture wall</button><button class="action action--gold">Enter Quarter</button></div>
+        </footer>
+      </section>
+
+      <section class="concept concept--bell">
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">B</span><span><strong>The Bell</strong><br /><small>Joined guilds · honest live state</small></span></div>
+          <div class="top-actions"><span class="chip">Music + Builders + Vienna</span><span class="surface-toggle"><span class="active">Web</span><span>World</span></span></div>
+        </header>
+        <div class="bell-main">
+          <div class="bell-title"><p class="eyebrow">What can we do together?</p><h2>Now, next or whenever</h2><small>Sessions keep the same people and chat across every renderer.</small></div>
+          <div class="bell-columns">
+            <section class="bell-column"><h3>Now · 2</h3><article class="room-card"><small>MUSIC GUILD · 5 PEOPLE</small><strong>Listening room</strong><small>Wavlake · hosted by Anna</small><div class="row"><span class="session-people"><span class="avatar">A</span><span class="avatar">B</span></span><button class="action action--gold">Join</button></div></article><article class="room-card"><small>BUILDERS · 2 PEOPLE</small><strong>Open workshop</strong><small>Help place the roof</small></article></section>
+            <section class="bell-column"><h3>Next · 3</h3><article class="room-card"><small>SATURDAY · 20:00</small><strong>Moon Night</strong><small>8 going · public Palace stage</small><div class="row"><span class="chip">NIP-52 event</span><button class="action">RSVP</button></div></article><article class="room-card"><small>SUNDAY · THE BELL</small><strong>Guild monument</strong><small>Witness the next placement</small></article></section>
+            <section class="bell-column"><h3>Anytime · 6</h3><article class="room-card"><small>ARCANE GAMES</small><strong>Action on demand</strong><small>Start solo; guild members may join</small><div class="row"><span class="chip">2 portals</span><button class="action">Play</button></div></article><article class="room-card"><small>CURATED AUDIO</small><strong>Start a room</strong><small>Choose from your guild lenses</small></article></section>
+          </div>
+        </div>
+        <footer class="session-dock">
+          <div><strong>No current Session</strong><small>Join something now or schedule it for your guild.</small></div>
+          <div class="row"><span class="chip">Commons remains useful with 0 online</span></div>
+          <button class="action action--gold">Start a Session</button>
+        </footer>
+      </section>
+
+      <section class="concept concept--arcane">
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">AN</span><span><strong>Arcane Night</strong><br /><small>A programmed Palace journey</small></span></div>
+          <div class="top-actions"><span class="chip">Presented by Music + Arcade Guilds</span><span class="chip">12 going</span></div>
+        </header>
+        <div class="arcane-main">
+          <div class="arcane-title"><p class="eyebrow">Saturday · 20:00 · web and world</p><h2>From listening room to game portal</h2><p class="muted">Four canonical Activities, one continuous social evening. Join at any step without losing chat, people or guild context.</p></div>
+          <div class="program">
+            <article class="program-step active"><small>20:00 · WAVLAKE</small><strong>Warm-up Session</strong><small>Listen together · stage opens</small></article>
+            <article class="program-step"><small>20:30 · GUILD</small><strong>Gathering</strong><small>Curator notes · voice optional</small></article>
+            <article class="program-step"><small>21:00 · ARCANE</small><strong>Guild Challenge</strong><small>Action on demand · teams of 3</small></article>
+            <article class="program-step"><small>21:30 · PALACE</small><strong>Aftershow</strong><small>Results · boosts · next invitation</small></article>
+          </div>
+        </div>
+        <footer class="session-dock">
+          <div><strong>Program lobby</strong><small>12 going · 3 guilds · all steps remain individually addressable</small></div>
+          <div class="row"><span class="session-people"><span class="avatar">A</span><span class="avatar">B</span><span class="avatar">C</span></span><span class="chip">Invite guild</span></div>
+          <div class="row"><button class="action">Open program</button><button class="action action--gold">Join warm-up</button></div>
+        </footer>
+      </section>
+
+      <section class="concept concept--forge">
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">F</span><span><strong>Forge Guild</strong><br /><small>Knowledge provided by Citadel Resources</small></span></div>
+          <div class="top-actions"><span class="chip">provider:citadel-resources · snapshot 12</span><span class="surface-toggle"><span class="active">Web</span><span>Forge Yard</span></span></div>
+        </header>
+        <aside class="forge-tree">
+          <p class="eyebrow">Construction set</p><h2>Technology families</h2>
+          <div class="context-nav">
+            <div class="active"><span>All systems</span><small>50</small></div><div><span>Habitat</span><small>8</small></div>
+            <div><span>Agriculture</span><small>9</small></div><div><span>Industry</span><small>11</small></div>
+            <div><span>Energy</span><small>7</small></div><div><span>Materials</span><small>8</small></div>
+            <div><span>Transportation</span><small>7</small></div><div class="spacer"></div>
+            <div><span>Guild sessions</span><small>2</small></div><div><span>Field notes</span><small>14</small></div>
+          </div>
+        </aside>
+        <section class="forge-main">
+          <p class="eyebrow">Curated by Forge Guild · open source hardware</p>
+          <h2>Global Village Construction Set</h2>
+          <p class="muted">Open knowledge stays open. Guild progress records what members studied, simulated, documented or built — never permission to read the source.</p>
+          <div class="row"><span class="chip">Source: Open Source Ecology</span><span class="chip">Designs: CC BY-SA 4.0</span><span class="chip">50 machines</span></div>
+          <div class="forge-grid">
+            <article class="forge-card"><small>MATERIALS · DOCUMENTED VARIANTS</small><strong>Sawmill</strong><small>Turn local logs into lumber. World representation is marked as a visual proxy.</small><div class="row"><span class="chip">WORLD PROXY</span><button class="action action--gold">Study together</button></div></article>
+            <article class="forge-card"><small>MATERIALS · PROTOTYPE LINE</small><strong>CEB Press</strong><small>Compressed earth blocks, source plans and an assembly simulation.</small><div class="row"><span class="chip">Forge + Craft</span><button class="action">Open source</button></div></article>
+            <article class="forge-card"><small>HABITAT · BUILT / DOCUMENTED</small><strong>Seed Eco-Home</strong><small>CAD, bill of materials and expandable building-module logic.</small><div class="row"><span class="chip">Shelter Guild</span><button class="action">Planning table</button></div></article>
+            <article class="forge-card"><small>TRANSPORT · DOCUMENTED VARIANTS</small><strong>LifeTrac</strong><small>Hauling and site logistics as an on-demand Arcane simulation.</small><div class="row"><span class="chip">Food + Land</span><button class="action">Start scenario</button></div></article>
+          </div>
+        </section>
+        <aside class="forge-side">
+          <p class="eyebrow">Source before spectacle</p><h2>Provenance</h2>
+          <div class="source-box"><small>PROVIDER</small><strong>Citadel Resources</strong><small>Typed catalog · accepted in SQLite before projection</small></div>
+          <div class="source-box"><small>CANONICAL SOURCE</small><strong>Open Source Ecology</strong><small>Original maturity and license remain visible</small></div>
+          <div class="source-box"><small>LIVE SESSION</small><strong>Sawmill material flow</strong><small>Anna + Ben · needs one more builder</small><button class="action action--gold" style="margin-top: 12px">Join</button></div>
+          <div class="source-box"><small>WARNING</small><strong>Simulation, not certification</strong><small>World proxies are never presented as technical models.</small></div>
+        </aside>
+        <footer class="session-dock">
+          <div><strong>⚒ Sawmill material-flow Session</strong><small>Forge Guild · canonical Activity · source snapshot 12</small></div>
+          <div class="row"><span class="session-people"><span class="avatar">A</span><span class="avatar">B</span></span><small>Chat · Notes · Invite</small></div>
+          <div class="row"><button class="action">Open docs</button><button class="action action--gold">Enter Forge Yard</button></div>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>

@@ -12,7 +12,7 @@ from mathutils import Vector
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, out = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -46,7 +46,9 @@ def main() -> None:
         cam.location = center + Vector((size * 0.10, -size * 0.78, size * 0.10))
     else:
         dist = size * (0.45 if mode == "close" else 1.35)
-        cam.location = center + Vector((dist * 0.9, -dist * 0.9, dist * (0.22 if mode == "close" else 0.42)))
+        cam.location = center + Vector(
+            (dist * 0.9, -dist * 0.9, dist * (0.22 if mode == "close" else 0.42))
+        )
     cam.rotation_euler = (center - cam.location).to_track_quat("-Z", "Y").to_euler()
     bpy.context.scene.camera = cam
 

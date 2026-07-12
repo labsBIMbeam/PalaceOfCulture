@@ -7,12 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx tests/builder-smoke.ts && tsx tests/security-smoke.ts && tsx tests/audit-smoke.ts && tsx tests/map-search-smoke.ts && tsx tests/indexeddb-audit.test.ts && tsx tests/multiplayer-smoke.ts && tsx tests/culture-smoke.ts && tsx tests/social-quality-smoke.ts && tsx tests/politics-smoke.ts",
+    "game:sync": "node -e \"require('fs').cpSync('../../godot/dist/web','public/game',{recursive:true})\""
   },
   "dependencies": {
-    "@600b/identity": "workspace:*",
-    "@600b/ownership": "workspace:*",
+    "@600b/multiplayer": "workspace:*",
     "@600b/shared": "workspace:*",
+    "@colyseus/sdk": "^0.17.43",
     "@nostr-dev-kit/ndk": "^3.0.3",
     "@pixiv/three-vrm": "^3.5.4",
     "@react-three/drei": "^9.114.0",
@@ -36,6 +38,8 @@
     "@types/react-dom": "^18.3.0",
     "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.3.2",
+    "fake-indexeddb": "^6.2.4",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.8"
   }

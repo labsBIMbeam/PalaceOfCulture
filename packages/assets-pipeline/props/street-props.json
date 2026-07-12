@@ -1,0 +1,19 @@
+[
+  { "term": "barrel", "want": 2, "as": "barrel", "authors": ["Kenney", "Quaternius"] },
+  { "term": "crate", "want": 2, "as": "crate", "authors": ["Kenney", "Quaternius"] },
+  { "term": "wooden box", "want": 1, "as": "box", "authors": ["Kenney", "Quaternius"] },
+  { "term": "sack", "want": 1, "as": "sack", "authors": ["Kenney", "Quaternius"] },
+  { "term": "lantern", "want": 1, "as": "lantern", "authors": ["Kenney", "Quaternius"] },
+  { "term": "bench", "want": 1, "as": "bench", "authors": ["Kenney", "Quaternius"] },
+  { "term": "cart", "want": 1, "as": "cart", "authors": ["Kenney", "Quaternius"] },
+  { "term": "potted plant", "want": 2, "as": "plant", "authors": ["Kenney", "Quaternius"] },
+  { "term": "vase", "want": 1, "as": "vase", "authors": ["Kenney", "Quaternius"] },
+  { "term": "bucket", "want": 1, "as": "bucket", "authors": ["Kenney", "Quaternius"] },
+  { "term": "log", "want": 1, "as": "log", "authors": ["Kenney", "Quaternius"] },
+  { "term": "anvil", "want": 1, "as": "anvil", "authors": ["Kenney", "Quaternius"] },
+  { "term": "lamp post", "want": 1, "as": "lamppost", "authors": ["Kenney", "Quaternius"] },
+  { "term": "well", "want": 1, "as": "well", "authors": ["Kenney", "Quaternius"] },
+  { "term": "pine tree", "want": 1, "as": "tree", "authors": ["Kenney", "Quaternius"] },
+  { "term": "flag", "want": 1, "as": "flag", "authors": ["Kenney", "Quaternius"] },
+  { "term": "market stall", "want": 1, "as": "stall", "authors": ["Kenney", "Quaternius"] }
+]

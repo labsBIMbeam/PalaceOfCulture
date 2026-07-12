@@ -5,7 +5,6 @@ import { Icon } from "./icons";
  * Full-screen intro video shown before character creation. Sound is ON by default — browsers block
  * unmuted autoplay until a gesture, so if it doesn't start on its own, the first click anywhere on
  * the video plays it with sound. Sound toggle + skip; advances when it ends, errors, or is skipped.
- * Re-shows on every page load — fine for the demo.
  */
 export function IntroScreen({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -35,6 +34,7 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
     <div className="intro-screen">
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: Skip/Sound buttons are the keyboard path */}
       <video
+        aria-label="Palace of Culture intro video. Use Skip to continue."
         autoPlay
         className="intro-video"
         muted={muted}
@@ -42,12 +42,10 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
         onEnded={onComplete}
         onError={onComplete}
         playsInline
-        preload="auto"
+        preload="metadata"
         ref={videoRef}
         src="/intro.mp4"
-      >
-        <track kind="captions" />
-      </video>
+      />
       <div className="intro-controls">
         <button className="intro-button" onClick={toggleSound} type="button">
           {muted ? "Sound on" : "Mute"}

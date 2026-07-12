@@ -16,7 +16,9 @@ import bpy
 from mathutils import Vector
 
 MAX_DIM = 1000.0  # building blow-up artifact -> drop
-SLAB_MAX = 200.0  # ignore any "Geschossdecke" bigger than this (stray water plane safety)
+SLAB_MAX = (
+    200.0  # ignore any "Geschossdecke" bigger than this (stray water plane safety)
+)
 
 
 def ensure_gltf() -> None:
@@ -45,7 +47,7 @@ def floor_material():
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     bsrc, csrc, dst = rest[0], rest[1], rest[2]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -56,7 +58,9 @@ def main() -> None:
     bpy.context.view_layer.update()
     building_names = {o.name for o in bpy.data.objects}
     for o in list(bpy.data.objects):
-        if o.type == "MESH" and max(o.dimensions) > MAX_DIM:  # drop blow-ups only; keep clean roofs
+        if (
+            o.type == "MESH" and max(o.dimensions) > MAX_DIM
+        ):  # drop blow-ups only; keep clean roofs
             bpy.data.objects.remove(o, do_unlink=True)
     building = [o for o in bpy.data.objects if o.type == "MESH"]
 
@@ -65,7 +69,11 @@ def main() -> None:
     bpy.context.view_layer.update()
     slabs = []
     for o in [o for o in bpy.data.objects if o.name not in building_names]:
-        keep = o.type == "MESH" and "geschossdecke" in o.name.lower() and max(o.dimensions) < SLAB_MAX
+        keep = (
+            o.type == "MESH"
+            and "geschossdecke" in o.name.lower()
+            and max(o.dimensions) < SLAB_MAX
+        )
         if keep:
             slabs.append(o)
         else:
@@ -94,7 +102,9 @@ def main() -> None:
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.02)
     bmesh.ops.dissolve_degenerate(bm, dist=1e-4, edges=bm.edges)
     if bm.edges:
-        bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(2), verts=bm.verts, edges=bm.edges)
+        bmesh.ops.dissolve_limit(
+            bm, angle_limit=math.radians(2), verts=bm.verts, edges=bm.edges
+        )
     if bm.faces:
         bmesh.ops.triangulate(bm, faces=bm.faces)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
@@ -104,7 +114,9 @@ def main() -> None:
     floor.name = "600B_FLOOR"
     me.materials.clear()
     me.materials.append(floor_material())
-    floor.location.z = -0.03  # a hair below the building's own EG slab to avoid z-fighting
+    floor.location.z = (
+        -0.03
+    )  # a hair below the building's own EG slab to avoid z-fighting
 
     # 4. one shared X/Y centre for building + floor (keep Z: deck@0, floor@-0.03)
     allm = [o for o in bpy.data.objects if o.type == "MESH"]
@@ -128,7 +140,9 @@ def main() -> None:
         o.data.calc_loop_triangles()
         tris += len(o.data.loop_triangles)
     floor.data.calc_loop_triangles()
-    print(f"FINAL meshes={len(allm)} tris={tris} floor_tris={len(floor.data.loop_triangles)}")
+    print(
+        f"FINAL meshes={len(allm)} tris={tris} floor_tris={len(floor.data.loop_triangles)}"
+    )
     bpy.ops.export_scene.gltf(filepath=dst, export_format="GLB", use_selection=False)
     print("BUILT", dst)
 

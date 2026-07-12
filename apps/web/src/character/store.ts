@@ -1,34 +1,35 @@
 import type { Character } from "@600b/shared";
-
-// CharacterStore — the seam between the builder/app and where character rows live.
-//
-// Plug-and-play today = IndexedDB on the device: the player owns their record, no server needed,
-// survives reload. The same interface swaps to the apps/server SQLite truth-tier + append-only
-// event log later (ADR 0003) — the builder and the app never change. This mirrors the chat/voice
-// transport pattern (ADR 0002).
+import { commitAuditedWrite, ensureAuditStores } from "../audit/indexedDbAudit";
 
 export interface CharacterStore {
-  /** The active player's character (single-character PoC), or null if none created yet. */
+  /** The active player's character, or null if none was created yet. */
   loadCurrent(): Promise<Character | null>;
   /** Persist a character and mark it current. */
   save(character: Character): Promise<void>;
-  /** Forget the current character (e.g. "start over"). */
+  /** Forget the current character without deleting its audit history. */
   clearCurrent(): Promise<void>;
 }
 
 const DB_NAME = "600b";
-const STORE = "characters";
-const CURRENT_KEY = "600b:currentCharacterId";
+const DB_VERSION = 2;
+const CHARACTER_STORE = "characters";
+const META_STORE = "metadata";
+const CURRENT_KEY = "current-character";
+const LEGACY_CURRENT_KEY = "600b:currentCharacterId";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "id" });
+    const input = indexedDB.open(DB_NAME, DB_VERSION);
+    input.onupgradeneeded = () => {
+      const db = input.result;
+      if (!db.objectStoreNames.contains(CHARACTER_STORE)) {
+        db.createObjectStore(CHARACTER_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE);
+      ensureAuditStores(db);
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    input.onsuccess = () => resolve(input.result);
+    input.onerror = () => reject(input.error);
   });
 }
 
@@ -37,47 +38,130 @@ function request<T>(
   run: (store: IDBObjectStore) => IDBRequest<T>,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const req = run(store);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    const input = run(store);
+    input.onsuccess = () => resolve(input.result);
+    input.onerror = () => reject(input.error);
   });
 }
 
-/** The plug-and-play store: characters in IndexedDB, the "current" pointer in localStorage. */
+function readLegacyCurrentId(): string | null {
+  try {
+    return typeof localStorage === "undefined" ? null : localStorage.getItem(LEGACY_CURRENT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearLegacyCurrentId(): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.removeItem(LEGACY_CURRENT_KEY);
+  } catch {
+    // The IndexedDB pointer is authoritative; blocked legacy storage is safe to ignore.
+  }
+}
+
+/** IndexedDB store with ordered operations, an atomic pointer and a hash-linked audit trail. */
 export function createIndexedDbCharacterStore(): CharacterStore {
+  let operationTail = Promise.resolve();
+  const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
+    const result = operationTail.then(operation);
+    operationTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  };
+
   return {
-    async loadCurrent() {
-      const id = localStorage.getItem(CURRENT_KEY);
-      if (!id) return null;
-      const db = await openDb();
-      try {
-        const record = await request<Character | undefined>(
-          db.transaction(STORE, "readonly").objectStore(STORE),
-          (store) => store.get(id),
-        );
-        return record ?? null;
-      } finally {
-        db.close();
-      }
-    },
-    async save(character) {
-      const db = await openDb();
-      try {
-        await request(db.transaction(STORE, "readwrite").objectStore(STORE), (store) =>
-          store.put(character),
-        );
-        localStorage.setItem(CURRENT_KEY, character.id);
-      } finally {
-        db.close();
-      }
-    },
-    async clearCurrent() {
-      localStorage.removeItem(CURRENT_KEY);
-    },
+    loadCurrent: () =>
+      enqueue(async () => {
+        const db = await openDb();
+        try {
+          const meta = db.transaction(META_STORE, "readonly").objectStore(META_STORE);
+          const storedId = await request<string | undefined>(meta, (store) =>
+            store.get(CURRENT_KEY),
+          );
+          const id = storedId ?? readLegacyCurrentId();
+          if (!id) return null;
+          const record = await request<Character | undefined>(
+            db.transaction(CHARACTER_STORE, "readonly").objectStore(CHARACTER_STORE),
+            (store) => store.get(id),
+          );
+          if (record && !storedId) {
+            await commitAuditedWrite(
+              db,
+              [META_STORE],
+              "character:current",
+              {
+                action: "character.pointer.migrated",
+                payload: { id },
+                reason: "move the active pointer from legacy localStorage into IndexedDB",
+                updatedBy: "auto:character-migration",
+              },
+              (transaction) => transaction.objectStore(META_STORE).put(id, CURRENT_KEY),
+            );
+            clearLegacyCurrentId();
+          }
+          return record ?? null;
+        } finally {
+          db.close();
+        }
+      }),
+
+    save: (character) =>
+      enqueue(async () => {
+        const db = await openDb();
+        try {
+          await commitAuditedWrite(
+            db,
+            [CHARACTER_STORE, META_STORE],
+            `character:${character.id}`,
+            {
+              action: "character.saved",
+              payload: character,
+              reason: "persist the locally selected or updated avatar",
+              updatedBy: character.updatedBy,
+            },
+            (transaction) => {
+              transaction.objectStore(CHARACTER_STORE).put(character);
+              transaction.objectStore(META_STORE).put(character.id, CURRENT_KEY);
+            },
+          );
+          clearLegacyCurrentId();
+        } finally {
+          db.close();
+        }
+      }),
+
+    clearCurrent: () =>
+      enqueue(async () => {
+        const db = await openDb();
+        try {
+          const meta = db.transaction(META_STORE, "readonly").objectStore(META_STORE);
+          const currentId = await request<string | undefined>(meta, (store) =>
+            store.get(CURRENT_KEY),
+          );
+          await commitAuditedWrite(
+            db,
+            [META_STORE],
+            "character:current",
+            {
+              action: "character.current.cleared",
+              payload: { previousId: currentId ?? null },
+              reason: "the local player requested a fresh character selection",
+              updatedBy: "local:character-store",
+            },
+            (transaction) => transaction.objectStore(META_STORE).delete(CURRENT_KEY),
+          );
+          clearLegacyCurrentId();
+        } finally {
+          db.close();
+        }
+      }),
   };
 }
 
-/** Factory the app calls. IndexedDB today; SQLite truth-tier + event log later (ADR 0003). */
+/** Create the browser store used by the web application. */
 export function createCharacterStore(): CharacterStore {
   return createIndexedDbCharacterStore();
 }

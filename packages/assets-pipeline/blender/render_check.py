@@ -12,7 +12,7 @@ from mathutils import Vector
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, out = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)

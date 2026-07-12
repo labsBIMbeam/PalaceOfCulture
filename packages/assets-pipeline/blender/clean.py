@@ -15,7 +15,7 @@ THRESH = 500.0  # vertices farther than this (m) from the mesh median are stray
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, dst = rest[0], rest[1]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -37,7 +37,8 @@ def main() -> None:
         ys = sorted(v.co.y for v in me.vertices)
         zs = sorted(v.co.z for v in me.vertices)
         med = Vector((xs[n // 2], ys[n // 2], zs[n // 2]))
-        bm = bmesh.new(); bm.from_mesh(me)
+        bm = bmesh.new()
+        bm.from_mesh(me)
         far = [v for v in bm.verts if (v.co - med).length > THRESH]
         if far:
             bmesh.ops.delete(bm, geom=far, context="VERTS")

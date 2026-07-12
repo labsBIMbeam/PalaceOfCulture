@@ -10,7 +10,7 @@ import bpy
 
 def main() -> None:
     argv = sys.argv
-    rest = argv[argv.index("--") + 1:] if "--" in argv else []
+    rest = argv[argv.index("--") + 1 :] if "--" in argv else []
     src, dst, kw = rest[0], rest[1], rest[2].lower()
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
