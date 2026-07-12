@@ -7,7 +7,14 @@
 // capture the heaviest effects; the skybox background captures fine. Final tuning is on real hardware.
 
 import { useLoader, useThree } from "@react-three/fiber";
-import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
+import {
+  Bloom,
+  BrightnessContrast,
+  EffectComposer,
+  HueSaturation,
+  SMAA,
+  Vignette,
+} from "@react-three/postprocessing";
 import { Suspense, useEffect } from "react";
 import * as THREE from "three";
 
@@ -30,7 +37,9 @@ function Skybox() {
     const prevIntensity = scene.environmentIntensity;
     scene.background = texture;
     scene.environment = texture;
-    scene.environmentIntensity = 0.4;
+    // A touch more IBL now that the flat fill lights are dialled down — gives skins/buildings soft
+    // sky ambient + gentle reflections so they read as lit, not painted.
+    scene.environmentIntensity = 0.55;
     return () => {
       scene.background = prevBg;
       scene.environment = prevEnv;
@@ -49,13 +58,18 @@ export function Atmosphere() {
   );
 }
 
-/** Post-processing: subtle bloom on the gold/emissive accents (high threshold so the sky doesn't
- *  blow out) + a gentle vignette. Toggle via POSTFX_ENABLED in PalaceScene. */
+/** Post-processing — the "simple geometry, cinematic image" stack (Valheim-ish): bloom lifts the
+ *  neon/gold emissives, a slight desaturate + contrast bump is the filmic grade, and a vignette
+ *  frames it. Kept GPU-robust (no SSAO/normal pass); soft directional shadows + fog do the grounding.
+ *  On by default; `?postfx=0` disables. Toggle wiring: POSTFX_ENABLED in PalaceScene. */
 export function PostFx() {
   return (
-    <EffectComposer multisampling={8}>
-      <Bloom intensity={0.5} luminanceSmoothing={0.3} luminanceThreshold={0.95} mipmapBlur />
-      <Vignette darkness={0.5} eskil={false} offset={0.3} />
+    <EffectComposer multisampling={0}>
+      <Bloom intensity={0.7} luminanceSmoothing={0.28} luminanceThreshold={0.62} mipmapBlur />
+      <HueSaturation saturation={-0.08} />
+      <BrightnessContrast brightness={-0.02} contrast={0.16} />
+      <Vignette darkness={0.55} eskil={false} offset={0.32} />
+      <SMAA />
     </EffectComposer>
   );
 }

@@ -104,6 +104,14 @@ const WORLD_TITLE: Record<EngineTarget, string> = {
   street: "Werkstattgasse — the culture street",
 };
 const WORLD_ORDER: EngineTarget[] = ["hq", "street", "home"];
+// Atmospheric distance fog per world (the Valheim depth trick): distant geometry fades into a
+// horizon-matched haze so simple models read as a deep, real place. Fog never touches the sky
+// background, so the skybox stays crisp behind the haze.
+const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number }> = {
+  hq: { color: "#c4d1db", near: 55, far: 470 },
+  home: { color: HOME_CREAM, near: 30, far: 120 },
+  street: { color: "#c8d1d8", near: 24, far: 220 },
+};
 const TRAVEL_LABEL: Record<EngineTarget, string> = {
   hq: "Travel: Palace",
   home: "Travel: Home",
@@ -232,8 +240,11 @@ function SeatedView({ at }: { at: [number, number, number] }) {
 // GPU shows a blank scene).
 // Enabled via URL flag (?postfx=1) so real hardware can verify without a code flip; a weak GPU
 // showing a blank scene just drops the flag.
+// Post-processing (fog-friendly color grade + bloom + vignette) is ON by default now that the look
+// depends on it; `?postfx=0` disables it as an escape hatch for a weak GPU that renders it blank.
 const POSTFX_ENABLED =
-  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("postfx");
+  typeof window === "undefined" ||
+  new URLSearchParams(window.location.search).get("postfx") !== "0";
 const USE_RADIUS = 2.6; // metres: how close you must be to a chair/bed for the "Sit"/"Sleep" prompt
 const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the bed's default scale
 
@@ -875,31 +886,42 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   return (
     <div className="engine-shell">
       <KeyboardControls map={KEYBOARD_MAP}>
-        <Canvas camera={{ position: [150, 110, 150], fov: 42, near: 0.5, far: 6000 }} shadows>
-          {/* Sky (in <Atmosphere/>) is the background now. No fog — it sits in front of the sky dome
-              and washes it out to a flat colour. */}
-          <ambientLight intensity={0.4} />
-          {/* sky-tinted fill (cheap stand-in for IBL): cool sky above, warm bounce below */}
-          <hemisphereLight args={["#bcd4e6", "#b09a6a", 0.7]} />
+        <Canvas
+          camera={{ position: [150, 110, 150], fov: 42, near: 0.5, far: 6000 }}
+          gl={{
+            antialias: true,
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.05,
+          }}
+          shadows="soft"
+        >
+          {/* Low flat fill so shadows + the warm key carry the contrast (Nordic-overcast look); the
+              skybox IBL (SceneFx) supplies most of the soft ambient, so ambient/hemi stay gentle. */}
+          <ambientLight intensity={0.16} />
+          {/* sky-tinted fill: cool sky above, warm bounce below — kept low so it doesn't flatten */}
+          <hemisphereLight args={["#bcd4e6", "#b09a6a", 0.32]} />
           <directionalLight
             castShadow
-            color="#ffe6ad"
-            intensity={2.8}
+            color="#ffdca0"
+            intensity={3.1}
             position={[200, 350, 120]}
+            shadow-bias={-0.0004}
             shadow-camera-bottom={-200}
             shadow-camera-far={1200}
             shadow-camera-left={-200}
             shadow-camera-right={200}
             shadow-camera-top={200}
             shadow-mapSize={[2048, 2048]}
+            shadow-normalBias={0.03}
+            shadow-radius={3}
           />
           {world !== "home" ? <Atmosphere /> : null}
-          {world === "home" ? (
-            <>
-              <color args={[HOME_CREAM]} attach="background" />
-              <fog args={[HOME_CREAM, 30, 120]} attach="fog" />
-            </>
-          ) : null}
+          {world === "home" ? <color args={[HOME_CREAM]} attach="background" /> : null}
+          {/* horizon-matched distance fog for depth (never fogs the sky background) */}
+          <fog
+            args={[WORLD_FOG[world].color, WORLD_FOG[world].near, WORLD_FOG[world].far]}
+            attach="fog"
+          />
           <Suspense fallback={null}>
             <Physics key={world} timeStep={1 / 60}>
               {world === "hq" ? <Palace /> : null}
