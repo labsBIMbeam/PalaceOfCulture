@@ -10,6 +10,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { type Event, connect, getNdk, queryEvents } from "./nostr";
 import { BUILTIN_TABS, type FeedNote, type FeedTab } from "./socialModel";
+import { rankPresentableSocialEvents } from "./socialQuality";
 export { BUILTIN_TABS, PRESET_TABS, customTab, localNote } from "./socialModel";
 export type { FeedNote, FeedTab } from "./socialModel";
 
@@ -128,23 +129,16 @@ function toNote(event: Event, profile?: Profile, actions?: FeedNote["actions"]):
     pubkey: event.pubkey,
     createdAt: event.created_at ?? 0,
     founder: FOUNDERS.has(event.pubkey),
+    source: "live",
     actions: actions ?? { replies: 0, reposts: 0, zaps: 0 },
   };
 }
 
 /** Tag-stuffed / link-spam notes (the #PORTUGAL #ROMANIA… firehose junk) — kept out of every feed. */
-function isSpammy(event: Event): boolean {
-  const tags = event.tags.filter((entry) => entry[0] === "t").length;
-  const urls = (event.content.match(/https?:\/\//g) ?? []).length;
-  return tags > 8 || urls > 4;
-}
-
 /** Top-level, non-empty, non-spam notes (drops replies = notes carrying an `e` tag), newest first. */
 function rootNotes(events: Event[]): Event[] {
   return events
-    .filter(
-      (event) => event.content.trim() && !event.tags.some((e) => e[0] === "e") && !isSpammy(event),
-    )
+    .filter((event) => event.content.trim() && !event.tags.some((entry) => entry[0] === "e"))
     .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }
 
@@ -156,7 +150,7 @@ async function notesFromEvents(
   const pubkeys = [...new Set(events.map((event) => event.pubkey))].slice(0, 200);
   const profiles = new Map<string, Profile>();
   if (pubkeys.length) {
-    const metas = await queryEvents({ kinds: [0], authors: pubkeys }, 3500);
+    const metas = await queryEvents({ kinds: [0], authors: pubkeys }, 2000);
     const newest = new Map<string, number>();
     for (const meta of metas) {
       const ts = meta.created_at ?? 0;
@@ -167,7 +161,9 @@ async function notesFromEvents(
   }
   const seen = new Set<string>();
   const notes: FeedNote[] = [];
-  for (const event of events) {
+  const named = events.filter((event) => profiles.get(event.pubkey)?.name);
+  const anonymous = events.filter((event) => !profiles.get(event.pubkey)?.name).slice(0, 2);
+  for (const event of [...named, ...anonymous]) {
     if (seen.has(event.id)) continue;
     seen.add(event.id);
     notes.push(toNote(event, profiles.get(event.pubkey), actionsFor?.(event.id)));
@@ -183,11 +179,18 @@ async function notesFromEvents(
 export async function loadFeedNotes(tab: FeedTab): Promise<FeedNote[]> {
   if (tab.algo === "general") return loadGeneralFeed();
   try {
-    const events = await queryEvents({ kinds: [1], "#t": tab.hashtags, limit: 80 });
-    const roots = rootNotes(events).slice(0, 40);
+    const events = tab.authors?.length
+      ? await queryEvents({ kinds: [1], authors: tab.authors, limit: 80 })
+      : await queryEvents({ kinds: [1], "#t": tab.hashtags, limit: 140 });
+    const roots = rankPresentableSocialEvents(
+      rootNotes(events),
+      tab.hashtags,
+      16,
+      tab.maxPerAuthor,
+    );
     if (roots.length === 0) return mockFor(tab);
     const notes = await notesFromEvents(roots);
-    return notes.length ? notes : mockFor(tab);
+    return fillForDemo(notes, tab);
   } catch {
     return mockFor(tab);
   }
@@ -200,13 +203,14 @@ export async function loadFeedNotes(tab: FeedTab): Promise<FeedNote[]> {
 // note) blended with a recency boost. Real repost/zap counts are surfaced on the cards. Pure read.
 
 const GENERAL_TAB: FeedTab = BUILTIN_TABS[0] as FeedTab;
+const GENERAL_QUALITY_TOPICS = ["nostr", "bitcoin", "art", "music", "podcast"] as const;
 
 /** Recent global notes, de-spammed, max 2 per author, newest first — the ranking candidates. */
 function generalCandidates(events: Event[]): Event[] {
   const perAuthor = new Map<string, number>();
   const out: Event[] = [];
-  for (const event of rootNotes(events)) {
-    if (event.content.trim().length < 2) continue;
+  const presentable = rankPresentableSocialEvents(rootNotes(events), GENERAL_QUALITY_TOPICS, 120);
+  for (const event of presentable) {
     const count = perAuthor.get(event.pubkey) ?? 0;
     if (count >= 2) continue;
     perAuthor.set(event.pubkey, count + 1);
@@ -263,7 +267,7 @@ async function loadGeneralFeed(): Promise<FeedNote[]> {
       zaps: zaps.get(id) ?? 0,
     });
     const notes = await notesFromEvents(ranked, actionsFor);
-    return notes.length ? notes : mockFor(GENERAL_TAB);
+    return fillForDemo(notes, GENERAL_TAB);
   } catch {
     return mockFor(GENERAL_TAB);
   }
@@ -279,7 +283,18 @@ function mockNote(
   actions: FeedNote["actions"],
   extra: { founder?: boolean; pinned?: boolean } = {},
 ): FeedNote {
-  return { id, author, meta, body, npub: "", pubkey: "", createdAt: 0, actions, ...extra };
+  return {
+    id,
+    author,
+    meta,
+    body,
+    npub: "",
+    pubkey: "",
+    createdAt: 0,
+    source: "demo",
+    actions,
+    ...extra,
+  };
 }
 
 const MOCK_DEFAULT: FeedNote[] = [
@@ -339,4 +354,12 @@ const MOCK: Record<string, FeedNote[]> = {
 
 function mockFor(tab: FeedTab): FeedNote[] {
   return MOCK[tab.id] ?? MOCK_DEFAULT;
+}
+
+/** Keep live data dominant; add at most two explicit demo cards when fewer than six survive. */
+function fillForDemo(notes: FeedNote[], tab: FeedTab): FeedNote[] {
+  const live = notes.filter((note) => note.source !== "demo").slice(0, 24);
+  const missing = Math.max(0, 6 - live.length);
+  const placeholders = mockFor(tab).slice(0, Math.min(2, missing));
+  return [...live, ...placeholders];
 }

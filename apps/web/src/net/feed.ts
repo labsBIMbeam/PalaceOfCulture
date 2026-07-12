@@ -1,11 +1,22 @@
 import type { MediaItem } from "./media";
 
 // Podcasting 2.0 RSS → MediaItems (ADR 0004). This is the same open catalog Fountain uses, so the
-// content matches. Browsers can't fetch arbitrary feeds cross-origin (CORS), so the real path is a
-// server proxy (apps/server) that also fronts the Podcast Index API (search the whole catalog) +
-// caching. For now we parse same-origin sample feeds saved under public/feeds/ (real PC2.0 shows).
+// content matches. Browsers can't fetch arbitrary feeds cross-origin (CORS), so every approved feed
+// passes through the bounded server proxy in apps/server. The allowlist is deliberately small: source
+// discovery comes from Fountain/Wavlake, while final editorial control stays in this repository.
 
-const FEEDS = ["/feeds/pc20.xml"];
+export const CURATED_FEEDS = [
+  {
+    id: "podcasting-2.0",
+    url: "https://mp3s.nashownotes.com/pc20rss.xml",
+    source: "Podcast Index",
+  },
+  {
+    id: "wavlake-sam-means",
+    url: "https://wavlake.com/feed/891c9ffe-1e78-4b07-a75e-7283629fb127",
+    source: "Wavlake",
+  },
+] as const;
 const TONES = ["gold", "teal", "coral"] as const;
 
 /** First descendant element's text by (qualified) tag name. */
@@ -42,12 +53,13 @@ export function parseFeed(xml: string, toneSeed = 0): MediaItem[] {
       audioUrl: url,
       tone: TONES[(toneSeed + index) % TONES.length] ?? "gold",
       valueRecipient,
+      source: "live",
     });
   });
   return out;
 }
 
-/** A podcast show from the catalog search (the server proxy fronts iTunes / Podcast Index). */
+/** A podcast show returned by the optional open-catalog search. */
 export interface PodcastShow {
   title: string;
   author: string;
@@ -55,7 +67,7 @@ export interface PodcastShow {
   artwork?: string;
 }
 
-/** Search the whole podcast catalog (the same shows Fountain lists) via the server proxy. */
+/** Search public RSS shows via the server; playback still requires an explicit user selection. */
 export async function searchPodcastShows(query: string): Promise<PodcastShow[]> {
   if (!query.trim()) return [];
   try {
@@ -79,12 +91,12 @@ export async function loadShowEpisodes(feedUrl: string): Promise<MediaItem[]> {
   }
 }
 
-/** Fetch + parse the configured feeds (same-origin for now; a server proxy widens this later). */
+/** Fetch and parse only editorially approved live feeds through the safe server proxy. */
 export async function loadFeedItems(): Promise<MediaItem[]> {
   const perFeed = await Promise.all(
-    FEEDS.map(async (url, index) => {
+    CURATED_FEEDS.map(async (feed, index) => {
       try {
-        const response = await fetch(url);
+        const response = await fetch(`/api/podcasts/feed?url=${encodeURIComponent(feed.url)}`);
         if (!response.ok) return [];
         return parseFeed(await response.text(), index * 5);
       } catch {

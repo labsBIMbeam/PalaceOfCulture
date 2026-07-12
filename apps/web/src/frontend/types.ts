@@ -1,4 +1,4 @@
-export type ScreenId = "title" | "map" | "home" | "workshop" | "pleb";
+export type ScreenId = "title" | "map" | "home" | "culture" | "workshop" | "pleb";
 
 export type EngineTarget = "hq" | "home" | "street";
 
@@ -18,6 +18,7 @@ export type FeedPost = {
   body: string;
   pinned?: boolean;
   founder?: boolean;
+  source?: "live" | "demo";
   actions: FeedAction;
 };
 

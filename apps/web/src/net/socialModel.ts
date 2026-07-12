@@ -11,6 +11,7 @@ export type FeedNote = {
   createdAt: number;
   founder?: boolean;
   pinned?: boolean;
+  source?: "live" | "demo";
   actions: { replies: number; reposts: number; zaps: number };
 };
 
@@ -22,7 +23,15 @@ export type FeedTab = {
   hashtags: string[];
   builtin?: boolean;
   algo?: "general" | "articles";
+  /** Optional editorial author allowlist (hex pubkeys) instead of an open hashtag query. */
+  authors?: string[];
+  /** Curated publishers may contribute more than one card; open feeds stay at one per author. */
+  maxPerAuthor?: number;
 };
+
+export const CURATED_POC_AUTHORS = [
+  "199db590b5748d567dbaa91f4a33b4845c4aab640a2031b27abade40f5d11eff",
+] as const;
 
 export const BUILTIN_TABS: FeedTab[] = [
   { id: "general", label: "General", icon: "globe", hashtags: [], algo: "general", builtin: true },
@@ -38,7 +47,19 @@ export const BUILTIN_TABS: FeedTab[] = [
     id: "poc",
     label: "PoC",
     icon: "palace",
-    hashtags: ["600billion", "palaceofculture", "timelock", "bitcoin"],
+    hashtags: [
+      "600billion",
+      "palaceofculture",
+      "value4value",
+      "v4v",
+      "wavlake",
+      "zapstream",
+      "podcast",
+      "music",
+      "art",
+    ],
+    authors: [...CURATED_POC_AUTHORS],
+    maxPerAuthor: 8,
     builtin: true,
   },
   {

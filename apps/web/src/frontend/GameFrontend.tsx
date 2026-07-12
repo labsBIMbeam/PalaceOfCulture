@@ -12,6 +12,8 @@ import { ENTITY_NPUBS } from "../identity/entities";
 import type { Article } from "../net/articles";
 import { RELAYS } from "../net/nostrConfig";
 import { type FeedNote, type FeedTab, PRESET_TABS, customTab, localNote } from "../net/socialModel";
+import { CultureDirectory } from "../ui/CultureDirectory";
+import { MediaPlayer } from "../ui/MediaPlayer";
 import { WorkshopPanel } from "../ui/WorkshopPanel";
 import { GrowthSprite } from "./GrowthSprite";
 import { IntroScreen } from "./IntroScreen";
@@ -330,6 +332,7 @@ function PostCard({
           <strong>
             {post.author}
             {post.founder ? <Icon className="founder-crown" name="crown" size={12} /> : null}
+            {post.source === "demo" ? <span className="demo-placeholder">demo</span> : null}
           </strong>
           <small>{post.meta}</small>
         </div>
@@ -503,7 +506,7 @@ function ScreenFrame({
         onToggleNav={onToggleNav}
       />
       {children}
-      {screen === "home" ? (
+      {screen === "culture" ? null : screen === "home" ? (
         <CircleRail feed={feeds.home} friends={circleFriends} />
       ) : (
         <FeedRail feed={feeds[screen]} />
@@ -1017,7 +1020,7 @@ function Legendwall({ locks, compact }: { locks: Timelock[]; compact?: boolean }
   );
 }
 
-/** A NIP-23 long-form article (kind 30023), shown in Home's Articles tab. Read opens it on habla.news. */
+/** A NIP-23 long-form article (kind 30023). Read opens it on habla.news. */
 function ArticleCard({ article }: { article: Article }) {
   const [showImage, setShowImage] = useState(Boolean(article.image));
   return (
@@ -1047,10 +1050,10 @@ function ArticleCard({ article }: { article: Article }) {
   );
 }
 
-/** Home's hero: an Iris-style Nostr feed with mood tabs — PoC + Guild built in, add your own moods. */
-function HomeFeed() {
+/** Culture's social layer: an Iris-style Nostr feed with configurable topic tabs. */
+function SocialFeed() {
   const [tabs, setTabs] = useState<FeedTab[]>(() => loadTabs());
-  const [activeId, setActiveId] = useState<string>(() => loadTabs()[0]?.id ?? "general");
+  const [activeId, setActiveId] = useState<string>("poc");
   const [notes, setNotes] = useState<FeedNote[] | null>(null);
   const [articles, setArticles] = useState<Article[] | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1160,6 +1163,8 @@ function HomeFeed() {
   };
 
   const available = PRESET_TABS.filter((preset) => !tabs.some((tab) => tab.id === preset.id));
+  const liveCount = notes?.filter((note) => note.source !== "demo").length ?? 0;
+  const placeholderCount = notes?.filter((note) => note.source === "demo").length ?? 0;
 
   return (
     <section className="home-feed">
@@ -1168,7 +1173,13 @@ function HomeFeed() {
           <Icon name="zap" size={18} />
           <div>
             <strong>The Feed</strong>
-            <small>live off nostr · pick a mood</small>
+            <small>
+              {isArticles
+                ? "live NIP-23 · long-form"
+                : notes === null
+                  ? "connecting to nostr…"
+                  : `${liveCount} live${placeholderCount ? ` · ${placeholderCount} demo` : ""}`}
+            </small>
           </div>
         </div>
         <span className="feed-status feed-status--green">
@@ -1313,14 +1324,13 @@ function HomeResourceStrip() {
 
 function HomeScreen({ onStartEngine, onBuild }: ScreenProps) {
   return (
-    <section className="home-layout home-layout--feed">
+    <section className="home-layout">
       <div className="screen-heading">
         <h1>Home</h1>
-        <p>your timelocks / the feed / pick a mood</p>
+        <p>your timelocks / your circle / your private plot</p>
       </div>
       <HomeResourceStrip />
-      <Legendwall compact locks={timelocks} />
-      <HomeFeed />
+      <Legendwall locks={timelocks} />
       <div className="build-dock build-dock--slim">
         <button className="coral-button coral-button--compact" onClick={onBuild} type="button">
           <Icon name="hammer" size={17} />
@@ -1335,6 +1345,46 @@ function HomeScreen({ onStartEngine, onBuild }: ScreenProps) {
           Enter My Plot
           <small>3d builder · comes with the world</small>
         </button>
+      </div>
+    </section>
+  );
+}
+
+/** Culture brings Nostr notes, open media and the V4V ecosystem into one social screen. */
+function CultureScreen() {
+  return (
+    <section className="culture-layout">
+      <header className="culture-hero">
+        <div>
+          <span className="culture-kicker">The open social layer</span>
+          <h1>Culture</h1>
+          <p>notes, sound, live rooms, video and long-form — carried by open protocols</p>
+        </div>
+        <div className="culture-protocols" aria-label="Integrated protocols">
+          <span>Nostr notes</span>
+          <span>Podcasting 2.0</span>
+          <span>NIP-53 live</span>
+          <span>NIP-23 articles</span>
+          <span className="culture-protocol--zap">NIP-57 zaps</span>
+        </div>
+      </header>
+      <div className="culture-workspace">
+        <div className="culture-feed">
+          <SocialFeed />
+        </div>
+        <aside className="culture-side">
+          <section className="culture-media">
+            <header className="culture-panel-head">
+              <div>
+                <small>Listen now</small>
+                <strong>Audio · Music · Live</strong>
+              </div>
+              <span>V4V ready</span>
+            </header>
+            <MediaPlayer />
+          </section>
+          <CultureDirectory />
+        </aside>
       </div>
     </section>
   );
@@ -1481,6 +1531,8 @@ function renderScreen(screen: ScreenId, props: ScreenProps) {
       return <MapScreen {...props} />;
     case "home":
       return <HomeScreen {...props} />;
+    case "culture":
+      return <CultureScreen />;
     case "workshop":
       return <WorkshopScreen />;
     case "pleb":

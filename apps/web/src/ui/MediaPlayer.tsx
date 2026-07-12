@@ -11,6 +11,10 @@ const TABS: ReadonlyArray<{ id: MediaKind; label: string }> = [
   { id: "live", label: "Live" },
 ];
 
+// Editorial demo builds expose only the approved feed registry. Keep search code ready for the later
+// self-curation UI, where adding a result becomes an explicit review action rather than instant play.
+const OPEN_CATALOG_SEARCH_ENABLED = false;
+
 function kindIcon(kind: MediaKind): IconName {
   if (kind === "podcast") return "community";
   if (kind === "live") return "zap";
@@ -19,8 +23,7 @@ function kindIcon(kind: MediaKind): IconName {
 
 /**
  * The in-game media player (ADR 0004) — Music / Podcasts / Live, modelled on Podverse. Music + live
- * come from Nostr; podcasts default to a sample feed but the tab is **searchable across the whole
- * catalog** (the same shows Fountain lists) via the apps/server proxy (search → show → episodes).
+ * come from the approved feed registry; open catalog search stays disabled until the review UI exists.
  * V4V **Boost** seam carries the item's `valueRecipient`.
  */
 export function MediaPlayer() {
@@ -34,7 +37,6 @@ export function MediaPlayer() {
   const [boosted, setBoosted] = useState(0);
   const [flash, setFlash] = useState(false);
 
-  // Podcast catalog search (server proxy).
   const [query, setQuery] = useState("");
   const [shows, setShows] = useState<PodcastShow[]>([]);
   const [openShow, setOpenShow] = useState<PodcastShow | null>(null);
@@ -140,7 +142,10 @@ export function MediaPlayer() {
       </span>
       <span className="media-rowmeta">
         <strong>{item.title}</strong>
-        <small>{item.author}</small>
+        <small>
+          {item.author}
+          {item.source === "demo" ? " · demo" : ""}
+        </small>
       </span>
       {item.kind === "live" ? (
         <span className="media-live">
@@ -178,7 +183,7 @@ export function MediaPlayer() {
           </div>
 
           <div className="media-list">
-            {tab === "podcast" ? (
+            {OPEN_CATALOG_SEARCH_ENABLED && tab === "podcast" ? (
               <>
                 <div className="media-search">
                   <input
@@ -256,6 +261,7 @@ export function MediaPlayer() {
           <small>
             {nowPlaying?.kind === "live" ? "● live · " : ""}
             {nowPlaying?.author ?? "select a track"}
+            {nowPlaying?.source === "demo" ? " · demo" : ""}
           </small>
         </div>
         <button

@@ -12,6 +12,7 @@ export const navItems: NavItem[] = [
   { id: "title", name: "Title", label: "TITLE", tag: "enter", icon: "play" },
   { id: "map", name: "Map", label: "MAP", tag: "world", icon: "globe" },
   { id: "home", name: "Home", label: "HOME", tag: "private", icon: "sprout" },
+  { id: "culture", name: "Culture", label: "CULTURE", tag: "social", icon: "spark" },
   { id: "workshop", name: "Workshop", label: "WORKSHOP", tag: "craft", icon: "hammer" },
   { id: "pleb", name: "Pleb Market", label: "PLEB MARKET", tag: "sats", icon: "store" },
 ];
@@ -108,6 +109,17 @@ export const feeds: Record<ScreenId, FeedConfig> = {
         actions: { replies: 42, reposts: 19, zaps: 1420 },
       },
     ],
+  },
+  culture: {
+    title: "Culture Signal",
+    subtitle: "nostr + value for value",
+    status: "OPEN PROTOCOLS",
+    tone: "green",
+    icon: "spark",
+    placeholder: "post to culture...",
+    action: "Post",
+    posts: [],
+    events: [],
   },
   pleb: {
     title: "Market Notes",
