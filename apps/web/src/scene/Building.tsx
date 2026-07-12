@@ -32,8 +32,9 @@ export function buildingBayX(rooms: 1 | 2 | 3 | 4, i: number): number {
 
 /** Wall collider boxes for a `rooms`-wide building, in LOCAL space (half-extents + centre). Back +
  *  two sides + the two front segments beside the door — so you collide with the walls but can walk in
- *  through the door. Used by StreetColliders (visuals live outside <Physics>). Pass the SAME
- *  height/depth as the visual Building. */
+ *  through the door. The window openings are visual-only: colliders stay solid on purpose, so nobody
+ *  can climb in through a window. Used by StreetColliders (visuals live outside <Physics>). Pass the
+ *  SAME height/depth as the visual Building. */
 export function buildingWallColliders(
   rooms: 1 | 2 | 3 | 4,
   depth: number = DEFAULT_DEPTH,
@@ -136,6 +137,49 @@ function stoneTexture(): THREE.CanvasTexture {
   t.repeat.set(1.5, 2.4);
   stoneCache = t;
   return t;
+}
+
+// The window opening cut into walls (shared by the wall geometry and the frame/pane overlay).
+const WIN = 1.3; // opening width & height
+const WIN_Y = 1.55; // opening centre height above the floor
+
+// Walls with a REAL window hole: one ExtrudeGeometry per unique (width, height) — a Shape with a
+// punched-out opening, extruded to the wall thickness. Cached module-wide (the ring only has a
+// handful of distinct wall sizes), so holed walls cost the same draw calls as the old solid boxes.
+// UVs are re-projected planar (0..1 across the wall face) so the plank texture reads like before.
+const holedWallCache = new Map<string, THREE.ExtrudeGeometry>();
+function holedWallGeometry(width: number, height: number): THREE.ExtrudeGeometry {
+  const key = `${width.toFixed(2)}x${height.toFixed(2)}`;
+  const hit = holedWallCache.get(key);
+  if (hit) return hit;
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, -height / 2);
+  shape.lineTo(width / 2, -height / 2);
+  shape.lineTo(width / 2, height / 2);
+  shape.lineTo(-width / 2, height / 2);
+  shape.closePath();
+  const cy = WIN_Y - height / 2; // opening centre in the wall's centred frame
+  const hole = new THREE.Path();
+  hole.moveTo(-WIN / 2, cy - WIN / 2);
+  hole.lineTo(WIN / 2, cy - WIN / 2);
+  hole.lineTo(WIN / 2, cy + WIN / 2);
+  hole.lineTo(-WIN / 2, cy + WIN / 2);
+  hole.closePath();
+  shape.holes.push(hole);
+  const geo = new THREE.ExtrudeGeometry(shape, { bevelEnabled: false, depth: T });
+  geo.translate(0, 0, -T / 2);
+  // planar re-projection: extrude UVs are in raw shape units, which would tile the wood texture
+  // once per metre — remap so one wall face spans 0..1 like the old box walls
+  const pos = geo.attributes.position;
+  const uv = geo.attributes.uv;
+  if (pos && uv) {
+    for (let i = 0; i < pos.count; i++) {
+      uv.setXY(i, pos.getX(i) / width + 0.5, pos.getY(i) / height + 0.5);
+    }
+    uv.needsUpdate = true;
+  }
+  holedWallCache.set(key, geo);
+  return geo;
 }
 
 // Hip-roof geometry: a 4-sided pyramid with the 45° yaw BAKED IN, so its square base is
@@ -272,14 +316,27 @@ export function Building({
         <meshStandardMaterial color="#8a6a44" roughness={0.95} />
       </mesh>
 
-      {/* back wall + side walls */}
-      <mesh castShadow position={[0, H / 2, -D / 2]} receiveShadow>
-        <boxGeometry args={[W, H, T]} />
-        <meshStandardMaterial color={wall} roughness={0.92} />
-      </mesh>
+      {/* back wall (one holed piece per bay — the windows are REAL openings) + side walls */}
+      {Array.from({ length: rooms }, (_, i) => (
+        <mesh
+          castShadow
+          geometry={holedWallGeometry(BAY, H)}
+          key={`backwall-${bayX(i)}`}
+          position={[bayX(i), H / 2, -D / 2]}
+          receiveShadow
+        >
+          <meshStandardMaterial color={wall} roughness={0.92} />
+        </mesh>
+      ))}
       {[-W / 2, W / 2].map((sx) => (
-        <mesh castShadow key={sx} position={[sx, H / 2, 0]} receiveShadow>
-          <boxGeometry args={[T, H, D]} />
+        <mesh
+          castShadow
+          geometry={holedWallGeometry(D, H)}
+          key={sx}
+          position={[sx, H / 2, 0]}
+          receiveShadow
+          rotation-y={Math.PI / 2}
+        >
           <meshStandardMaterial color={wall} map={wood} roughness={0.92} />
         </mesh>
       ))}
@@ -312,27 +369,27 @@ export function Building({
         }
         return (
           <group key={`front-${cx}`}>
-            <mesh castShadow position={[cx, H / 2, D / 2]} receiveShadow>
-              <boxGeometry args={[BAY, H, T]} />
+            <mesh
+              castShadow
+              geometry={holedWallGeometry(BAY, H)}
+              position={[cx, H / 2, D / 2]}
+              receiveShadow
+            >
               <meshStandardMaterial color={wall} map={wood} roughness={0.92} />
             </mesh>
-            {/* proud of the wall face (T/2), so the pane is never buried in the wall box */}
-            <Window axis="z" position={[cx, 1.55, D / 2 + T / 2 + 0.02]} />
+            {/* frame + glass sit IN the real opening, centred in the wall thickness */}
+            <Window axis="z" position={[cx, WIN_Y, D / 2]} />
           </group>
         );
       })}
 
-      {/* back windows (one per bay) */}
+      {/* back windows (one per bay), seated in their openings */}
       {Array.from({ length: rooms }, (_, i) => (
-        <Window
-          axis="z"
-          key={`back-${bayX(i)}`}
-          position={[bayX(i), 1.55, -D / 2 - T / 2 - 0.02]}
-        />
+        <Window axis="z" key={`back-${bayX(i)}`} position={[bayX(i), WIN_Y, -D / 2]} />
       ))}
-      {/* side windows */}
-      {[-W / 2 - T / 2 - 0.02, W / 2 + T / 2 + 0.02].map((sx) => (
-        <Window axis="x" key={sx} position={[sx, 1.55, 0]} />
+      {/* side windows, seated in their openings */}
+      {[-W / 2, W / 2].map((sx) => (
+        <Window axis="x" key={sx} position={[sx, WIN_Y, 0]} />
       ))}
 
       {/* columns at every bay boundary, front + back */}
