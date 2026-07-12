@@ -80,7 +80,16 @@ type Posed = {
 // 21, of course. The private Home plot is uncapped (it is yours).
 const PALACE_DECOR_LIMIT = 21;
 
-const ORBIT_POSITION = new THREE.Vector3(150, 110, 150);
+// Overview camera per world — the street camp sits around z≈88 inside a 200 m fog, so the shared
+// HQ vantage (looking at the origin from 196 m out) would show nothing but haze there.
+const ORBIT_FOR: Record<
+  EngineTarget,
+  { position: [number, number, number]; target: [number, number, number] }
+> = {
+  hq: { position: [150, 110, 150], target: [0, 0, 0] },
+  home: { position: [80, 60, 80], target: [0, 0, 0] },
+  street: { position: [62, 52, 16], target: [0, 0, 88] },
+};
 // On the plaza just short of the asset shelf (RESERVED_CORNER ~[0,0,52]); the default camera looks
 // +z, so the tree + spaceship sit ahead in view on spawn. Tune freely with RESERVED_CORNER.
 const SPAWN: [number, number, number] = [PALACE_SPAWN.x, PALACE_SPAWN.y, PALACE_SPAWN.z];
@@ -144,18 +153,21 @@ const KEYBOARD_MAP = [
 ];
 
 /** Orbit/overview camera — resets the rig on entry so toggling back from walk isn't jarring. */
-function OrbitView() {
+function OrbitView({ world }: { world: EngineTarget }) {
   const { camera } = useThree();
+  const view = ORBIT_FOR[world];
   useEffect(() => {
     const perspective = camera as THREE.PerspectiveCamera;
-    camera.position.copy(ORBIT_POSITION);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(...view.position);
+    camera.lookAt(...view.target);
     if (perspective.isPerspectiveCamera) {
       perspective.fov = 42;
       perspective.updateProjectionMatrix();
     }
-  }, [camera]);
-  return <OrbitControls enableDamping makeDefault maxPolarAngle={Math.PI / 2.05} />;
+  }, [camera, view]);
+  return (
+    <OrbitControls enableDamping makeDefault maxPolarAngle={Math.PI / 2.05} target={view.target} />
+  );
 }
 
 const GHOST_ITEM: PlacedItem = {
@@ -1069,7 +1081,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               />
             ) : null}
           </Suspense>
-          {mode === "orbit" ? <OrbitView /> : null}
+          {mode === "orbit" ? <OrbitView world={world} /> : null}
           {mode === "build" ? (
             <MagnetRig selected={builderSelected} system={homeBuild} targetsRef={builderTargets} />
           ) : null}

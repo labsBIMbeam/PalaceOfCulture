@@ -151,13 +151,14 @@ function Window({
         <boxGeometry args={[0.06, h, 0.12]} />
         <meshStandardMaterial color="#5a4632" roughness={0.9} />
       </mesh>
-      {/* glowing pane */}
+      {/* glowing pane (double-sided so it reads from outside on every wall) */}
       <mesh position={[0, 0, 0.02]}>
         <planeGeometry args={[w, h]} />
         <meshStandardMaterial
           color={lit}
           emissive={lit}
           emissiveIntensity={1.5}
+          side={THREE.DoubleSide}
           toneMapped={false}
         />
       </mesh>
@@ -259,7 +260,8 @@ export function Building({
               <boxGeometry args={[BAY, H, T]} />
               <meshStandardMaterial color={wall} map={wood} roughness={0.92} />
             </mesh>
-            <Window axis="z" lit={lit} position={[cx, 1.55, D / 2 + 0.02]} />
+            {/* proud of the wall face (T/2), so the glowing pane is never buried in the wall box */}
+            <Window axis="z" lit={lit} position={[cx, 1.55, D / 2 + T / 2 + 0.02]} />
           </group>
         );
       })}
@@ -270,11 +272,11 @@ export function Building({
           axis="z"
           key={`back-${bayX(i)}`}
           lit={lit}
-          position={[bayX(i), 1.55, -D / 2 - 0.02]}
+          position={[bayX(i), 1.55, -D / 2 - T / 2 - 0.02]}
         />
       ))}
       {/* side windows */}
-      {[-W / 2 - 0.02, W / 2 + 0.02].map((sx) => (
+      {[-W / 2 - T / 2 - 0.02, W / 2 + T / 2 + 0.02].map((sx) => (
         <Window axis="x" key={sx} lit={lit} position={[sx, 1.55, 0]} />
       ))}
 
