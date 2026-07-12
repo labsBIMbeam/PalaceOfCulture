@@ -13,6 +13,7 @@ import * as THREE from "three";
 import { Enclosure } from "./Enclosure";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza } from "./Plaza";
 import { Vegetation } from "./Vegetation";
+import { Workshop } from "./Workshop";
 
 /** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
  *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
@@ -259,6 +260,11 @@ export function StreetWorld() {
 
       {/* the living layer — Zelda-style grass, rocks, bushes, flowers & trees around the camp */}
       <Vegetation />
+
+      {/* work stations with real tools — this is a Werkstatt */}
+      <PropBoundary>
+        <Workshop />
+      </PropBoundary>
 
       {/* the plaza: prepared site + the young tree, ringed by walkable buildings */}
       <PropBoundary>

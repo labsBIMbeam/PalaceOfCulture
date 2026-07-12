@@ -7,8 +7,9 @@
  */
 
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { GlbModel } from "./GlbModel";
 import { PLAZA_CENTRE, PLAZA_RADIUS } from "./Plaza";
 
 /** Small deterministic PRNG so the scatter is stable across reloads. */
@@ -273,32 +274,24 @@ function Bushes({ points, seed }: { points: THREE.Vector3[]; seed: number }) {
   return <instancedMesh args={[geo, mat, points.length]} castShadow receiveShadow ref={ref} />;
 }
 
-/** A soft low-poly tree: a trunk + two rounded foliage blobs. A handful, at the edges. */
-function Tree({ position, scale }: { position: [number, number, number]; scale: number }) {
-  return (
-    <group position={position} scale={scale}>
-      <mesh castShadow position={[0, 1.1, 0]}>
-        <cylinderGeometry args={[0.22, 0.32, 2.2, 6]} />
-        <meshStandardMaterial color="#6b4a2c" roughness={1} />
-      </mesh>
-      <mesh castShadow position={[0, 2.7, 0]}>
-        <icosahedronGeometry args={[1.5, 1]} />
-        <meshStandardMaterial color="#4f8a3e" flatShading roughness={1} />
-      </mesh>
-      <mesh castShadow position={[0.7, 2.1, 0.4]}>
-        <icosahedronGeometry args={[1.0, 1]} />
-        <meshStandardMaterial color="#5c9a48" flatShading roughness={1} />
-      </mesh>
-    </group>
-  );
-}
+const nature = (n: string) => `/nature/${n}.glb`;
+// nicer CC0 trees (Quaternius), cycled for variety, with a fitted height
+const TREE_KINDS: { name: string; fit: number }[] = [
+  { name: "oak", fit: 8 },
+  { name: "pine", fit: 10 },
+  { name: "birch", fit: 6.5 },
+  { name: "oak-2", fit: 7.5 },
+  { name: "pine-2", fit: 11 },
+  { name: "oak", fit: 6.5 },
+];
 
 export function Vegetation() {
   const grass = useMemo(() => scatter(1337, 520, 16, 5.5), []);
   const flowers = useMemo(() => scatter(99, 90, 5, 4), []);
   const rocks = useMemo(() => scatter(7, 55, 3, 6), []);
   const bushes = useMemo(() => scatter(4242, 60, 2, 5), []);
-  const trees = useMemo(() => scatter(88, 16, 1, 2).slice(0, 14), []);
+  const trees = useMemo(() => scatter(88, 18, 1, 2).slice(0, 16), []);
+  const detail = useMemo(() => scatter(303, 30, 2, 7).slice(0, 30), []);
 
   const grassGeo = useMemo(() => tuftGeometry(0.7, 0.85), []);
   const flowerGeo = useMemo(() => tuftGeometry(0.4, 0.7), []);
@@ -337,13 +330,35 @@ export function Vegetation() {
       />
       <Rocks points={rocks} seed={11} />
       <Bushes points={bushes} seed={23} />
-      {trees.map((p, i) => (
-        <Tree
-          key={`${p.x.toFixed(1)},${p.z.toFixed(1)}`}
-          position={[p.x, 0, p.z]}
-          scale={1.4 + (i % 3) * 0.5}
-        />
-      ))}
+      {/* nicer GLB trees + nature detail (ferns, stumps, big rocks) near the camp */}
+      <Suspense fallback={null}>
+        {trees.map((p, i) => {
+          const k = TREE_KINDS[i % TREE_KINDS.length] ?? TREE_KINDS[0];
+          return (
+            <GlbModel
+              fitHeight={k?.fit ?? 8}
+              key={`t-${p.x.toFixed(1)},${p.z.toFixed(1)}`}
+              position={[p.x, 0, p.z]}
+              rotationY={(i * 1.7) % (Math.PI * 2)}
+              url={nature(k?.name ?? "oak")}
+            />
+          );
+        })}
+        {detail.map((p, i) => {
+          const kinds = ["fern", "stump", "rock-large", "bush-flowers", "hedge", "bush-berries"];
+          const fits = [1.4, 0.6, 2.6, 1.4, 1.5, 1.1];
+          const j = i % kinds.length;
+          return (
+            <GlbModel
+              fitHeight={fits[j] ?? 1.2}
+              key={`d-${p.x.toFixed(1)},${p.z.toFixed(1)}`}
+              position={[p.x, 0, p.z]}
+              rotationY={(i * 2.3) % (Math.PI * 2)}
+              url={nature(kinds[j] ?? "fern")}
+            />
+          );
+        })}
+      </Suspense>
     </group>
   );
 }

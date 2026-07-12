@@ -12,6 +12,90 @@ const H = 3.2; // wall height
 const T = 0.2; // wall thickness
 const COL = 0.34; // column size
 
+/** Procedural timber-plank texture (horizontal boards + grain). Cached module-wide. */
+let woodCache: THREE.CanvasTexture | undefined;
+function woodTexture(): THREE.CanvasTexture {
+  if (woodCache) return woodCache;
+  const S = 256;
+  const c = document.createElement("canvas");
+  c.width = S;
+  c.height = S;
+  const x = c.getContext("2d");
+  const t = new THREE.CanvasTexture(c);
+  if (x) {
+    x.fillStyle = "#ffffff";
+    x.fillRect(0, 0, S, S);
+    const planks = 7;
+    const ph = S / planks;
+    for (let i = 0; i < planks; i++) {
+      const shade = 0.82 + Math.random() * 0.18;
+      x.fillStyle = `rgb(${Math.round(255 * shade)},${Math.round(240 * shade)},${Math.round(220 * shade)})`;
+      x.fillRect(0, i * ph, S, ph - 1);
+      x.strokeStyle = "rgba(70,45,25,0.5)"; // seam between boards
+      x.lineWidth = 2;
+      x.beginPath();
+      x.moveTo(0, i * ph + ph - 1);
+      x.lineTo(S, i * ph + ph - 1);
+      x.stroke();
+      for (let g = 0; g < 4; g++) {
+        // grain streaks
+        x.strokeStyle = "rgba(90,60,35,0.18)";
+        x.lineWidth = 1;
+        const gy = i * ph + 4 + Math.random() * (ph - 8);
+        x.beginPath();
+        x.moveTo(0, gy);
+        x.bezierCurveTo(
+          S / 3,
+          gy + (Math.random() - 0.5) * 6,
+          (2 * S) / 3,
+          gy + (Math.random() - 0.5) * 6,
+          S,
+          gy,
+        );
+        x.stroke();
+      }
+    }
+  }
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1.6, 1.4);
+  woodCache = t;
+  return t;
+}
+
+/** Procedural stone-block texture (mortared blocks). Cached module-wide. */
+let stoneCache: THREE.CanvasTexture | undefined;
+function stoneTexture(): THREE.CanvasTexture {
+  if (stoneCache) return stoneCache;
+  const S = 256;
+  const c = document.createElement("canvas");
+  c.width = S;
+  c.height = S;
+  const x = c.getContext("2d");
+  const t = new THREE.CanvasTexture(c);
+  if (x) {
+    x.fillStyle = "#5a5348"; // mortar
+    x.fillRect(0, 0, S, S);
+    const rows = 6;
+    const bh = S / rows;
+    for (let r = 0; r < rows; r++) {
+      const off = r % 2 === 0 ? 0 : S / 8;
+      for (let bx = -1; bx < 5; bx++) {
+        const shade = 0.82 + Math.random() * 0.2;
+        x.fillStyle = `rgb(${Math.round(212 * shade)},${Math.round(200 * shade)},${Math.round(175 * shade)})`;
+        x.fillRect(bx * (S / 4) + off + 2, r * bh + 2, S / 4 - 4, bh - 4);
+      }
+    }
+  }
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1.5, 2.4);
+  stoneCache = t;
+  return t;
+}
+
 /** A framed window with a warm emissive pane (the dusk glow). `axis` = which wall it sits in. */
 function Window({
   position,
@@ -61,11 +145,12 @@ function Window({
 
 /** A stone column (slightly proud of the wall) with a simple capital + base. */
 function Column({ position }: { position: [number, number, number] }) {
+  const stone = stoneTexture();
   return (
     <group position={position}>
       <mesh castShadow position={[0, H / 2, 0]}>
         <boxGeometry args={[COL, H, COL]} />
-        <meshStandardMaterial color="#d8c9ad" roughness={0.9} />
+        <meshStandardMaterial color="#d8c9ad" map={stone} roughness={0.9} />
       </mesh>
       {[0.12, H - 0.12].map((y) => (
         <mesh castShadow key={y} position={[0, y, 0]}>
@@ -96,6 +181,7 @@ export function Building({
   const bayX = (i: number) => -W / 2 + BAY * (i + 0.5);
   const doorW = 1.7;
   const seg = (BAY - doorW) / 2;
+  const wood = woodTexture();
 
   return (
     <group position={position} rotation-y={rotationY}>
@@ -113,7 +199,7 @@ export function Building({
       {[-W / 2, W / 2].map((sx) => (
         <mesh castShadow key={sx} position={[sx, H / 2, 0]} receiveShadow>
           <boxGeometry args={[T, H, D]} />
-          <meshStandardMaterial color={wall} roughness={0.92} />
+          <meshStandardMaterial color={wall} map={wood} roughness={0.92} />
         </mesh>
       ))}
 
@@ -126,12 +212,12 @@ export function Building({
               {[-(doorW / 2 + seg / 2), doorW / 2 + seg / 2].map((sx) => (
                 <mesh castShadow key={sx} position={[cx + sx, H / 2, D / 2]} receiveShadow>
                   <boxGeometry args={[seg, H, T]} />
-                  <meshStandardMaterial color={wall} roughness={0.92} />
+                  <meshStandardMaterial color={wall} map={wood} roughness={0.92} />
                 </mesh>
               ))}
               <mesh castShadow position={[cx, H - 0.4, D / 2]}>
                 <boxGeometry args={[doorW + 0.3, 0.8, T + 0.06]} />
-                <meshStandardMaterial color={wall} roughness={0.92} />
+                <meshStandardMaterial color={wall} map={wood} roughness={0.92} />
               </mesh>
               {/* door frame posts */}
               {[-doorW / 2, doorW / 2].map((sx) => (
@@ -147,7 +233,7 @@ export function Building({
           <group key={`front-${cx}`}>
             <mesh castShadow position={[cx, H / 2, D / 2]} receiveShadow>
               <boxGeometry args={[BAY, H, T]} />
-              <meshStandardMaterial color={wall} roughness={0.92} />
+              <meshStandardMaterial color={wall} map={wood} roughness={0.92} />
             </mesh>
             <Window axis="z" lit={lit} position={[cx, 1.55, D / 2 + 0.02]} />
           </group>

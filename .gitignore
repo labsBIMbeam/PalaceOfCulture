@@ -49,6 +49,14 @@ apps/web/public/housekit/_manifest.json
 apps/web/public/village/*.glb
 apps/web/public/village/_manifest.json
 
+# Workshop tools (CC0 Kenney/CreativeTrio/Quaternius GLBs) — fetched/dropped in
+apps/web/public/tools/*.glb
+apps/web/public/tools/_manifest.json
+
+# Nature — trees/bushes/rocks/ferns (CC0 Quaternius GLBs) — fetched/dropped in
+apps/web/public/nature/*.glb
+apps/web/public/nature/_manifest.json
+
 # Sky HDRI (CC0 Poly Haven puresky) — fetched/dropped in, never committed
 apps/web/public/sky/
 

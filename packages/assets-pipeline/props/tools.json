@@ -1,0 +1,12 @@
+[
+  { "id": "pX3YnfKa6Q", "as": "workbench" },
+  { "id": "bY1pp3kAAb", "as": "workbench-anvil" },
+  { "id": "hnxYRW4Nx3", "as": "workbench-grind" },
+  { "id": "GPE2JUkbfW", "as": "axe" },
+  { "id": "rbZHkFchEk", "as": "handsaw" },
+  { "id": "yfAhQ8PECT", "as": "sledgehammer" },
+  { "id": "cJp88qPPLc", "as": "pickaxe" },
+  { "id": "MkTjC7C7bN", "as": "crowbar" },
+  { "id": "Ydd561XKRy", "as": "woodaxe" },
+  { "id": "3ImQcIK0Gp", "as": "toolbox" }
+]
