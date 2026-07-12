@@ -40,8 +40,10 @@ function shade(hex: string, amt: number): string {
   return `rgb(${clamp((n >> 16) & 255)},${clamp((n >> 8) & 255)},${clamp(n & 255)})`;
 }
 
-/** Repeating cobblestone texture: warm-grey stones on dark grout, a lighter drainage lane down the middle. */
-function cobbleTexture(): THREE.CanvasTexture {
+/** Rustic packed-earth ground: warm dirt with soft patches of lighter/darker soil and scattered
+ *  gravel — the tiling texture. The worn centre path is a separate overlay plane in the render (baking
+ *  it here would tile into stripes). */
+function dirtTexture(): THREE.CanvasTexture {
   const S = 256;
   const c = document.createElement("canvas");
   c.width = S;
@@ -49,29 +51,73 @@ function cobbleTexture(): THREE.CanvasTexture {
   const x = c.getContext("2d");
   const fallback = new THREE.CanvasTexture(c);
   if (!x) return fallback;
-  x.fillStyle = "#4a4640";
+  x.fillStyle = "#6b5843"; // warm earth base
   x.fillRect(0, 0, S, S);
-  const tones = ["#8f887c", "#9c9587", "#847d72", "#a29a8b", "#79736a"];
-  const r = 15;
-  for (let gy = 0; gy < S / (r * 2) + 1; gy++) {
-    for (let gx = 0; gx < S / (r * 2) + 1; gx++) {
-      const off = gy % 2 === 0 ? 0 : r;
-      const cx = gx * r * 2 + off;
-      const cy = gy * r * 2;
-      x.fillStyle = tones[(gx * 7 + gy * 13) % tones.length] ?? "#8f887c";
-      x.beginPath();
-      x.ellipse(cx, cy, r - 2, r - 2, 0, 0, Math.PI * 2);
-      x.fill();
-    }
+  const patches = ["#5a4835", "#7a6650", "#4f4030", "#75604a"];
+  for (let i = 0; i < 130; i++) {
+    x.globalAlpha = 0.3;
+    x.fillStyle = patches[i % patches.length] ?? "#5a4835";
+    x.beginPath();
+    x.ellipse(
+      Math.random() * S,
+      Math.random() * S,
+      8 + Math.random() * 22,
+      (8 + Math.random() * 22) * 0.7,
+      Math.random() * Math.PI,
+      0,
+      Math.PI * 2,
+    );
+    x.fill();
   }
-  // centre lane strip (lighter, worn)
-  x.fillStyle = "rgba(210,198,170,0.16)";
-  x.fillRect(S * 0.4, 0, S * 0.2, S);
+  x.globalAlpha = 1;
+  for (let i = 0; i < 90; i++) {
+    const pr = 1 + Math.random() * 2.2;
+    x.fillStyle = Math.random() > 0.5 ? "#8a8074" : "#5c5346"; // gravel
+    x.beginPath();
+    x.ellipse(Math.random() * S, Math.random() * S, pr, pr * 0.8, 0, 0, Math.PI * 2);
+    x.fill();
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = THREE.RepeatWrapping;
   t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(14, 46);
+  t.repeat.set(20, 60);
+  t.anisotropy = 4;
+  return t;
+}
+
+/** A lighter worn-path texture for the centre lane overlay (dustier packed earth). */
+function pathTexture(): THREE.CanvasTexture {
+  const S = 128;
+  const c = document.createElement("canvas");
+  c.width = S;
+  c.height = S;
+  const x = c.getContext("2d");
+  const fallback = new THREE.CanvasTexture(c);
+  if (!x) return fallback;
+  x.fillStyle = "#9a8468";
+  x.fillRect(0, 0, S, S);
+  for (let i = 0; i < 70; i++) {
+    x.globalAlpha = 0.28;
+    x.fillStyle = Math.random() > 0.5 ? "#8a745a" : "#a89279";
+    x.beginPath();
+    x.ellipse(
+      Math.random() * S,
+      Math.random() * S,
+      4 + Math.random() * 12,
+      3 + Math.random() * 8,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    x.fill();
+  }
+  x.globalAlpha = 1;
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(4, 60);
   t.anisotropy = 4;
   return t;
 }
@@ -500,14 +546,20 @@ const PROP_NAMES = [...new Set(PROPS.map((p) => p.name))];
 
 /** The whole workshop street: ground, facades, shops, workshop stalls, lamps, string lights, props. */
 export function StreetWorld() {
-  const cobble = useMemo(cobbleTexture, []);
+  const dirt = useMemo(dirtTexture, []);
+  const path = useMemo(pathTexture, []);
   const lampZs = [26, 62, 98, 134, 170, 206];
   return (
     <group>
-      {/* cobbled lane */}
+      {/* rustic packed-earth ground */}
       <mesh position={[0, 0.02, STREET_GROUND.center[2]]} receiveShadow rotation-x={-Math.PI / 2}>
         <planeGeometry args={[STREET_GROUND.half[0] * 2, STREET_GROUND.half[2] * 2]} />
-        <meshStandardMaterial map={cobble} roughness={0.95} />
+        <meshStandardMaterial map={dirt} roughness={1} />
+      </mesh>
+      {/* worn centre path down the lane (lighter packed earth) */}
+      <mesh position={[0, 0.04, STREET_GROUND.center[2]]} receiveShadow rotation-x={-Math.PI / 2}>
+        <planeGeometry args={[16, STREET_GROUND.half[2] * 2]} />
+        <meshStandardMaterial map={path} roughness={1} transparent opacity={0.92} />
       </mesh>
 
       <GateArch />
