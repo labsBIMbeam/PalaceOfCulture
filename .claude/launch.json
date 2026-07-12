@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "web-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/web", "exec", "vite", "preview", "--port", "4283", "--strictPort"],
+      "port": 4283
+    },
+    {
       "name": "godot-web",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8060", "--directory", "godot/dist/web"],
