@@ -988,12 +988,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   fresh mount when standPos changes). */}
               {(mode === "walk" || mode === "decorate") && !posed ? (
                 <Ecctrl
+                  // Snappy ground feel: reach max speed quickly (accDeltaTime 8→4), keep momentum
+                  // through turns (turnVelMultiplier 0.2→0.8, turnSpeed 15→22) and stop crisply
+                  // (dragDampingC 0.15→0.22) — the defaults read as icy/sticky.
+                  accDeltaTime={4}
                   camInitDis={-7}
                   ccd
                   camMaxDis={-14}
                   camMinDis={-1.5}
                   capsuleHalfHeight={0.5}
                   capsuleRadius={0.4}
+                  dragDampingC={0.22}
                   floatHeight={0.3}
                   jumpVel={0}
                   key={standPos.join(",")}
@@ -1012,6 +1017,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   rayHitForgiveness={0.5}
                   ref={playerBody}
                   sprintMult={2}
+                  turnSpeed={22}
+                  turnVelMultiplier={0.8}
                 >
                   <group position={[0, -0.9, 0]}>
                     <AvatarView bodyRef={playerBody} config={character.avatar} />

@@ -25,15 +25,18 @@ export const FORGE_CHIMNEY: [number, number] = [-39.5, 86];
 export type StationSpec = {
   pos: [number, number, number];
   rotY: number;
-  kind: "smith" | "carpenter" | "bench";
+  kind: "smith" | "carpenter" | "bench" | "sawyer" | "drafting";
 };
 
-/** The craft stations, clustered into the yard and facing its centre. */
+/** The craft stations, clustered into the yard and facing its centre — the crafts (and the one
+ *  jury-rigged terminal) that exist to BUILD the Palace. */
 export const STATIONS: StationSpec[] = [
   { pos: [-36, 0, 82], rotY: 1.1, kind: "smith" },
   { pos: [-38, 0, 91], rotY: 1.6, kind: "carpenter" },
   { pos: [-32, 0, 96], rotY: 2.3, kind: "bench" },
   { pos: [-31, 0, 79], rotY: 0.6, kind: "carpenter" },
+  { pos: [-34, 0, 101], rotY: 2.8, kind: "sawyer" },
+  { pos: [-29, 0, 72.5], rotY: 0.2, kind: "drafting" },
 ];
 
 /** Everything solid in the yard — consumed by StreetColliders so visuals + collision line up. */
@@ -48,6 +51,46 @@ export function workshopSolids(): SolidSpec[] {
     out.push({ pos: [s.pos[0], 0.55, s.pos[2]], half: [1.3, 0.55, 0.7], rotY: s.rotY });
   }
   return out;
+}
+
+/** A jury-rigged build terminal on a crate: the street's sparse cypherpunk accent — a patched-on
+ *  technical system, warm amber display, wobbly antenna. Blueprint data for the Palace build. */
+function Terminal() {
+  const screen = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    const mat = screen.current;
+    if (!mat) return;
+    // CRT-ish flicker: a slow breathe + a fast shimmer, never fully dark
+    mat.emissiveIntensity =
+      1.25 + Math.sin(clock.elapsedTime * 1.7) * 0.15 + Math.sin(clock.elapsedTime * 13) * 0.08;
+  });
+  return (
+    <group>
+      <Suspense fallback={null}>
+        <GlbModel fitHeight={0.8} position={[0, 0, 0]} url="/props/crate-2.glb" />
+      </Suspense>
+      {/* casing + tilted screen */}
+      <mesh castShadow position={[0, 1.02, 0]} rotation-x={-0.2}>
+        <boxGeometry args={[0.62, 0.44, 0.1]} />
+        <meshStandardMaterial color="#2a2e34" metalness={0.4} roughness={0.6} />
+      </mesh>
+      <mesh position={[0, 1.03, 0.055]} rotation-x={-0.2}>
+        <planeGeometry args={[0.52, 0.34]} />
+        <meshStandardMaterial
+          color="#241a10"
+          emissive="#ffb347"
+          emissiveIntensity={1.25}
+          ref={screen}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* scavenged antenna */}
+      <mesh position={[0.34, 1.5, -0.05]} rotation-z={-0.25}>
+        <cylinderGeometry args={[0.012, 0.02, 0.75, 5]} />
+        <meshStandardMaterial color="#4a4e54" metalness={0.5} roughness={0.5} />
+      </mesh>
+    </group>
+  );
 }
 
 /** One work station: benches + a few tools leaning/lying around. */
@@ -92,6 +135,53 @@ function Station({ pos, rotY, kind }: StationSpec) {
             url={tool("woodaxe")}
           />
           <GlbModel fitHeight={0.5} position={[1.2, 0, -0.7]} url={tool("toolbox")} />
+        </>
+      ) : kind === "sawyer" ? (
+        <>
+          <GlbModel fitHeight={1.0} position={[0, 0, 0]} url={tool("workbench")} />
+          <GlbModel
+            fitHeight={0.6}
+            position={[0.2, 0, 1.1]}
+            rotationY={0.3}
+            url="/props/tool-saw.glb"
+          />
+          <GlbModel
+            fitHeight={1.5}
+            position={[1.5, 0, -0.2]}
+            rotationY={-0.6}
+            url={tool("handsaw")}
+          />
+          <GlbModel
+            fitHeight={0.6}
+            position={[-1.4, 0, 0.5]}
+            rotationY={1.1}
+            url="/props/log.glb"
+          />
+          <GlbModel
+            fitHeight={0.6}
+            position={[-1.7, 0, -0.4]}
+            rotationY={0.4}
+            url="/props/log.glb"
+          />
+        </>
+      ) : kind === "drafting" ? (
+        <>
+          <GlbModel
+            fitHeight={1.05}
+            position={[0, 0, 0]}
+            rotationY={Math.PI}
+            url="/props/desk.glb"
+          />
+          <GlbModel
+            fitHeight={0.95}
+            position={[0, 0, 1.0]}
+            rotationY={Math.PI}
+            url="/props/chair-office.glb"
+          />
+          <GlbModel fitHeight={0.5} position={[-1.3, 0, 0.4]} url={tool("toolbox")} />
+          <group position={[1.35, 0, -0.3]} rotation-y={-0.5}>
+            <Terminal />
+          </group>
         </>
       ) : (
         <>
@@ -207,11 +297,18 @@ export function Workshop() {
         ))}
       </Suspense>
       <Forge />
-      {/* sawdust patch under the carpenter's bench */}
-      <mesh position={[-38, 0.035, 91]} rotation-x={-Math.PI / 2}>
-        <circleGeometry args={[2.4, 24]} />
-        <meshStandardMaterial color="#b99b6b" roughness={1} transparent opacity={0.85} />
-      </mesh>
+      {/* sawdust patches under the carpenter's and sawyer's benches */}
+      {(
+        [
+          [-38, 91, 2.4],
+          [-34, 101, 2.1],
+        ] as const
+      ).map(([sx, sz, r]) => (
+        <mesh key={`${sx},${sz}`} position={[sx, 0.035, sz]} rotation-x={-Math.PI / 2}>
+          <circleGeometry args={[r, 24]} />
+          <meshStandardMaterial color="#b99b6b" opacity={0.85} roughness={1} transparent />
+        </mesh>
+      ))}
       {/* the log pile (matching collider in workshopSolids) */}
       <group position={[-41, 0, 94]}>
         {[

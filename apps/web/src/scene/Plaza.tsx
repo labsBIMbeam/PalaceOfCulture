@@ -221,6 +221,8 @@ export function plazaSolids(): SolidSpec[] {
     { pos: [cx - 7, 0.25, cz - 1.8], half: [1.2, 0.25, 0.8] },
     // the fire bowl by the north benches
     { pos: [FIRE_BOWL[0], 0.3, FIRE_BOWL[1]], half: [0.6, 0.3, 0.6] },
+    // the sawing rig NE of the foundation (two sawhorses + plank)
+    { pos: [cx + 6.8, 0.42, cz + 7.0], half: [1.8, 0.42, 0.45], rotY: 0.3 },
   ];
   for (const b of benchPlacements()) {
     out.push({ pos: [b.pos[0], 0.35, b.pos[2]], half: [1.05, 0.35, 0.4], rotY: b.rotY });
@@ -330,6 +332,46 @@ function FoundationSite({ centre }: { centre: [number, number] }) {
           <meshStandardMaterial color="#9c7a4e" roughness={0.95} />
         </mesh>
       ))}
+      {/* sawing rig NE of the ring: two sawhorses carrying a plank mid-cut (this street BUILDS) */}
+      <group position={[6.8, 0, 7.0]} rotation-y={0.3}>
+        {[-1.25, 1.25].map((hx) => (
+          <group key={hx} position={[hx, 0, 0]}>
+            <mesh castShadow position={[0, 0.72, 0]}>
+              <boxGeometry args={[1.05, 0.09, 0.11]} />
+              <meshStandardMaterial color={TIMBER} roughness={0.95} />
+            </mesh>
+            {[
+              [-0.42, 0.28],
+              [-0.42, -0.28],
+              [0.42, 0.28],
+              [0.42, -0.28],
+            ].map(([lx, lz]) => (
+              <mesh
+                castShadow
+                key={`${lx},${lz}`}
+                position={[lx ?? 0, 0.36, (lz ?? 0) / 2]}
+                rotation-x={(lz ?? 0) > 0 ? 0.36 : -0.36}
+              >
+                <boxGeometry args={[0.08, 0.78, 0.08]} />
+                <meshStandardMaterial color={TIMBER} roughness={0.95} />
+              </mesh>
+            ))}
+          </group>
+        ))}
+        <mesh castShadow position={[0, 0.81, 0]}>
+          <boxGeometry args={[3.4, 0.07, 0.5]} />
+          <meshStandardMaterial color="#9c7a4e" roughness={0.95} />
+        </mesh>
+      </group>
+      <Suspense fallback={null}>
+        <GlbModel
+          fitHeight={0.5}
+          position={[5.2, 0, 5.4]}
+          rotationY={1.9}
+          url="/props/tool-hammer.glb"
+        />
+        <GlbModel fitHeight={0.42} position={[8.6, 0, 5.9]} url="/props/bucket.glb" />
+      </Suspense>
     </group>
   );
 }
