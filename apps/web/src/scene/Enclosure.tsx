@@ -18,8 +18,8 @@ function mulberry32(seed: number): () => number {
 }
 
 // fence rectangle + the south gate gap (the approach passes through here)
-const FENCE = { x0: -52, x1: 52, z0: 2, z1: 188 };
-const GATE_X = 11; // half-width of the south gap
+export const FENCE = { x0: -52, x1: 52, z0: 2, z1: 188 };
+export const GATE_X = 11; // half-width of the south gap
 
 /** Palisade post positions along the fence perimeter (skipping the gate gap). */
 function palisadePosts(step: number): [number, number][] {
