@@ -75,6 +75,23 @@ Blender is the tool for the **art/cohesion pass**, once the blockout is locked �
 Not for: the layout *plan* itself (that's this doc + data), or runtime — the world stays data-driven
 in TS.
 
+## Blockout findings (Blender greybox, 2026-07-12)
+
+Greyboxed the plan in Blender (boxes on the lane) and rendered it top-down + in perspective. The
+top-down view exposed the real culprit behind the "random / artificial" feel — **not** the scattered
+props, but the **LocktardStreet facade canyon**: two mechanical rows of identical 6-storey boxes at a
+fixed 17 m pitch down both sides. Its regularity flattens the density rhythm and its height fights the
+rustic-frontier read.
+
+**Revision (adopted): a rustic → cyber gradient down the lane, no continuous facade canyon.**
+- **Z0–Z2 (gate, workshops, market): open and low.** Frontier feel — timber buildings ≤ ~3 storeys,
+  open sky, only the forge chimney rises. Remove the tall facades here.
+- **Z3–Z4 (tavern, old town): the city crust.** The taller buildings + the cyberpunk verticals
+  (tech-tower, neon) concentrate here — the cyberpunk-gets-stronger decision made spatial. The lane
+  visibly grows from open frontier into a neon-crusted town at the terminus.
+- Any facades that stay must be **irregular** (varied pitch, setback, height; asymmetric L vs R;
+  gapped at the market square), never a fixed-pitch row.
+
 ## Asset mapping per zone (reuse first → source → custom)
 
 - **Reuse (regrade rustic):** `LocktardStreet` facades, workshop stalls, all `public/props`, all
@@ -83,9 +100,11 @@ in TS.
   awnings, hay bales, a smoking chimney.
 - **Custom (Blender):** rustic hero tavern + forge; the palette/AO pass over everything.
 
-## Open questions for Felix
+## Decisions (Felix, 2026-07-12)
 
-- Keep the workshops as open-air **stalls**, or promote a couple to the **Blacksmith/Sawmill
-  buildings** (they'd anchor Z1 as real forge/mill)?
-- How far to push cyberpunk — a genuine *sparse retrofit* (my recommendation), or a stronger
-  neon presence at the tavern + terminus?
+- **Cyberpunk = a second lead, not just an accent.** Push neon/tech noticeably at the **Tavern (Z3)**
+  and the **Old-Town terminus (Z4)** — the retrofit reads as a real character there. Z0–Z2 stay
+  mostly rustic so the contrast lands.
+- **Z1 anchored by real buildings:** the **Blacksmith** = the forge (chimney = the zone's focal
+  vertical) and the **Sawmill** = the mill; the other four crafts (Töpferei, Weberei, Laternen,
+  Druckerei) stay open-air timber **stalls**.
