@@ -11,6 +11,7 @@ import { useGLTF } from "@react-three/drei";
 import { Component, type ReactNode, Suspense, useMemo } from "react";
 import * as THREE from "three";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza } from "./Plaza";
+import { Vegetation } from "./Vegetation";
 
 /** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
  *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
@@ -251,6 +252,9 @@ export function StreetWorld() {
       </mesh>
 
       <GateArch />
+
+      {/* the living layer — Zelda-style grass, rocks, bushes, flowers & trees around the camp */}
+      <Vegetation />
 
       {/* the plaza: rocket + palace construction at the centre, ringed by walkable shells */}
       <PropBoundary>
