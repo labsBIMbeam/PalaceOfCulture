@@ -54,7 +54,9 @@ async function download(info, fname) {
     source: `https://poly.pizza/m/${info.id}`,
     kb: Math.round(buf.length / 1024),
   });
-  console.log(`OK  ${fname}  ${info.creator}  ${info.license}  ${Math.round(buf.length / 1024)}KB  (${info.title})`);
+  console.log(
+    `OK  ${fname}  ${info.creator}  ${info.license}  ${Math.round(buf.length / 1024)}KB  (${info.title})`,
+  );
   return "ok";
 }
 

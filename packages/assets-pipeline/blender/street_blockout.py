@@ -139,9 +139,12 @@ def build():
 
 def set_camera(view="hero"):
     """Position the render camera. view: 'hero' (elevated 3/4), 'gate', or 'top'."""
-    cam = bpy.data.objects.get("Camera") or bpy.data.objects[
-        bpy.ops.object.camera_add() or bpy.context.active_object.name
-    ]
+    cam = (
+        bpy.data.objects.get("Camera")
+        or bpy.data.objects[
+            bpy.ops.object.camera_add() or bpy.context.active_object.name
+        ]
+    )
     if "Camera" not in bpy.data.objects:
         bpy.ops.object.camera_add()
         cam = bpy.context.active_object
