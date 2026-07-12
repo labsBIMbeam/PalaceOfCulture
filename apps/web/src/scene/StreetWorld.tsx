@@ -7,10 +7,23 @@
  * fetch. Art is static, state is data: nothing here reads or writes game state; it is pure scenery.
  */
 
-import { useMemo } from "react";
+import { useGLTF } from "@react-three/drei";
+import { Component, type ReactNode, Suspense, useMemo } from "react";
 import * as THREE from "three";
 import { LocktardStreet } from "./LocktardStreet";
 import { StreetShops } from "./StreetShops";
+
+/** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
+ *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
+class PropBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 export const STREET_SPAWN: [number, number, number] = [0, 3, 30];
 /** Half-extents + centre of the flat walk collider under the whole lane (z runs 0→256). */
@@ -347,28 +360,6 @@ function StringLights({ z }: { z: number }) {
   );
 }
 
-/** A planter with a little greenery, to soften the stone. */
-function Planter({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh castShadow position={[0, 0.3, 0]} receiveShadow>
-        <boxGeometry args={[1.2, 0.6, 1.2]} />
-        <meshStandardMaterial color="#7a5a3a" roughness={0.9} />
-      </mesh>
-      {[
-        [0, 0.9, 0],
-        [0.3, 0.8, 0.2],
-        [-0.3, 0.85, -0.2],
-      ].map((p, i) => (
-        <mesh castShadow key={p.join(",")} position={p as [number, number, number]}>
-          <sphereGeometry args={[0.42, 8, 8]} />
-          <meshStandardMaterial color={i === 0 ? "#5b8f4e" : "#6ea15c"} roughness={0.9} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
 /** The gate arch at the palace end that frames the street vista. */
 function GateArch() {
   const H = 7;
@@ -398,6 +389,95 @@ function GateArch() {
   );
 }
 
+// --- Real CC0 props (Quaternius / Kenney via Poly Pizza — see public/props/CREDITS.md) ---
+
+const propUrl = (name: string) => `/props/${name}.glb`;
+
+/** A CC0 GLB prop: cloned (so one GLB serves many), shadowed, seated on y=0, uniform-scaled to fit. */
+function Prop({
+  name,
+  position,
+  rotationY = 0,
+  fitHeight,
+}: {
+  name: string;
+  position: [number, number, number];
+  rotationY?: number;
+  /** Target height in metres; uniform scale preserves the model's proportions. */
+  fitHeight: number;
+}) {
+  const { scene } = useGLTF(propUrl(name));
+  const { object, scale, posY } = useMemo(() => {
+    const o = scene.clone(true);
+    o.traverse((n) => {
+      const mesh = n as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+    const box = new THREE.Box3().setFromObject(o);
+    const h = box.max.y - box.min.y || 1;
+    const s = fitHeight / h;
+    return { object: o, scale: s, posY: -box.min.y * s };
+  }, [scene, fitHeight]);
+  return (
+    <group position={position} rotation-y={rotationY}>
+      <primitive object={object} position={[0, posY, 0]} scale={scale} />
+    </group>
+  );
+}
+
+type PropSpec = { name: string; pos: [number, number, number]; fit: number; rotY?: number };
+
+/** Themed clutter beside each workshop + general street furniture. Placed off the walk lane. */
+const PROPS: PropSpec[] = [
+  // Sägerei (z42, left) — logs + barrels
+  { name: "log", pos: [-16.5, 0, 39], fit: 0.6, rotY: 0.5 },
+  { name: "log", pos: [-16, 0, 40], fit: 0.6, rotY: 1.2 },
+  { name: "barrel-1", pos: [-17, 0, 45], fit: 1.1 },
+  { name: "crate-1", pos: [-10, 0, 47], fit: 0.9, rotY: 0.4 },
+  // Töpferei (z84, right) — vases + crates
+  { name: "vase", pos: [16.5, 0, 81], fit: 0.5 },
+  { name: "vase", pos: [17, 0, 82], fit: 0.42, rotY: 0.8 },
+  { name: "box", pos: [16.5, 0, 87], fit: 0.9 },
+  { name: "bucket", pos: [10, 0, 86], fit: 0.5 },
+  // Weberei (z110, left) — sacks + bench
+  { name: "sack", pos: [-16.5, 0, 107], fit: 0.6 },
+  { name: "sack", pos: [-16, 0, 108.5], fit: 0.55, rotY: 0.6 },
+  { name: "bench", pos: [-9, 0, 113], fit: 0.85, rotY: Math.PI / 2 },
+  // Schmiede (z134, right) — anvil + barrels + bucket + cart
+  { name: "anvil", pos: [16, 0, 128], fit: 0.9, rotY: -0.4 },
+  { name: "barrel-2", pos: [16.5, 0, 131], fit: 1.05 },
+  { name: "bucket", pos: [16, 0, 137], fit: 0.5 },
+  { name: "cart", pos: [12, 0, 140], fit: 1.5, rotY: -0.7 },
+  // Laternen (z168, left) — crates + a torch cluster
+  { name: "crate-2", pos: [-16.5, 0, 165], fit: 0.9 },
+  { name: "lantern", pos: [-15.5, 0, 170], fit: 1.3 },
+  // Druckerei (z196, right) — stacked boxes
+  { name: "crate-1", pos: [16.5, 0, 193], fit: 0.9 },
+  { name: "box", pos: [16.6, 0, 199], fit: 0.9, rotY: 0.5 },
+  // general street furniture
+  { name: "well", pos: [8, 0, 66], fit: 2.4 },
+  { name: "bench", pos: [9, 0, 104], fit: 0.85, rotY: -Math.PI / 2 },
+  { name: "bench", pos: [-9, 0, 150], fit: 0.85, rotY: Math.PI / 2 },
+  { name: "cart", pos: [-12, 0, 182], fit: 1.5, rotY: 0.9 },
+  { name: "stall", pos: [11, 0, 160], fit: 2.6, rotY: -Math.PI / 2 },
+  { name: "plant-1", pos: [-6.5, 0, 58], fit: 0.8 },
+  { name: "plant-2", pos: [6.5, 0, 76], fit: 0.7 },
+  { name: "plant-1", pos: [-6.5, 0, 124], fit: 0.8 },
+  { name: "plant-2", pos: [6.5, 0, 178], fit: 0.7 },
+  // trees against the facades + banners for colour
+  { name: "tree", pos: [-20, 0, 54], fit: 6.5 },
+  { name: "tree", pos: [20, 0, 100], fit: 6 },
+  { name: "tree", pos: [-20, 0, 146], fit: 6.5 },
+  { name: "tree", pos: [20, 0, 200], fit: 6 },
+  { name: "flag", pos: [-6, 0, 20], fit: 3.4 },
+  { name: "flag", pos: [6, 0, 20], fit: 3.4, rotY: Math.PI },
+];
+
+const PROP_NAMES = [...new Set(PROPS.map((p) => p.name))];
+
 /** The whole workshop street: ground, facades, shops, workshop stalls, lamps, string lights, props. */
 export function StreetWorld() {
   const cobble = useMemo(cobbleTexture, []);
@@ -418,11 +498,31 @@ export function StreetWorld() {
         <WorkshopStall craft={w.craft} key={w.craft.label} pos={w.pos} rotY={w.rotY} />
       ))}
 
-      {/* rows of lampposts + a real warm pool of light at a few (rationed to keep the frame budget) */}
+      {/* real CC0 lampposts + a warm glow head; a real pool of light at a few (rationed for the budget) */}
       {lampZs.map((z, i) => (
         <group key={z}>
-          <LampPost position={[-16, 0, z]} />
-          <LampPost position={[16, 0, z]} />
+          <Suspense fallback={<LampPost position={[-16, 0, z]} />}>
+            <Prop fitHeight={4.6} name="lamppost" position={[-16, 0, z]} rotationY={Math.PI / 2} />
+            <Prop fitHeight={4.6} name="lamppost" position={[16, 0, z]} rotationY={-Math.PI / 2} />
+          </Suspense>
+          <mesh position={[-15.6, 4.1, z]}>
+            <sphereGeometry args={[0.16, 10, 10]} />
+            <meshStandardMaterial
+              color="#ffdca0"
+              emissive="#ffca70"
+              emissiveIntensity={1.8}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh position={[15.6, 4.1, z]}>
+            <sphereGeometry args={[0.16, 10, 10]} />
+            <meshStandardMaterial
+              color="#ffdca0"
+              emissive="#ffca70"
+              emissiveIntensity={1.8}
+              toneMapped={false}
+            />
+          </mesh>
           {i % 2 === 0 ? (
             <pointLight
               color="#ffcf87"
@@ -439,9 +539,22 @@ export function StreetWorld() {
         <StringLights key={z} z={z} />
       ))}
 
-      {[38, 74, 128, 164, 200].map((z, i) => (
-        <Planter key={z} position={[i % 2 ? -18 : 18, 0, z]} />
-      ))}
+      {/* downloaded CC0 props — themed clutter + street furniture (public/props) */}
+      <PropBoundary>
+        <Suspense fallback={null}>
+          {PROPS.map((p) => (
+            <Prop
+              fitHeight={p.fit}
+              key={`${p.name}@${p.pos.join(",")}`}
+              name={p.name}
+              position={p.pos}
+              rotationY={p.rotY ?? 0}
+            />
+          ))}
+        </Suspense>
+      </PropBoundary>
     </group>
   );
 }
+
+for (const name of PROP_NAMES) useGLTF.preload(propUrl(name));

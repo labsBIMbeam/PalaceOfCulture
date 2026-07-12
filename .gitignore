@@ -37,6 +37,10 @@ apps/web/public/furniture/*.glb
 # Street building assets (CC-BY/CC0 GLBs) — fetched/dropped in; keep CREDITS.md
 apps/web/public/buildings/*.glb
 
+# Street props (CC0 Kenney/Quaternius GLBs) — fetched/dropped in; keep CREDITS.md
+apps/web/public/props/*.glb
+apps/web/public/props/_manifest.json
+
 # Sky HDRI (CC0 Poly Haven puresky) — fetched/dropped in, never committed
 apps/web/public/sky/
 
