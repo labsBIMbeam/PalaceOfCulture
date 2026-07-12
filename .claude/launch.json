@@ -10,7 +10,16 @@
     {
       "name": "web-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "apps/web", "exec", "vite", "preview", "--port", "4283", "--strictPort"],
+      "runtimeArgs": [
+        "--dir",
+        "apps/web",
+        "exec",
+        "vite",
+        "preview",
+        "--port",
+        "4283",
+        "--strictPort"
+      ],
       "port": 4283
     },
     {
