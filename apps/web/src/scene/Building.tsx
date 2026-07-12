@@ -5,6 +5,7 @@
  */
 
 import * as THREE from "three";
+import { mulberry32 } from "./rand";
 
 const BAY = 3.8; // width of one room/bay
 const D = 6.2; // depth
@@ -49,12 +50,13 @@ function woodTexture(): THREE.CanvasTexture {
   const x = c.getContext("2d");
   const t = new THREE.CanvasTexture(c);
   if (x) {
+    const rnd = mulberry32(101);
     x.fillStyle = "#ffffff";
     x.fillRect(0, 0, S, S);
     const planks = 7;
     const ph = S / planks;
     for (let i = 0; i < planks; i++) {
-      const shade = 0.82 + Math.random() * 0.18;
+      const shade = 0.82 + rnd() * 0.18;
       x.fillStyle = `rgb(${Math.round(255 * shade)},${Math.round(240 * shade)},${Math.round(220 * shade)})`;
       x.fillRect(0, i * ph, S, ph - 1);
       x.strokeStyle = "rgba(70,45,25,0.5)"; // seam between boards
@@ -67,17 +69,10 @@ function woodTexture(): THREE.CanvasTexture {
         // grain streaks
         x.strokeStyle = "rgba(90,60,35,0.18)";
         x.lineWidth = 1;
-        const gy = i * ph + 4 + Math.random() * (ph - 8);
+        const gy = i * ph + 4 + rnd() * (ph - 8);
         x.beginPath();
         x.moveTo(0, gy);
-        x.bezierCurveTo(
-          S / 3,
-          gy + (Math.random() - 0.5) * 6,
-          (2 * S) / 3,
-          gy + (Math.random() - 0.5) * 6,
-          S,
-          gy,
-        );
+        x.bezierCurveTo(S / 3, gy + (rnd() - 0.5) * 6, (2 * S) / 3, gy + (rnd() - 0.5) * 6, S, gy);
         x.stroke();
       }
     }
@@ -101,6 +96,7 @@ function stoneTexture(): THREE.CanvasTexture {
   const x = c.getContext("2d");
   const t = new THREE.CanvasTexture(c);
   if (x) {
+    const rnd = mulberry32(202);
     x.fillStyle = "#5a5348"; // mortar
     x.fillRect(0, 0, S, S);
     const rows = 6;
@@ -108,7 +104,7 @@ function stoneTexture(): THREE.CanvasTexture {
     for (let r = 0; r < rows; r++) {
       const off = r % 2 === 0 ? 0 : S / 8;
       for (let bx = -1; bx < 5; bx++) {
-        const shade = 0.82 + Math.random() * 0.2;
+        const shade = 0.82 + rnd() * 0.2;
         x.fillStyle = `rgb(${Math.round(212 * shade)},${Math.round(200 * shade)},${Math.round(175 * shade)})`;
         x.fillRect(bx * (S / 4) + off + 2, r * bh + 2, S / 4 - 4, bh - 4);
       }
@@ -195,12 +191,14 @@ export function Building({
   rooms = 1,
   wall = "#cbb083",
   lit = "#ffcf87",
+  roof = "#7a4a2c",
 }: {
   position: [number, number, number];
   rotationY?: number;
   rooms?: 1 | 2 | 3 | 4;
   wall?: string;
   lit?: string;
+  roof?: string;
 }) {
   const W = rooms * BAY;
   const doorBay = Math.floor(rooms / 2);
@@ -294,7 +292,7 @@ export function Building({
       {/* roof: overhanging slab + a trim beam */}
       <mesh castShadow position={[0, H + 0.2, 0]}>
         <boxGeometry args={[W + 1.0, 0.36, D + 1.0]} />
-        <meshStandardMaterial color="#7a4a2c" roughness={0.9} />
+        <meshStandardMaterial color={roof} roughness={0.9} />
       </mesh>
       <mesh position={[0, H, 0]}>
         <boxGeometry args={[W + 0.5, 0.18, D + 0.5]} />

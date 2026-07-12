@@ -111,7 +111,8 @@ const WORLD_ORDER: EngineTarget[] = ["hq", "street", "home"];
 const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number }> = {
   hq: { color: "#c4d1db", near: 55, far: 470 },
   home: { color: HOME_CREAM, near: 30, far: 120 },
-  street: { color: "#6a5a70", near: 30, far: 250 },
+  // the compact camp: haze starts just past the plaza and swallows the forest edge
+  street: { color: "#6a5a70", near: 26, far: 200 },
 };
 const TRAVEL_LABEL: Record<EngineTarget, string> = {
   hq: "Travel: Palace",
@@ -257,6 +258,7 @@ function WalkSystems({
   bodyRef,
   poseables,
   spawn,
+  activeWorld,
   onActive,
   onNearPose,
 }: {
@@ -264,6 +266,8 @@ function WalkSystems({
   poseables: PosePoint[];
   /** Where the safety net puts a fallen controller — the active world's spawn. */
   spawn: [number, number, number];
+  /** The active engine world — only its own interactables may prompt. */
+  activeWorld: EngineTarget;
   onActive: (item: Interactable | null) => void;
   onNearPose: (point: PosePoint | null) => void;
 }) {
@@ -303,6 +307,7 @@ function WalkSystems({
     let best: Interactable | null = null;
     let bestDist = Number.POSITIVE_INFINITY;
     for (const item of INTERACTABLES) {
+      if (item.world !== activeWorld) continue;
       const dist = Math.hypot(pos.x - item.position[0], pos.z - item.position[2]);
       if (dist <= item.radius && dist < bestDist) {
         best = item;
@@ -1007,6 +1012,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               {/* In-canvas walk probe — inside <Physics> for the grounded raycast (useRapier). */}
               {(mode === "walk" || mode === "decorate") && !posed ? (
                 <WalkSystems
+                  activeWorld={world}
                   bodyRef={playerBody}
                   onActive={setActiveInteract}
                   onNearPose={setNearPose}

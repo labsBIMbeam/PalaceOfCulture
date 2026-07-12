@@ -6,20 +6,17 @@
 
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { mulberry32 } from "./rand";
 
-function mulberry32(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// fence rectangle + the south gate gap (the approach passes through here)
-export const FENCE = { x0: -52, x1: 52, z0: 2, z1: 188 };
+// fence rectangle + the south gate gap (the approach passes through here). Compact on purpose:
+// the camp's content ends just past the plaza ring, so the fence hugs it — no dead north strip.
+export const FENCE = { x0: -44, x1: 44, z0: 2, z1: 136 };
 export const GATE_X = 11; // half-width of the south gap
+/** The stone gate arch on the approach (shared by the visual in StreetWorld and its post
+ *  colliders in StreetColliders, so you can't walk through the posts). */
+export const GATE_ARCH = { z: 14, halfSpan: 9, height: 7, postHalf: 1 };
+/** How far the forest band extends beyond the fence (derived, so compaction moves it too). */
+const FOREST_MARGIN = 24;
 
 /** Palisade post positions along the fence perimeter (skipping the gate gap). */
 function palisadePosts(step: number): [number, number][] {
@@ -39,7 +36,12 @@ function palisadePosts(step: number): [number, number][] {
 function forestBand(seed: number, count: number): THREE.Vector3[] {
   const rnd = mulberry32(seed);
   const out: THREE.Vector3[] = [];
-  const outer = { x0: -76, x1: 76, z0: -20, z1: 212 };
+  const outer = {
+    x0: FENCE.x0 - FOREST_MARGIN,
+    x1: FENCE.x1 + FOREST_MARGIN,
+    z0: FENCE.z0 - FOREST_MARGIN + 4,
+    z1: FENCE.z1 + FOREST_MARGIN,
+  };
   let tries = 0;
   while (out.length < count && tries < count * 8) {
     tries++;
@@ -138,7 +140,7 @@ export function Enclosure() {
   return (
     <group>
       <Palisade />
-      <Forest count={220} seed={71} />
+      <Forest count={170} seed={71} />
     </group>
   );
 }
