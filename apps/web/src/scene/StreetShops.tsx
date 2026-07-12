@@ -1,5 +1,5 @@
 /**
- * Walk-in buildings for Locktard Street, mixed in front of the tall procedural facades:
+ * Walk-in buildings for Street, mixed in front of the tall procedural facades:
  *  - HeroShop: a ready-made furnished interior (CC-BY "The Corner Store", credited in
  *    public/buildings/CREDITS.md) — the showcase you can walk into.
  *  - CozyShell: a lightweight CC0 building we build from primitives (walls + a door opening + roof),

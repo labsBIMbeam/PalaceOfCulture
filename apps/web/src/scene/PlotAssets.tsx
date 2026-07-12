@@ -92,7 +92,7 @@ function Ground() {
   );
 }
 
-/** The central street — a path out to the rocket, and "Locktard Street" running behind the palace. */
+/** The central street — a path out to the rocket and the ring street behind the palace. */
 function CentralStreet() {
   return (
     <>

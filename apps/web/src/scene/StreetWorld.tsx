@@ -1,6 +1,6 @@
 /**
  * Werkstattgasse — the Palace of Culture workshop street. A walkable demo world (PC): a cobbled lane
- * running out from the palace gate, lined with the tall Gründerzeit/cypherpunk facades (LocktardStreet)
+ * running out from the palace gate, lined with the tall Gründerzeit/cypherpunk Street facades
  * and walk-in shops (StreetShops), with open-air WORKSHOP STALLS along the centre — the crafts that feed
  * the economy (sawmill, kiln, weaver, forge, lantern-maker, print) — plus market props and warm evening
  * lantern light. Everything is primitives + procedural canvas textures, so it loads offline with no asset

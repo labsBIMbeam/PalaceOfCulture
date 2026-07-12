@@ -79,7 +79,7 @@ in TS.
 
 Greyboxed the plan in Blender (boxes on the lane) and rendered it top-down + in perspective. The
 top-down view exposed the real culprit behind the "random / artificial" feel — **not** the scattered
-props, but the **LocktardStreet facade canyon**: two mechanical rows of identical 6-storey boxes at a
+props, but the **StreetFacades facade canyon**: two mechanical rows of identical 6-storey boxes at a
 fixed 17 m pitch down both sides. Its regularity flattens the density rhythm and its height fights the
 rustic-frontier read.
 
@@ -94,7 +94,7 @@ rustic-frontier read.
 
 ## Asset mapping per zone (reuse first → source → custom)
 
-- **Reuse (regrade rustic):** `LocktardStreet` facades, workshop stalls, all `public/props`, all
+- **Reuse (regrade rustic):** `StreetFacades`, workshop stalls, all `public/props`, all
   `public/village` buildings.
 - **Source if needed (CC0, Poly Pizza pipeline):** dirt/mud ground texture, hanging lanterns, market
   awnings, hay bales, a smoking chimney.

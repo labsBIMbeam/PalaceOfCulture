@@ -1,14 +1,14 @@
-# Locktard Street — Ringstadt handoff
+# Street — Ringstadt handoff
 
 ## Product image
 
-Locktard Street is not a linear avenue. It is the inhabited ring around the Palace's two central
+Street is not a linear avenue. It is the inhabited ring around the Palace's two central
 symbols:
 
 - the **young tree** represents time, patience and growth;
 - the **rocket site** represents the future and the 21-year horizon;
 - the **Plaza** is the shared civic ground;
-- **Locktard Street** is the complete walkable ring around it;
+- **Street** is the complete walkable ring around it;
 - the guild quarters face inward from the outside of the ring.
 
 The player enters from the south, immediately sees the centre and may walk either direction around
@@ -49,7 +49,7 @@ news.
                  │                                             │
              ╭───┴═══════════════════════════════════════┴───╮
              ║                                               ║
-             ║              LOCKTARD STREET                  ║
+             ║                  STREET                       ║
              ║          continuous walkable ring             ║
              ║                                               ║
         FORGE YARD    ╭─────────────────────────────────╮    CULTURE
@@ -133,11 +133,11 @@ route. Upper floors create silhouette and atmosphere; street-level fronts commun
 
 - Circular, pedestrian and visually quieter than the street.
 - Several radial paths connect it to the ring.
-- Floor value/colour differs clearly from Locktard Street.
+- Floor value/colour differs clearly from Street.
 - Benches and lamps support gathering without obscuring the centre.
 - No tall prop may accidentally become the central silhouette.
 
-### 3. Locktard Ring
+### 3. Street Ring
 
 - One continuous road around the Plaza.
 - A player can complete the loop in both directions without jumping or backtracking.
@@ -200,7 +200,7 @@ list.
 
 Current inconsistencies to resolve:
 
-1. `LocktardStreet.tsx` still builds a linear facade row from approximately `z=46…212` and is not
+1. `StreetFacades.tsx` still builds a linear facade row from approximately `z=46…212` and is not
    mounted by `StreetWorld`.
 2. `StreetShops.tsx` is also present but not mounted.
 3. `StreetWorld` comments still describe elements it does not render.
@@ -389,5 +389,5 @@ Capture and inspect four final views:
 The rocket is the future.
 The tree is time.
 The Plaza is community.
-Locktard Street is the culture that connects them.
+Street is the culture that connects them.
 ```
