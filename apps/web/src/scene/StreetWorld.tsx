@@ -10,9 +10,9 @@
 import { useGLTF } from "@react-three/drei";
 import { Component, type ReactNode, Suspense, useMemo } from "react";
 import * as THREE from "three";
-import { KitHouse } from "./KitBuilding";
 import { LocktardStreet } from "./LocktardStreet";
 import { StreetShops } from "./StreetShops";
+import { Village } from "./Village";
 
 /** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
  *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
@@ -574,13 +574,9 @@ export function StreetWorld() {
         </Suspense>
       </PropBoundary>
 
-      {/* a little residential quarter at the far end, assembled from the CC0 Kenney house kit */}
+      {/* the old-town quarter at the far end: medieval + wild-west buildings fused with cyberpunk neon */}
       <PropBoundary>
-        <Suspense fallback={null}>
-          <KitHouse cells={[3, 2]} position={[-12, 0, 232]} rotationY={0.2} />
-          <KitHouse cells={[2, 2]} position={[11, 0, 236]} rotationY={-0.35} />
-          <KitHouse cells={[2, 3]} position={[-2, 0, 256]} rotationY={Math.PI} />
-        </Suspense>
+        <Village />
       </PropBoundary>
     </group>
   );

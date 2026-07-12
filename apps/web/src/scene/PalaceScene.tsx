@@ -110,7 +110,7 @@ const WORLD_ORDER: EngineTarget[] = ["hq", "street", "home"];
 const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number }> = {
   hq: { color: "#c4d1db", near: 55, far: 470 },
   home: { color: HOME_CREAM, near: 30, far: 120 },
-  street: { color: "#c8d1d8", near: 24, far: 220 },
+  street: { color: "#c8d1d8", near: 30, far: 300 },
 };
 const TRAVEL_LABEL: Record<EngineTarget, string> = {
   hq: "Travel: Palace",
@@ -925,7 +925,6 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <Suspense fallback={null}>
             <Physics key={world} timeStep={1 / 60}>
               {world === "hq" ? <Palace /> : null}
-              {world === "street" ? <StreetWorld /> : null}
               {/* Invisible flat floor at the deck level (y=0): the palace trimesh has gaps/glass the
                   ecctrl ground ray misses, leaving the controller stuck in "fall" so it never walks.
                   A guaranteed ground plane keeps the player grounded across the whole plaza.
@@ -1012,6 +1011,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 />
               ) : null}
             </Physics>
+            {/* The street is pure scenery (no colliders) — rendered OUTSIDE <Physics> so its many
+                lazy GLB loads don't churn the physics tree on mount (kept the world walkable via the
+                street ground collider inside Physics above). */}
+            {world === "street" ? <StreetWorld /> : null}
             {world === "hq" ? (
               <MultiplayerLayer
                 bodyRef={playerBody}

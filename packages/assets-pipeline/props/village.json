@@ -1,0 +1,17 @@
+[
+  { "id": "x3ZcGn3jr4", "as": "inn" },
+  { "id": "BH2XHWUNmF", "as": "house-a" },
+  { "id": "RSwoYSLblu", "as": "house-b" },
+  { "id": "oJJIRwv6Bo", "as": "house-c" },
+  { "id": "L7h0SjZX2K", "as": "house-small" },
+  { "id": "bV52eTG1Aj", "as": "blacksmith" },
+  { "id": "alxTTFjKDM", "as": "sawmill" },
+  { "id": "qhNQSOGGbi", "as": "stable" },
+  { "id": "4MJWbyd6vw", "as": "hut-a" },
+  { "id": "wxi3kAu5ey", "as": "hut-b" },
+  { "id": "VJZZW37Vsk", "as": "tower" },
+  { "id": "WUbU1Nct2W", "as": "windmill" },
+  { "id": "DGIM5HGISb", "as": "market-stand" },
+  { "id": "obYD8hWLTZ", "as": "tech-tower" },
+  { "id": "ppwtREejXg", "as": "tech-block" }
+]
