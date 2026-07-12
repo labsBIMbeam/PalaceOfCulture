@@ -89,9 +89,17 @@ function doorDressing(): {
   }));
 }
 
-/** One furnished-room kit: pieces in bay-local space + the solid blocks worth colliding with. */
+/** One furnished-room kit: pieces in bay-local space + the solid blocks worth colliding with.
+ *  Pieces with a `pose` are usable — the player can sit on chairs / sleep in beds (E). */
 type FurnitureKit = {
-  pieces: { url: string; fit: number; dx: number; dz: number; rot: number }[];
+  pieces: {
+    url: string;
+    fit: number;
+    dx: number;
+    dz: number;
+    rot: number;
+    pose?: "sit" | "sleep";
+  }[];
   solids: { dx: number; dz: number; half: [number, number, number] }[];
 };
 
@@ -101,14 +109,14 @@ const KITS: FurnitureKit[] = [
   {
     pieces: [
       { url: "/props/table-a.glb", fit: 0.95, dx: 0, dz: 1.9, rot: 0 },
-      { url: "/props/chair-a.glb", fit: 0.95, dx: -1.05, dz: 1.5, rot: 0.9 },
-      { url: "/props/chair-b.glb", fit: 0.95, dx: 1.05, dz: 2.2, rot: -2.2 },
+      { url: "/props/chair-a.glb", fit: 0.95, dx: -1.05, dz: 1.5, rot: 0.9, pose: "sit" },
+      { url: "/props/chair-b.glb", fit: 0.95, dx: 1.05, dz: 2.2, rot: -2.2, pose: "sit" },
     ],
     solids: [{ dx: 0, dz: 1.9, half: [0.7, 0.45, 0.7] }],
   },
   {
     pieces: [
-      { url: "/furniture/bed-1.glb", fit: 0.65, dx: -0.4, dz: 1.6, rot: 0 },
+      { url: "/furniture/bed-1.glb", fit: 0.65, dx: -0.4, dz: 1.6, rot: 0, pose: "sleep" },
       { url: "/props/crate-1.glb", fit: 0.7, dx: 1.2, dz: 1.2, rot: 0.4 },
     ],
     solids: [{ dx: -0.4, dz: 1.6, half: [0.6, 0.3, 1.0] }],
@@ -116,7 +124,7 @@ const KITS: FurnitureKit[] = [
   {
     pieces: [
       { url: "/props/desk.glb", fit: 1.05, dx: 0, dz: 1.3, rot: Math.PI },
-      { url: "/props/chair-b.glb", fit: 0.95, dx: 0, dz: 2.3, rot: Math.PI },
+      { url: "/props/chair-b.glb", fit: 0.95, dx: 0, dz: 2.3, rot: Math.PI, pose: "sit" },
       { url: "/props/plant-1.glb", fit: 0.9, dx: 1.3, dz: 1.1, rot: 0 },
     ],
     solids: [{ dx: 0, dz: 1.3, half: [0.8, 0.5, 0.45] }],
@@ -140,14 +148,30 @@ const KITS: FurnitureKit[] = [
   },
 ];
 
+/** A static usable spot in the street scenery: sit on benches/chairs, sleep in the hut beds. */
+export type StreetPose = {
+  uid: string;
+  position: [number, number, number];
+  pose: "sit" | "sleep";
+  yaw: number;
+  /** y-lift so a sleeper rests on the mattress (sitters stay at floor level). */
+  lift: number;
+};
+
+/** Bed mattress height at the street bed's fitHeight (0.65) — the sleeper rests on it. */
+const STREET_BED_LIFT = 0.42;
+
 /** Furniture for every room around the ring (door bays only in 1-room huts, where the kit still
- *  hugs the back wall). Deterministic kit cycle; positions in world space. */
+ *  hugs the back wall). Deterministic kit cycle; positions in world space. Pieces flagged with a
+ *  pose also come back as usable spots (sit/sleep). */
 function interiorFurnishings(): {
   pieces: { pos: [number, number, number]; url: string; fit: number; rotY: number }[];
   solids: SolidSpec[];
+  poses: StreetPose[];
 } {
   const pieces: { pos: [number, number, number]; url: string; fit: number; rotY: number }[] = [];
   const solids: SolidSpec[] = [];
+  const poses: StreetPose[] = [];
   let kitIndex = 0;
   for (const b of plazaRing()) {
     const doorBay = Math.floor(b.rooms / 2);
@@ -159,12 +183,17 @@ function interiorFurnishings(): {
       const bx = buildingBayX(b.rooms, i);
       const backZ = -b.depth / 2;
       for (const p of kit.pieces) {
-        pieces.push({
-          pos: toWorld(b, bx + p.dx, backZ + p.dz),
-          url: p.url,
-          fit: p.fit,
-          rotY: b.rotY + p.rot,
-        });
+        const pos = toWorld(b, bx + p.dx, backZ + p.dz);
+        pieces.push({ pos, url: p.url, fit: p.fit, rotY: b.rotY + p.rot });
+        if (p.pose) {
+          poses.push({
+            uid: `street-pose-${poses.length}`,
+            position: pos,
+            pose: p.pose,
+            yaw: b.rotY + p.rot,
+            lift: p.pose === "sleep" ? STREET_BED_LIFT : 0,
+          });
+        }
       }
       for (const s of kit.solids) {
         const [wx, , wz] = toWorld(b, bx + s.dx, backZ + s.dz);
@@ -172,7 +201,24 @@ function interiorFurnishings(): {
       }
     }
   }
-  return { pieces, solids };
+  return { pieces, solids, poses };
+}
+
+/** Every usable seat/bed the street scenery ships: plaza benches + the furnished-room chairs and
+ *  beds. Derived from the SAME placement data as the visuals, so the prompt always matches. */
+export function streetPoseTargets(): StreetPose[] {
+  return [
+    ...benchPlacements().map(
+      (b, i): StreetPose => ({
+        uid: `street-bench-${i}`,
+        position: b.pos,
+        pose: "sit",
+        yaw: b.rotY,
+        lift: 0,
+      }),
+    ),
+    ...interiorFurnishings().poses,
+  ];
 }
 
 /** The fire bowl by the north benches — a warm gathering accent (emissive only, no extra light). */
