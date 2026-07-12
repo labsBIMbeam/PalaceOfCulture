@@ -9,7 +9,7 @@
  */
 
 import { Suspense, useMemo } from "react";
-import { BUILDING_DEPTH, Building, buildingDoorX } from "./Building";
+import { Building, type RoofStyle, buildingBayX, buildingDoorX } from "./Building";
 import { Embers } from "./Embers";
 import { GlbModel } from "./GlbModel";
 import { GrowableObject } from "./GrowableObject";
@@ -68,24 +68,111 @@ function stallPlacements(): { pos: [number, number, number]; rotY: number }[] {
 const DOOR_PROPS = ["barrel-1", "crate-1", "plant-1", "vase", "barrel-2", "crate-2"];
 const DOOR_PROP_FITS = [1.05, 0.9, 1.0, 0.7, 1.0, 0.9];
 
+/** Local (x,z) of a building → world, honouring the building's yaw. */
+function toWorld(b: Ringed, lx: number, lz: number): [number, number, number] {
+  const cos = Math.cos(b.rotY);
+  const sin = Math.sin(b.rotY);
+  return [b.pos[0] + lx * cos + lz * sin, 0, b.pos[2] - lx * sin + lz * cos];
+}
+
 function doorDressing(): {
   pos: [number, number, number];
   url: string;
   fit: number;
   rotY: number;
 }[] {
-  return plazaRing().map((b, i) => {
-    const lx = buildingDoorX(b.rooms) + 2.3;
-    const lz = BUILDING_DEPTH / 2 + 1.0;
-    const cos = Math.cos(b.rotY);
-    const sin = Math.sin(b.rotY);
-    return {
-      pos: [b.pos[0] + lx * cos + lz * sin, 0, b.pos[2] - lx * sin + lz * cos],
-      url: `/props/${DOOR_PROPS[i % DOOR_PROPS.length]}.glb`,
-      fit: DOOR_PROP_FITS[i % DOOR_PROP_FITS.length] ?? 0.9,
-      rotY: b.rotY + 0.4,
-    };
-  });
+  return plazaRing().map((b, i) => ({
+    pos: toWorld(b, buildingDoorX(b.rooms) + 2.3, b.depth / 2 + 1.0),
+    url: `/props/${DOOR_PROPS[i % DOOR_PROPS.length]}.glb`,
+    fit: DOOR_PROP_FITS[i % DOOR_PROP_FITS.length] ?? 0.9,
+    rotY: b.rotY + 0.4,
+  }));
+}
+
+/** One furnished-room kit: pieces in bay-local space + the solid blocks worth colliding with. */
+type FurnitureKit = {
+  pieces: { url: string; fit: number; dx: number; dz: number; rot: number }[];
+  solids: { dx: number; dz: number; half: [number, number, number] }[];
+};
+
+// Room kits cycle around the ring: dining, sleeping, work, storage, cozy. Everything sits against
+// the back wall (dz is measured from the back wall inward) so the door path stays clear.
+const KITS: FurnitureKit[] = [
+  {
+    pieces: [
+      { url: "/props/table-a.glb", fit: 0.95, dx: 0, dz: 1.9, rot: 0 },
+      { url: "/props/chair-a.glb", fit: 0.95, dx: -1.05, dz: 1.5, rot: 0.9 },
+      { url: "/props/chair-b.glb", fit: 0.95, dx: 1.05, dz: 2.2, rot: -2.2 },
+    ],
+    solids: [{ dx: 0, dz: 1.9, half: [0.7, 0.45, 0.7] }],
+  },
+  {
+    pieces: [
+      { url: "/furniture/bed-1.glb", fit: 0.65, dx: -0.4, dz: 1.6, rot: 0 },
+      { url: "/props/crate-1.glb", fit: 0.7, dx: 1.2, dz: 1.2, rot: 0.4 },
+    ],
+    solids: [{ dx: -0.4, dz: 1.6, half: [0.6, 0.3, 1.0] }],
+  },
+  {
+    pieces: [
+      { url: "/props/desk.glb", fit: 1.05, dx: 0, dz: 1.3, rot: Math.PI },
+      { url: "/props/chair-b.glb", fit: 0.95, dx: 0, dz: 2.3, rot: Math.PI },
+      { url: "/props/plant-1.glb", fit: 0.9, dx: 1.3, dz: 1.1, rot: 0 },
+    ],
+    solids: [{ dx: 0, dz: 1.3, half: [0.8, 0.5, 0.45] }],
+  },
+  {
+    pieces: [
+      { url: "/props/barrel-2.glb", fit: 1.0, dx: -0.9, dz: 1.3, rot: 0 },
+      { url: "/props/crate-2.glb", fit: 0.8, dx: 0.4, dz: 1.2, rot: 0.5 },
+      { url: "/props/sack.glb", fit: 0.55, dx: 1.3, dz: 1.6, rot: 1.2 },
+      { url: "/props/box.glb", fit: 0.55, dx: -0.2, dz: 2.2, rot: 0.2 },
+    ],
+    solids: [{ dx: 0, dz: 1.5, half: [1.0, 0.5, 0.9] }],
+  },
+  {
+    pieces: [
+      { url: "/props/table-round.glb", fit: 0.95, dx: 0, dz: 1.8, rot: 0 },
+      { url: "/props/vase.glb", fit: 0.5, dx: 1.0, dz: 1.3, rot: 0 },
+      { url: "/props/lamp-stand.glb", fit: 1.5, dx: -1.35, dz: 1.2, rot: 0 },
+    ],
+    solids: [{ dx: 0, dz: 1.8, half: [0.6, 0.45, 0.6] }],
+  },
+];
+
+/** Furniture for every room around the ring (door bays only in 1-room huts, where the kit still
+ *  hugs the back wall). Deterministic kit cycle; positions in world space. */
+function interiorFurnishings(): {
+  pieces: { pos: [number, number, number]; url: string; fit: number; rotY: number }[];
+  solids: SolidSpec[];
+} {
+  const pieces: { pos: [number, number, number]; url: string; fit: number; rotY: number }[] = [];
+  const solids: SolidSpec[] = [];
+  let kitIndex = 0;
+  for (const b of plazaRing()) {
+    const doorBay = Math.floor(b.rooms / 2);
+    for (let i = 0; i < b.rooms; i++) {
+      if (i === doorBay && b.rooms > 1) continue; // multi-room: keep the entrance hall open
+      const kit = KITS[kitIndex % KITS.length];
+      kitIndex++;
+      if (!kit) continue;
+      const bx = buildingBayX(b.rooms, i);
+      const backZ = -b.depth / 2;
+      for (const p of kit.pieces) {
+        pieces.push({
+          pos: toWorld(b, bx + p.dx, backZ + p.dz),
+          url: p.url,
+          fit: p.fit,
+          rotY: b.rotY + p.rot,
+        });
+      }
+      for (const s of kit.solids) {
+        const [wx, , wz] = toWorld(b, bx + s.dx, backZ + s.dz);
+        solids.push({ pos: [wx, s.half[1], wz], half: s.half, rotY: b.rotY });
+      }
+    }
+  }
+  return { pieces, solids };
 }
 
 /** The fire bowl by the north benches — a warm gathering accent (emissive only, no extra light). */
@@ -144,6 +231,7 @@ export function plazaSolids(): SolidSpec[] {
   for (const d of doorDressing()) {
     out.push({ pos: [d.pos[0], 0.45, d.pos[2]], half: [0.45, 0.45, 0.45] });
   }
+  out.push(...interiorFurnishings().solids);
   return out;
 }
 
@@ -252,11 +340,16 @@ export type Ringed = {
   rooms: 1 | 2 | 3 | 4;
   wall: string;
   roof: string;
+  height: number;
+  depth: number;
+  roofStyle: RoofStyle;
+  porch: boolean;
 };
 
 /** The ring building placements (shared by the visuals and the colliders so they line up).
  *  Six fronts spread around the whole ring — only the south arc stays open for the approach —
- *  with a seeded per-building yaw jitter so the row never reads machine-placed. */
+ *  with seeded per-building yaw jitter, height/depth variation, roof style and porches so the
+ *  row never reads as copies of one hut. */
 export function plazaRing(): Ringed[] {
   const [cx, cz] = PLAZA_CENTRE;
   const R = 35;
@@ -271,11 +364,15 @@ export function plazaRing(): Ringed[] {
     const z = cz + Math.sin(a) * R;
     const rotY = Math.atan2(cx - x, cz - z) + (rnd() - 0.5) * 0.12; // front faces centre, jittered
     return {
-      pos: [x, 0, z],
+      pos: [x, 0, z] as [number, number, number],
       rotY,
       rooms: roomPlan[i] ?? 1,
       wall: walls[i % walls.length] ?? "#cbb083",
       roof: roofs[i % roofs.length] ?? "#7a4a2c",
+      height: 3.0 + rnd() * 0.9,
+      depth: 5.6 + rnd() * 1.4,
+      roofStyle: (rnd() > 0.45 ? "hip" : "flat") as RoofStyle,
+      porch: rnd() > 0.4,
     };
   });
 }
@@ -287,6 +384,7 @@ export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
   const benches = useMemo(benchPlacements, []);
   const stalls = useMemo(stallPlacements, []);
   const dressing = useMemo(doorDressing, []);
+  const interior = useMemo(interiorFurnishings, []);
 
   return (
     <group>
@@ -350,6 +448,16 @@ export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
             url={d.url}
           />
         ))}
+        {/* furnished rooms — visible through the glass windows and walk-in doors */}
+        {interior.pieces.map((p) => (
+          <GlbModel
+            fitHeight={p.fit}
+            key={`int-${p.pos[0].toFixed(2)},${p.pos[2].toFixed(2)}`}
+            position={p.pos}
+            rotationY={p.rotY}
+            url={p.url}
+          />
+        ))}
       </Suspense>
       <FireBowl />
       {/* waypost where the approach meets the plaza */}
@@ -362,10 +470,13 @@ export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
       />
       {ring.map((b) => (
         <Building
+          depth={b.depth}
+          height={b.height}
           key={`${b.pos[0].toFixed(1)},${b.pos[2].toFixed(1)}`}
-          lit="#ffcf87"
+          porch={b.porch}
           position={b.pos}
           roof={b.roof}
+          roofStyle={b.roofStyle}
           rooms={b.rooms}
           rotationY={b.rotY}
           wall={b.wall}
