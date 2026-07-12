@@ -11,6 +11,32 @@ const D = 6.2; // depth
 const H = 3.2; // wall height
 const T = 0.2; // wall thickness
 const COL = 0.34; // column size
+const DOOR_W = 1.7; // door opening width
+
+/** Wall collider boxes for a `rooms`-wide building, in LOCAL space (half-extents + centre). Back +
+ *  two sides + the two front segments beside the door — so you collide with the walls but can walk in
+ *  through the door. Used by StreetColliders (visuals live outside <Physics>). */
+export function buildingWallColliders(
+  rooms: 1 | 2 | 3 | 4,
+): { half: [number, number, number]; pos: [number, number, number] }[] {
+  const W = rooms * BAY;
+  const doorX = -W / 2 + BAY * (Math.floor(rooms / 2) + 0.5);
+  const gapL = doorX - DOOR_W / 2;
+  const gapR = doorX + DOOR_W / 2;
+  const hy = H / 2;
+  const out: { half: [number, number, number]; pos: [number, number, number] }[] = [
+    { half: [W / 2, hy, T / 2], pos: [0, hy, -D / 2] }, // back
+    { half: [T / 2, hy, D / 2], pos: [-W / 2, hy, 0] }, // left side
+    { half: [T / 2, hy, D / 2], pos: [W / 2, hy, 0] }, // right side
+  ];
+  if (gapL > -W / 2) {
+    out.push({ half: [(gapL + W / 2) / 2, hy, T / 2], pos: [(-W / 2 + gapL) / 2, hy, D / 2] });
+  }
+  if (W / 2 > gapR) {
+    out.push({ half: [(W / 2 - gapR) / 2, hy, T / 2], pos: [(gapR + W / 2) / 2, hy, D / 2] });
+  }
+  return out;
+}
 
 /** Procedural timber-plank texture (horizontal boards + grain). Cached module-wide. */
 let woodCache: THREE.CanvasTexture | undefined;
@@ -179,7 +205,7 @@ export function Building({
   const W = rooms * BAY;
   const doorBay = Math.floor(rooms / 2);
   const bayX = (i: number) => -W / 2 + BAY * (i + 0.5);
-  const doorW = 1.7;
+  const doorW = DOOR_W;
   const seg = (BAY - doorW) / 2;
   const wood = woodTexture();
 

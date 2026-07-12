@@ -39,30 +39,38 @@ function FoundationSite({ centre }: { centre: [number, number] }) {
   );
 }
 
-type Ringed = { pos: [number, number, number]; rotY: number; rooms: 1 | 2 | 3 | 4; wall: string };
+export type Ringed = {
+  pos: [number, number, number];
+  rotY: number;
+  rooms: 1 | 2 | 3 | 4;
+  wall: string;
+};
+
+/** The ring building placements (shared by the visuals and the colliders so they line up). */
+export function plazaRing(): Ringed[] {
+  const [cx, cz] = PLAZA_CENTRE;
+  const R = 35;
+  const walls = ["#cbb083", "#c7a271", "#d0c0a0", "#c2ab86", "#cbb083", "#bfa47c"];
+  const roomPlan: (1 | 2 | 3 | 4)[] = [2, 1, 3, 2, 4, 1];
+  const degs = [16, 62, 108, 300, 344]; // south arc (≈180±) kept open for the approach
+  return degs.map((d, i) => {
+    const a = (d * Math.PI) / 180;
+    const x = cx + Math.cos(a) * R;
+    const z = cz + Math.sin(a) * R;
+    const rotY = Math.atan2(cx - x, cz - z); // front (+z) faces the centre
+    return {
+      pos: [x, 0, z],
+      rotY,
+      rooms: roomPlan[i] ?? 1,
+      wall: walls[i % walls.length] ?? "#cbb083",
+    };
+  });
+}
 
 /** The whole plaza: the prepared site + the young tree beside it, ringed by complex buildings. */
 export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
   const [cx, cz] = PLAZA_CENTRE;
-  // Complex walkable buildings around the ring, facing the plaza; a clean gap on the gate (south) side.
-  const ring = useMemo<Ringed[]>(() => {
-    const R = 35;
-    const walls = ["#cbb083", "#c7a271", "#d0c0a0", "#c2ab86", "#cbb083", "#bfa47c"];
-    const roomPlan: (1 | 2 | 3 | 4)[] = [2, 1, 3, 2, 4, 1];
-    const degs = [16, 62, 108, 300, 344]; // south arc (≈180±) kept open for the approach
-    return degs.map((d, i) => {
-      const a = (d * Math.PI) / 180;
-      const x = cx + Math.cos(a) * R;
-      const z = cz + Math.sin(a) * R;
-      const rotY = Math.atan2(cx - x, cz - z); // front (+z) faces the centre
-      return {
-        pos: [x, 0, z],
-        rotY,
-        rooms: roomPlan[i] ?? 1,
-        wall: walls[i % walls.length] ?? "#cbb083",
-      };
-    });
-  }, [cx, cz]);
+  const ring = useMemo(plazaRing, []);
 
   return (
     <group>

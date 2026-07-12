@@ -49,6 +49,13 @@ function scatter(seed: number, clumps: number, perClump: number, spread: number)
   return out;
 }
 
+/** The hero-tree positions (same deterministic scatter as the visuals) — for trunk colliders. */
+export function heroTreePositions(): [number, number][] {
+  return scatter(88, 18, 1, 2)
+    .slice(0, 16)
+    .map((v) => [v.x, v.z] as [number, number]);
+}
+
 /** A grass tuft: two crossed tapered quads (uv.y 0 at base → 1 at tip, so wind sways only the top). */
 function tuftGeometry(w: number, h: number): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();

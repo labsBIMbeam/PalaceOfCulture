@@ -44,6 +44,7 @@ import { GrowableObject } from "./GrowableObject";
 import { Palace } from "./Palace";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
+import { StreetColliders } from "./StreetColliders";
 import { STREET_GROUND, STREET_SPAWN as STREET_SPAWN_POINT, StreetWorld } from "./StreetWorld";
 import { findImport, importUrl } from "./avatarImports";
 import { type PlacedItem, loadDecor, newUid, saveDecor } from "./decorStore";
@@ -944,6 +945,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   position={world === "street" ? STREET_GROUND.center : [0, -5, 0]}
                 />
               </RigidBody>
+              {/* solid collision for the street's buildings + tree trunks (visuals are outside Physics) */}
+              {world === "street" ? <StreetColliders /> : null}
               {world === "home" ? (
                 <>
                   <mesh receiveShadow rotation-x={-Math.PI / 2}>
