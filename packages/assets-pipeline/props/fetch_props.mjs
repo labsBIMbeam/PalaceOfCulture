@@ -1,7 +1,9 @@
-// One-off asset sourcing: search Poly Pizza, keep CC0 models by cohesive toon authors
-// (Kenney / Quaternius), download the GLB into apps/web/public/props/, and emit a credits row.
-// Usage: node fetch_props.mjs <outDir> <spec.json>
-// spec.json: [{ "term": "barrel", "want": 1, "as": "barrel", "authors": ["Kenney","Quaternius"] }, ...]
+// One-off asset sourcing: fetch CC0 models from Poly Pizza (Kenney / Quaternius) into an output
+// dir and emit a credits row per file. Two spec entry shapes:
+//   { "term": "barrel", "want": 2, "as": "barrel", "authors": ["Kenney","Quaternius"] }  // by search
+//   { "id": "N8d0nkQGOn", "as": "wall" }                                                 // exact model
+// Explicit IDs are used for cohesive modular kits, where search ranking can't be trusted to return
+// the matching pieces. Usage: node fetch_props.mjs <outDir> <spec.json>
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -39,8 +41,41 @@ async function inspect(id) {
   };
 }
 
+async function download(info, fname) {
+  const dest = join(outDir, fname);
+  if (existsSync(dest)) return "exists";
+  const buf = Buffer.from(await (await get(info.glb)).arrayBuffer());
+  if (buf.subarray(0, 4).toString() !== "glTF") throw new Error("not a glb");
+  writeFileSync(dest, buf);
+  credits.push({
+    file: fname,
+    creator: info.creator,
+    license: info.license,
+    source: `https://poly.pizza/m/${info.id}`,
+    kb: Math.round(buf.length / 1024),
+  });
+  console.log(`OK  ${fname}  ${info.creator}  ${info.license}  ${Math.round(buf.length / 1024)}KB  (${info.title})`);
+  return "ok";
+}
+
 const credits = [];
 for (const item of spec) {
+  // exact-id entry: download that one model (still verifies CC0)
+  if (item.id) {
+    try {
+      const info = await inspect(item.id);
+      await sleep(150);
+      if (!/^CC0/i.test(info.license) || !info.glb) {
+        console.log(`SKIP ${item.id}: ${info.license} / no glb`);
+        continue;
+      }
+      await download(info, `${item.as}.glb`);
+    } catch (e) {
+      console.log(`ID FAIL ${item.id}: ${e.message}`);
+    }
+    await sleep(150);
+    continue;
+  }
   const { term, want = 1, as, authors } = item;
   let ids;
   try {
@@ -64,25 +99,8 @@ for (const item of spec) {
       !authors || authors.some((a) => info.creator.toLowerCase().includes(a.toLowerCase()));
     if (!cc0 || !authorOk || !info.glb) continue;
     const fname = want > 1 ? `${as}-${taken + 1}.glb` : `${as}.glb`;
-    const dest = join(outDir, fname);
-    if (existsSync(dest)) {
-      taken++;
-      continue;
-    }
     try {
-      const buf = Buffer.from(await (await get(info.glb)).arrayBuffer());
-      if (buf.subarray(0, 4).toString() !== "glTF") throw new Error("not a glb");
-      writeFileSync(dest, buf);
-      credits.push({
-        file: fname,
-        creator: info.creator,
-        license: info.license,
-        source: `https://poly.pizza/m/${id}`,
-        kb: Math.round(buf.length / 1024),
-      });
-      console.log(
-        `OK  ${fname}  ${info.creator}  ${info.license}  ${Math.round(buf.length / 1024)}KB  (${info.title})`,
-      );
+      await download(info, fname);
       taken++;
     } catch (e) {
       console.log(`DL FAIL ${id}: ${e.message}`);

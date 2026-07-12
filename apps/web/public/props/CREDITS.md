@@ -28,6 +28,23 @@ This folder is **gitignored** (binary assets, like `public/furniture` / `public/
 | vase.glb | Kenney | CC0 1.0 | Honey jar |
 | well.glb | Quaternius | CC0 1.0 | Well |
 
+### Furniture + tools (`packages/assets-pipeline/props/furniture-tools.json`)
+
+| File | Creator | License | Model |
+|------|---------|---------|-------|
+| chair-a.glb / chair-b.glb | Quaternius | CC0 1.0 | Chair |
+| chair-office.glb | Quaternius | CC0 1.0 | Office Chair |
+| table-a.glb | Quaternius | CC0 1.0 | Small Table |
+| table-round.glb | Quaternius | CC0 1.0 | Table Round Small |
+| desk.glb | Quaternius | CC0 1.0 | Desk |
+| lamp-table.glb | Kenney | CC0 1.0 | Lamp Round Table |
+| lamp-stand.glb | Quaternius | CC0 1.0 | Light Stand |
+| lamp-desk.glb | Quaternius | CC0 1.0 | Light Desk |
+| tool-saw.glb | Quaternius | CC0 1.0 | Sawmill Saw |
+| tool-hammer.glb | Quaternius | CC0 1.0 | Doublesided Hammer |
+| tool-shovel.glb | Quaternius | CC0 1.0 | Shovel |
+| tool-axe.glb | Quaternius | CC0 1.0 | Axe |
+
 ## Re-fetching / adding more
 
 The fetch script lives at `packages/assets-pipeline/props/` (`fetch_props.mjs` + `street-props.json`):

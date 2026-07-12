@@ -10,6 +10,7 @@
 import { useGLTF } from "@react-three/drei";
 import { Component, type ReactNode, Suspense, useMemo } from "react";
 import * as THREE from "three";
+import { KitHouse } from "./KitBuilding";
 import { LocktardStreet } from "./LocktardStreet";
 import { StreetShops } from "./StreetShops";
 
@@ -474,6 +475,25 @@ const PROPS: PropSpec[] = [
   { name: "tree", pos: [20, 0, 200], fit: 6 },
   { name: "flag", pos: [-6, 0, 20], fit: 3.4 },
   { name: "flag", pos: [6, 0, 20], fit: 3.4, rotY: Math.PI },
+  // café seating outside the hero shop (corner-store, ~z72 left)
+  { name: "table-a", pos: [-6, 0, 68], fit: 0.78 },
+  { name: "chair-a", pos: [-6, 0, 66.4], fit: 0.95 },
+  { name: "chair-b", pos: [-6, 0, 69.6], fit: 0.95, rotY: Math.PI },
+  { name: "lamp-stand", pos: [-8.5, 0, 70], fit: 1.9 },
+  { name: "table-round", pos: [-6, 0, 96], fit: 0.75 },
+  { name: "chair-a", pos: [-7.4, 0, 96], fit: 0.95, rotY: Math.PI / 2 },
+  // a print bench outside the Druckerei (z196 right)
+  { name: "desk", pos: [10, 0, 202], fit: 0.92, rotY: -Math.PI / 2 },
+  { name: "chair-office", pos: [8.5, 0, 202], fit: 1.15, rotY: Math.PI / 2 },
+  { name: "lamp-table", pos: [10.4, 0, 201], fit: 0.42 },
+  // workshop tools leaning at the relevant stalls
+  { name: "tool-saw", pos: [-15, 0, 44], fit: 0.8, rotY: 0.6 },
+  { name: "tool-axe", pos: [-11, 0, 45], fit: 0.9 },
+  { name: "tool-hammer", pos: [15, 0, 130], fit: 1.1, rotY: -0.5 },
+  { name: "tool-shovel", pos: [17, 0, 138], fit: 1.7, rotY: 0.3 },
+  // floor lamps down the lane edges
+  { name: "lamp-stand", pos: [-9, 0, 122], fit: 1.9 },
+  { name: "lamp-stand", pos: [9, 0, 156], fit: 1.9 },
 ];
 
 const PROP_NAMES = [...new Set(PROPS.map((p) => p.name))];
@@ -551,6 +571,15 @@ export function StreetWorld() {
               rotationY={p.rotY ?? 0}
             />
           ))}
+        </Suspense>
+      </PropBoundary>
+
+      {/* a little residential quarter at the far end, assembled from the CC0 Kenney house kit */}
+      <PropBoundary>
+        <Suspense fallback={null}>
+          <KitHouse cells={[3, 2]} position={[-12, 0, 232]} rotationY={0.2} />
+          <KitHouse cells={[2, 2]} position={[11, 0, 236]} rotationY={-0.35} />
+          <KitHouse cells={[2, 3]} position={[-2, 0, 256]} rotationY={Math.PI} />
         </Suspense>
       </PropBoundary>
     </group>
