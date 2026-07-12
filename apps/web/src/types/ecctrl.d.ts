@@ -24,6 +24,12 @@ declare module "ecctrl" {
     turnSpeed?: number;
     sprintMult?: number;
     jumpVel?: number;
+    /** Height (above the body centre) where the move impulse is applied — >0 pitches the body. */
+    moveImpulsePointY?: number;
+    /** Upright auto-balance spring stiffness. */
+    autoBalanceSpringK?: number;
+    /** Upright auto-balance damping. */
+    autoBalanceDampingC?: number;
     /** How far past the float distance the ground ray still counts as "grounded" (canJump). */
     rayHitForgiveness?: number;
     rayLength?: number;

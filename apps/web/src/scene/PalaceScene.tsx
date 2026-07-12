@@ -998,6 +998,13 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   jumpVel={0}
                   key={standPos.join(",")}
                   maxVelLimit={4}
+                  // Ecctrl applies the move impulse at moveImpulsePointY (default 0.5, ABOVE the
+                  // body centre) — under a sustained sprint that torque settles the capsule at a
+                  // ~45° forward lean. Apply the impulse at the centre (no pitch torque) and
+                  // stiffen the upright spring so bumps recover quickly without wobble.
+                  autoBalanceDampingC={0.08}
+                  autoBalanceSpringK={1.2}
+                  moveImpulsePointY={0}
                   position={standPos}
                   // Widen ecctrl's ground detection so "canJump" is reliably true on the deck — the
                   // default forgiveness (0.1) gave a tight 0.8 window vs the 0.7 float, so jump often
