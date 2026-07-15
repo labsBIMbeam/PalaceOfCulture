@@ -156,7 +156,7 @@ export function MagnetRig({
       (keys.backward ? 1 : 0) - (keys.forward ? 1 : 0),
     );
     input.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw.current);
-    input.y = (keys.jump ? 1 : 0) - (keys.run ? 1 : 0); // Space up · Shift down
+    input.y = (keys.hop ? 1 : 0) - (keys.run ? 1 : 0); // Space up · Shift down ("hop" = Space; see KEYBOARD_MAP)
     if (input.lengthSq() > 1) input.normalize();
     if (locked || input.y !== 0) camera.position.addScaledVector(input, FLY_SPEED * delta);
     camera.position.y = Math.max(0.6, camera.position.y);
