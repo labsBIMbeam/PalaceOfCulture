@@ -113,7 +113,9 @@ const WORLD_TITLE: Record<EngineTarget, string> = {
   home: "Home — your map",
   street: "Locktard Street",
 };
-const WORLD_ORDER: EngineTarget[] = ["street", "home", "hq"];
+// The Palace map ("hq") is switched OFF for launch: the game ships with Locktard Street + Home.
+// Re-adding "hq" here is the single switch that brings the Palace world back.
+const WORLD_ORDER: EngineTarget[] = ["street", "home"];
 // Atmospheric distance fog per world (the Valheim depth trick): distant geometry fades into a
 // horizon-matched haze so simple models read as a deep, real place. Fog never touches the sky
 // background, so the skybox stays crisp behind the haze.
@@ -884,7 +886,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // swap (unmount palace / mount ground) happens while the screen is covered.
   const [traveling, setTraveling] = useState<EngineTarget | null>(null);
   const nextWorld: EngineTarget =
-    WORLD_ORDER[(WORLD_ORDER.indexOf(world) + 1) % WORLD_ORDER.length] ?? "hq";
+    WORLD_ORDER[(WORLD_ORDER.indexOf(world) + 1) % WORLD_ORDER.length] ?? "street";
   const travel = () => {
     if (traveling) return;
     const next = nextWorld;

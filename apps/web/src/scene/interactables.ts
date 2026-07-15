@@ -64,7 +64,7 @@ export const INTERACTABLES: Interactable[] = [
     kind: "object",
     label: "Survey the build site",
     message:
-      "Scaffolding and a hand-painted board: \"Palace of Culture — released soon. Date TBA.\" The street is open; the Palace is not.",
+      'Scaffolding and a hand-painted board: "Palace of Culture — released soon. Date TBA." The street is open; the Palace is not.',
   },
   {
     id: "street-tree",
