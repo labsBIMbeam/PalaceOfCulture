@@ -3638,15 +3638,6 @@ input.compose-input::placeholder {
   text-transform: uppercase;
 }
 
-.start-teaser {
-  display: block;
-  margin-top: 8px;
-  color: color-mix(in srgb, var(--gold-bright) 75%, transparent);
-  font: 600 11px var(--display);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .start-button {
   margin-top: 14px;
   min-width: 220px;

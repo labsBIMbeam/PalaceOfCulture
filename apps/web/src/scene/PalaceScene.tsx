@@ -41,7 +41,7 @@ import { MediaPlayer } from "../ui/MediaPlayer";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { GrowableObject } from "./GrowableObject";
-import { PalaceTeaser } from "./PalaceTeaser";
+import { Palace } from "./Palace";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
 import { StreetColliders } from "./StreetColliders";
@@ -109,11 +109,11 @@ const SPAWN_FOR: Record<EngineTarget, [number, number, number]> = {
   street: STREET_SPAWN,
 };
 const WORLD_TITLE: Record<EngineTarget, string> = {
-  hq: "Palace of Culture · TBA",
+  hq: "Palace of Culture HQ",
   home: "Home — your map",
-  street: "Retard Street",
+  street: "Werkstattgasse — the culture street",
 };
-const WORLD_ORDER: EngineTarget[] = ["street", "home", "hq"];
+const WORLD_ORDER: EngineTarget[] = ["hq", "street", "home"];
 // Atmospheric distance fog per world (the Valheim depth trick): distant geometry fades into a
 // horizon-matched haze so simple models read as a deep, real place. Fog never touches the sky
 // background, so the skybox stays crisp behind the haze.
@@ -124,19 +124,19 @@ const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number
   street: { color: "#6a5a70", near: 26, far: 200 },
 };
 const TRAVEL_LABEL: Record<EngineTarget, string> = {
-  hq: "Travel: Palace TBA",
+  hq: "Travel: Palace",
   home: "Travel: Home",
   street: "Travel: Street",
 };
 const WORLD_WALK_SUBTITLE: Record<EngineTarget, string> = {
-  hq: "teaser only — not released yet",
+  hq: "public — walk the palace",
   home: "private — your plot",
-  street: "public — first playable district",
+  street: "public — the workshop street",
 };
 const WORLD_IDLE_SUBTITLE: Record<EngineTarget, string> = {
-  hq: "3D engine — Palace released soon · date TBA",
+  hq: "3D engine — global palace",
   home: "3D engine — private plot",
-  street: "3D engine — Retard Street",
+  street: "3D engine — workshop street",
 };
 /** How long the travel curtain stays down (world swap happens under it). */
 const TRAVEL_SWAP_MS = 300;
@@ -943,8 +943,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           />
           <Suspense fallback={null}>
             <Physics key={world} timeStep={1 / 60}>
-              {/* HQ world is teaser-only: no palace.glb entry. Retard Street is the playable district. */}
-              {world === "hq" ? <PalaceTeaser position={[0, 0, 0]} scale={1.2} /> : null}
+              {world === "hq" ? <Palace /> : null}
               {/* Invisible flat floor at the deck level (y=0): the palace trimesh has gaps/glass the
                   ecctrl ground ray misses, leaving the controller stuck in "fall" so it never walks.
                   A guaranteed ground plane keeps the player grounded across the whole plaza.
@@ -1094,19 +1093,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       {traveling ? (
         <div className="travel-screen">
           <Icon name={traveling === "home" ? "home" : "globe"} size={44} />
-          <strong>
-            {traveling === "home"
-              ? "Coming home…"
-              : traveling === "street"
-                ? "Heading to Retard Street…"
-                : "Palace of Culture — released soon…"}
-          </strong>
+          <strong>{traveling === "home" ? "Coming home…" : "Traveling to the Palace…"}</strong>
           <small>
             {traveling === "home"
               ? "your own empty map — build slowly"
-              : traveling === "street"
-                ? "the first playable district"
-                : "date TBA — teaser only"}
+              : "the shared plaza — decorate, don't spam"}
           </small>
         </div>
       ) : null}

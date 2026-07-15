@@ -1,7 +1,6 @@
 /**
- * Retard Street — the Palace of Culture workshop camp / first playable district.
- * A walkable beta world: a south gate arch, a short staged approach, and a round civic PLAZA
- * (Plaza.tsx) whose centre holds the Palace teaser site (released soon · date TBA) —
+ * Werkstattgasse — the Palace of Culture workshop camp. A walkable beta world: a south gate arch, a
+ * short staged approach, and a round civic PLAZA (Plaza.tsx) whose centre births the rocket + Palace —
  * ringed by walkable buildings, with the WORKSHOP yard (forge + chimney smoke) on the west ring. A
  * palisade + forest band (Enclosure.tsx) holds it all close. Primitives + procedural canvas textures +
  * a few CC0 GLB props. Art is static, state is data: nothing here reads or writes game state.
@@ -12,7 +11,6 @@ import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef }
 import * as THREE from "three";
 import { Enclosure, GATE_ARCH } from "./Enclosure";
 import { LampPost } from "./LampPost";
-import { PalaceTeaser } from "./PalaceTeaser";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza, type SolidSpec, YOUNG_TREE } from "./Plaza";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
@@ -292,8 +290,8 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
   );
 }
 
-/** Retard Street beta sandbox: gate → staged approach → round plaza with Palace teaser,
- *  workshop yard on the west ring, all held by the palisade + forest. */
+/** The Werkstattgasse beta sandbox: gate → staged approach → the round plaza that births the rocket
+ *  + Palace, workshop yard on the west ring, all held by the palisade + forest. */
 export function StreetWorld() {
   const dirt = useMemo(dirtTexture, []);
   const path = useMemo(pathTexture, []);
@@ -337,9 +335,6 @@ export function StreetWorld() {
       <PropBoundary>
         <Plaza />
       </PropBoundary>
-
-      {/* Palace of Culture is not playable yet — teaser landmark at the civic centre */}
-      <PalaceTeaser />
 
       {/* approach lamps — the guiding light pools between gate and plaza */}
       {APPROACH_LAMPS.map(([lx, lz]) => (

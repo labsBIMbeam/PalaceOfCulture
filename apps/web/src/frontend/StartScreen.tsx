@@ -12,8 +12,7 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
           <Icon name="sprout" size={40} />
         </span>
         <h1>600 Billion</h1>
-        <p>Retard Street</p>
-        <small className="start-teaser">Palace of Culture · released soon · date TBA</small>
+        <p>The Palace of Culture</p>
         <button
           className="coral-button coral-button--hero start-button"
           onClick={onStart}
