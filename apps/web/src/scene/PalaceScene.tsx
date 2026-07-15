@@ -344,6 +344,22 @@ function WalkSystems({
     }
     jumpPrev.current = jumpNow;
 
+    // Hard stop: the moment no move key is held, kill horizontal momentum ourselves. Ecctrl's own
+    // drag brake only engages while ITS ground ray agrees (a missed frame reads as gliding), so
+    // stopping must not depend on it. Grounded-gated by our own ray so jump arcs keep their
+    // momentum; ×0.2/frame ≈ full stop within ~3 frames (50 ms) without a jarring 1-frame freeze.
+    const moving = keys.forward || keys.backward || keys.leftward || keys.rightward;
+    const planarSpeed = Math.hypot(linvel.x, linvel.z);
+    if (!moving && planarSpeed > 0.01) {
+      const ray = new rapier.Ray(pos, { x: 0, y: -1, z: 0 });
+      const grounded =
+        world.castRay(ray, GROUND_RAY_LENGTH, true, undefined, undefined, undefined, body) !== null;
+      if (grounded) {
+        const brake = planarSpeed < 0.3 ? 0 : 0.2;
+        body.setLinvel({ x: linvel.x * brake, y: linvel.y, z: linvel.z * brake }, true);
+      }
+    }
+
     let best: Interactable | null = null;
     let bestDist = Number.POSITIVE_INFINITY;
     for (const item of INTERACTABLES) {
