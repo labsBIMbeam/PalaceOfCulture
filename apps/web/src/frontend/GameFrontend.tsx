@@ -529,7 +529,7 @@ function TitleScreen({ onStartEngine }: ScreenProps) {
           </div>
           <div>
             <h1>600 Billion</h1>
-            <p>The Palace of Culture</p>
+            <p>Retard Street</p>
             <small>money buys style. time builds legend.</small>
           </div>
         </div>
@@ -540,19 +540,19 @@ function TitleScreen({ onStartEngine }: ScreenProps) {
           <div aria-labelledby="destination-label" className="destination-summary">
             <Icon name="crown" size={18} />
             <span>
-              Palace of Culture HQ
-              <small>Pico Ruivo, Madeira</small>
+              Retard Street
+              <small>first district · Palace TBA</small>
             </span>
           </div>
         </div>
         <button
           className="coral-button coral-button--hero"
-          onClick={() => onStartEngine("hq")}
+          onClick={() => onStartEngine("street")}
           type="button"
         >
           <Icon name="play" size={18} />
-          Enter the Palace
-          <small>come home</small>
+          Enter Retard Street
+          <small>Palace released soon · date TBA</small>
         </button>
       </div>
     </section>
@@ -703,7 +703,7 @@ function NodeNetwork({ nodes }: { nodes: GeoNode[] }) {
   return null;
 }
 
-/** The single charted location: a gold doubloon marker on Pico Ruivo, Madeira. */
+/** Map pin for the charted district entry (Retard Street). Palace remains TBA. */
 function HqMarker({ onStartEngine }: { onStartEngine: (target: EngineTarget) => void }) {
   const map = useMap();
 
@@ -714,11 +714,11 @@ function HqMarker({ onStartEngine }: { onStartEngine: (target: EngineTarget) => 
     const icon = L.divIcon({
       className: "hq-leaflet",
       iconSize: [0, 0],
-      html: `<span class="hq-doubloon">HQ</span><span class="hq-leaflet-label"><strong>Palace of Culture HQ</strong><small>Pico Ruivo, Madeira</small><small class="hq-npub">${shortNpub}</small></span>`,
+      html: `<span class="hq-doubloon">RS</span><span class="hq-leaflet-label"><strong>Retard Street</strong><small>Palace TBA · Pico Ruivo</small><small class="hq-npub">${shortNpub}</small></span>`,
     });
     const marker = L.marker(HQ_LATLNG, { icon }).addTo(map);
-    marker.getElement()?.setAttribute("aria-label", "Enter the Palace of Culture HQ");
-    const enter = () => onStartEngine("hq");
+    marker.getElement()?.setAttribute("aria-label", "Enter Retard Street");
+    const enter = () => onStartEngine("street");
     marker.on("click", enter);
 
     return () => {
@@ -816,11 +816,11 @@ function MapScreen({ onStartEngine }: ScreenProps) {
     () => [
       {
         id: "hq",
-        name: "Palace of Culture HQ",
+        name: "Retard Street",
         lat: HQ_LATLNG[0],
         lng: HQ_LATLNG[1],
         kind: "hq",
-        aliases: ["HQ", "Madeira", "Pico Ruivo"],
+        aliases: ["HQ", "Street", "Retard Street", "Madeira", "Pico Ruivo", "Palace"],
       },
       ...worldAssets.map((asset) => ({
         id: asset.id,
