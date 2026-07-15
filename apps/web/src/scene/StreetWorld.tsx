@@ -1,5 +1,5 @@
 /**
- * Retard Street — the Palace of Culture workshop camp / first playable district.
+ * Locktard Street — the Palace of Culture workshop camp / first playable district.
  * A walkable beta world: a south gate arch, a short staged approach, and a round civic PLAZA
  * (Plaza.tsx) whose centre holds the Palace teaser site (released soon · date TBA) —
  * ringed by walkable buildings, with the WORKSHOP yard (forge + chimney smoke) on the west ring. A
@@ -292,7 +292,7 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
   );
 }
 
-/** Retard Street beta sandbox: gate → staged approach → round plaza with Palace teaser,
+/** Locktard Street beta sandbox: gate → staged approach → round plaza with Palace teaser,
  *  workshop yard on the west ring, all held by the palisade + forest. */
 export function StreetWorld() {
   const dirt = useMemo(dirtTexture, []);

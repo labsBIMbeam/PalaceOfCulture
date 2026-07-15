@@ -1,17 +1,17 @@
-# Retard Street — First Playable District
+# Locktard Street — First Playable District
 
 Status: runtime source for the current 3D entry. The Palace HQ GLB is **not** the primary playable place.
 
 ## Decision
 
-- **Playable now:** Retard Street (`StreetWorld`, engine target `street`).
+- **Playable now:** Locktard Street (`StreetWorld`, engine target `street`).
 - **Not playable yet:** Palace of Culture interior / finished HQ (`palace.glb` not loaded as the entry world).
 - **Teaser:** plaza-centre `PalaceTeaser` with **“released soon · date TBA”**.
 
 ## Spatial flow
 
 ```text
-title / map entry → Retard Street
+title / map entry → Locktard Street
 → gate, approach, workshop, civic plaza
 → Palace teaser landmark at plaza centre
 → no enterable Palace interior

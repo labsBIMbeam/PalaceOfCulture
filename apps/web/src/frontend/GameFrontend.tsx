@@ -529,7 +529,7 @@ function TitleScreen({ onStartEngine }: ScreenProps) {
           </div>
           <div>
             <h1>600 Billion</h1>
-            <p>Retard Street</p>
+            <p>Locktard Street</p>
             <small>money buys style. time builds legend.</small>
           </div>
         </div>
@@ -540,7 +540,7 @@ function TitleScreen({ onStartEngine }: ScreenProps) {
           <div aria-labelledby="destination-label" className="destination-summary">
             <Icon name="crown" size={18} />
             <span>
-              Retard Street
+              Locktard Street
               <small>first district · Palace TBA</small>
             </span>
           </div>
@@ -551,7 +551,7 @@ function TitleScreen({ onStartEngine }: ScreenProps) {
           type="button"
         >
           <Icon name="play" size={18} />
-          Enter Retard Street
+          Enter Locktard Street
           <small>Palace released soon · date TBA</small>
         </button>
       </div>
@@ -703,7 +703,7 @@ function NodeNetwork({ nodes }: { nodes: GeoNode[] }) {
   return null;
 }
 
-/** Map pin for the charted district entry (Retard Street). Palace remains TBA. */
+/** Map pin for the charted district entry (Locktard Street). Palace remains TBA. */
 function HqMarker({ onStartEngine }: { onStartEngine: (target: EngineTarget) => void }) {
   const map = useMap();
 
@@ -714,10 +714,10 @@ function HqMarker({ onStartEngine }: { onStartEngine: (target: EngineTarget) => 
     const icon = L.divIcon({
       className: "hq-leaflet",
       iconSize: [0, 0],
-      html: `<span class="hq-doubloon">RS</span><span class="hq-leaflet-label"><strong>Retard Street</strong><small>Palace TBA · Pico Ruivo</small><small class="hq-npub">${shortNpub}</small></span>`,
+      html: `<span class="hq-doubloon">LS</span><span class="hq-leaflet-label"><strong>Locktard Street</strong><small>Palace TBA · Pico Ruivo</small><small class="hq-npub">${shortNpub}</small></span>`,
     });
     const marker = L.marker(HQ_LATLNG, { icon }).addTo(map);
-    marker.getElement()?.setAttribute("aria-label", "Enter Retard Street");
+    marker.getElement()?.setAttribute("aria-label", "Enter Locktard Street");
     const enter = () => onStartEngine("street");
     marker.on("click", enter);
 
@@ -816,11 +816,11 @@ function MapScreen({ onStartEngine }: ScreenProps) {
     () => [
       {
         id: "hq",
-        name: "Retard Street",
+        name: "Locktard Street",
         lat: HQ_LATLNG[0],
         lng: HQ_LATLNG[1],
         kind: "hq",
-        aliases: ["HQ", "Street", "Retard Street", "Madeira", "Pico Ruivo", "Palace"],
+        aliases: ["HQ", "Street", "Locktard Street", "Madeira", "Pico Ruivo", "Palace"],
       },
       ...worldAssets.map((asset) => ({
         id: asset.id,
