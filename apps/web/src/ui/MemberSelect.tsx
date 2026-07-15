@@ -12,10 +12,16 @@ import { MEMBERS } from "./members";
  */
 export function MemberSelect({
   onComplete,
+  initialHandle,
 }: {
   onComplete: (character: Character) => void;
+  /** Last-used member (device DB): preselected in the roster, but never entered automatically. */
+  initialHandle?: string;
 }) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => {
+    const saved = MEMBERS.findIndex((entry) => entry.name === initialHandle);
+    return saved >= 0 ? saved : 0;
+  });
   const member = MEMBERS[index] ?? MEMBERS[0];
   const modelUrl = member?.avatar.modelUrl;
 
