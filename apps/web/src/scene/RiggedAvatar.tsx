@@ -204,6 +204,18 @@ export function RiggedAvatar({
                 ? "walk"
                 : "idle";
         if (next !== gait.current) playGait(next);
+        // Match the clip's playback rate to the actual ground speed — a fixed 1× clip under a
+        // variable-velocity controller reads as foot-sliding ("skating"). Reference speeds are the
+        // gaits the clips were authored for; clamped so extremes never look comical.
+        const action = current.current;
+        if (action) {
+          if (gait.current === "walk" || gait.current === "run") {
+            const reference = gait.current === "run" ? 6.5 : 2.2;
+            action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / reference, 0.6, 1.6));
+          } else {
+            action.setEffectiveTimeScale(1);
+          }
+        }
       }
     }
     // Foot-plant: the baked clips translate the hip bone, popping/drifting the body relative to the

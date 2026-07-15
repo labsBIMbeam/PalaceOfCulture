@@ -22,8 +22,20 @@ declare module "ecctrl" {
     camCollision?: boolean;
     maxVelLimit?: number;
     turnSpeed?: number;
+    /** Velocity kept while the model is still turning toward the move direction (default 0.2). */
+    turnVelMultiplier?: number;
+    /** Acceleration integration window — smaller reaches max speed faster (default 8). */
+    accDeltaTime?: number;
+    /** Ground drag when no key is held — higher stops faster (default 0.15). */
+    dragDampingC?: number;
     sprintMult?: number;
     jumpVel?: number;
+    /** Height (above the body centre) where the move impulse is applied — >0 pitches the body. */
+    moveImpulsePointY?: number;
+    /** Upright auto-balance spring stiffness. */
+    autoBalanceSpringK?: number;
+    /** Upright auto-balance damping. */
+    autoBalanceDampingC?: number;
     /** How far past the float distance the ground ray still counts as "grounded" (canJump). */
     rayHitForgiveness?: number;
     rayLength?: number;

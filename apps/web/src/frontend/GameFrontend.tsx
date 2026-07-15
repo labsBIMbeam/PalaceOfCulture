@@ -1709,21 +1709,22 @@ export function GameFrontend() {
   const store = useMemo(() => createCharacterStore(), []);
   const [storeChecked, setStoreChecked] = useState(false);
 
-  // Load the saved character from the device DB (plug-and-play persistence) before the create gate.
+  // The member select ALWAYS shows at start — a saved character never silently skips the gate.
+  // The device DB is read only to preselect the last-used member's chip in the roster.
+  const [savedHandle, setSavedHandle] = useState<string | null>(null);
   useEffect(() => {
     if (!PERSIST_CHARACTER) {
-      setStoreChecked(true); // skip load → member-select always shows (testing)
+      setStoreChecked(true); // skip load → no preselection (testing)
       return;
     }
     let active = true;
     store
       .loadCurrent()
       .then((saved) => {
-        if (!active) return;
-        if (saved) setCharacter(saved);
+        if (active && saved) setSavedHandle(saved.handle);
       })
       .catch(() => {
-        // Storage can be unavailable in privacy modes; fall back to an in-memory character.
+        // Storage can be unavailable in privacy modes; the selector just starts unpreselected.
       })
       .finally(() => {
         if (active) setStoreChecked(true);
@@ -1776,7 +1777,7 @@ export function GameFrontend() {
     };
     return (
       <Suspense fallback={null}>
-        <LazyMemberSelect onComplete={onCreated} />
+        <LazyMemberSelect initialHandle={savedHandle ?? undefined} onComplete={onCreated} />
       </Suspense>
     );
   }

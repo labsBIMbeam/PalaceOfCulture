@@ -62,10 +62,12 @@ as designed.
 Blender is the tool for the **art/cohesion pass**, once the blockout is locked — it fixes the
 "mismatched downloads" problem at the material level, which no amount of re-placing can:
 
-- **Batch rustic regrade** — load the CC0 GLBs (`public/village`, `public/props`, facades), apply a
-  shared muted palette / material override, raise roughness, tint weathered, re-export. Turns three
-  clashing sources into one rustic set. (Uses the existing `packages/assets-pipeline/blender/` scripts:
-  `gameify.py`, `texturize.py`, `greyify.py`.)
+- **Batch rustic regrade** — ✅ done (2026-07-12) via `packages/assets-pipeline/blender/rustify.py`:
+  desaturate toward luminance (−18 %), dim (−6 %), roughness ≥ 0.85, metallic ≤ 0.15, applied to BSDF
+  colours, base-colour textures and vertex colours of every GLB in `public/props`, `public/tools`
+  and `public/nature`. The GLBs are gitignored (fetched sources), so **re-run after any fresh
+  `fetch_props.mjs`**:
+  `blender --factory-startup -b --python packages/assets-pipeline/blender/rustify.py -- apps/web/public/props apps/web/public/tools apps/web/public/nature`
 - **AO bake + edge wear** on the hero buildings (tavern, forge) — the single biggest "rustic realism"
   win on simple geometry.
 - **Kitbash custom heroes** — a bespoke rustic tavern / forge-with-chimney the packs don't provide.

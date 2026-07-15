@@ -61,7 +61,7 @@ export function StreetColliders() {
           rotation={[0, b.rotY, 0]}
           type="fixed"
         >
-          {buildingWallColliders(b.rooms).map((c) => (
+          {buildingWallColliders(b.rooms, b.depth, b.height).map((c) => (
             <CuboidCollider args={c.half} key={c.pos.join(",")} position={c.pos} />
           ))}
         </RigidBody>
