@@ -21,7 +21,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { homeBuild } from "../builder/buildState";
+import { type BrushSize, homeBuild } from "../builder/buildState";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
@@ -683,6 +683,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     transport: null,
   });
   const [builderSelected, setBuilderSelected] = useState("");
+  const [builderBrush, setBuilderBrush] = useState<BrushSize>(1);
   const builderTargets = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
@@ -1136,6 +1137,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               {canBuild ? (
                 <BuilderWorld
                   building={mode === "build"}
+                  brush={builderBrush}
                   selected={builderSelected}
                   system={homeBuild}
                   targetsRef={builderTargets}
@@ -1203,7 +1205,12 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           </Suspense>
           {mode === "orbit" ? <OrbitView world={world} /> : null}
           {mode === "build" ? (
-            <MagnetRig selected={builderSelected} system={homeBuild} targetsRef={builderTargets} />
+            <MagnetRig
+              brush={builderBrush}
+              selected={builderSelected}
+              system={homeBuild}
+              targetsRef={builderTargets}
+            />
           ) : null}
           {mode === "walk" && posed ? <SeatedView at={posed.position} /> : null}
           {POSTFX_ENABLED ? <PostFx /> : null}
@@ -1348,6 +1355,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : null}
       {mode === "build" ? (
         <BuilderHud
+          brush={builderBrush}
+          onBrush={setBuilderBrush}
           onExit={toggleBuild}
           onSelect={setBuilderSelected}
           selected={builderSelected}
