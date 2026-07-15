@@ -42,6 +42,7 @@ import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { GrowableObject } from "./GrowableObject";
 import { PalaceTeaser } from "./PalaceTeaser";
+import { streetPoseTargets } from "./Plaza";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
 import { StreetColliders } from "./StreetColliders";
@@ -52,6 +53,9 @@ import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
 import { BuilderWorld } from "./homebuilder/BuilderWorld";
 import { MagnetRig } from "./homebuilder/MagnetRig";
 import { INTERACTABLES, type Interactable } from "./interactables";
+
+// The street's built-in seats/beds, computed once (deterministic layout data).
+const STREET_POSES: PosePoint[] = streetPoseTargets();
 
 type PalaceSceneProps = {
   target: EngineTarget;
@@ -64,8 +68,16 @@ type PalaceSceneProps = {
 type ViewMode = "orbit" | "walk" | "decorate" | "build";
 
 type PoseKind = "sit" | "sleep";
-/** A piece the avatar can use (chair/bed) and where it is (proximity point). */
-type PosePoint = { uid: string; position: [number, number, number]; pose: PoseKind };
+/** A piece the avatar can use (chair/bed) and where it is (proximity point). Player-placed decor
+ *  resolves yaw/lift from the placed item; static scenery spots (street benches/beds) carry their
+ *  own `yaw`/`lift` since no decor item backs them. */
+type PosePoint = {
+  uid: string;
+  position: [number, number, number];
+  pose: PoseKind;
+  yaw?: number;
+  lift?: number;
+};
 /** The active posed state: which piece, where the avatar is, the facing, the pose, and a y-lift so
  *  the body rests on the object surface (a bed sits the sleeper above the floor). */
 type Posed = {
@@ -153,6 +165,17 @@ const KEYBOARD_MAP = [
   { name: "jump", keys: ["Space"] },
   { name: "run", keys: ["ShiftLeft", "ShiftRight"] },
 ];
+const MOVEMENT_CODES = KEYBOARD_MAP.flatMap((entry) => entry.keys);
+
+/** Synthetically release every movement key on window. drei's KeyboardControls only sees real
+ *  keyups on window — when the chat input steals focus mid-run (its handlers stopPropagation so
+ *  typing never moves you) or the window blurs, the real keyup never arrives and the character
+ *  runs forever. Dispatching keyups resets the control state; holding the key re-triggers keydown. */
+function releaseMovementKeys() {
+  for (const code of MOVEMENT_CODES) {
+    window.dispatchEvent(new KeyboardEvent("keyup", { code }));
+  }
+}
 
 /** Orbit/overview camera — resets the rig on entry so toggling back from walk isn't jarring. */
 function OrbitView({ world }: { world: EngineTarget }) {
@@ -296,6 +319,9 @@ function WalkSystems({
     if (!body) return;
     const linvel = body.linvel();
     const pos = body.translation();
+
+    // Read-only probe for headless verification (drive-to-target scripts read it). Never game state.
+    (window as unknown as Record<string, unknown>).__playerPos = [pos.x, pos.y, pos.z];
 
     // Safety net: if the controller ever tunnels through the floor, lift it back to the entry point
     // instead of falling forever.
@@ -724,24 +750,38 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const nearPoseRef = useRef<PosePoint | null>(null);
   nearPoseRef.current = nearPose;
 
-  const poseables: PosePoint[] = items.flatMap((item) => {
-    const pose = defById(item.defId)?.pose;
-    return pose ? [{ uid: item.uid, position: item.position, pose }] : [];
-  });
+  const poseables: PosePoint[] = [
+    ...items.flatMap((item): PosePoint[] => {
+      const pose = defById(item.defId)?.pose;
+      return pose ? [{ uid: item.uid, position: item.position, pose }] : [];
+    }),
+    // The street scenery ships its own usable seats/beds (plaza benches, hut interiors).
+    ...(world === "street" ? STREET_POSES : []),
+  ];
 
   const enterPose = (point: PosePoint) => {
     const item = itemsRef.current.find((entry) => entry.uid === point.uid);
-    if (!item) return;
-    // Sleepers rest on the mattress (the bed raises them off the floor); sitters stay at floor level
-    // (the sit clip already lowers them onto the seat). Scales with the piece's own scale.
-    const lift = point.pose === "sleep" ? SLEEP_SURFACE * item.scale : 0;
-    setPosed({
-      uid: point.uid,
-      position: item.position,
-      yaw: item.rotationY,
-      pose: point.pose,
-      lift,
-    });
+    if (item) {
+      // Sleepers rest on the mattress (the bed raises them off the floor); sitters stay at floor
+      // level (the sit clip already lowers them onto the seat). Scales with the piece's own scale.
+      const lift = point.pose === "sleep" ? SLEEP_SURFACE * item.scale : 0;
+      setPosed({
+        uid: point.uid,
+        position: item.position,
+        yaw: item.rotationY,
+        pose: point.pose,
+        lift,
+      });
+    } else {
+      // Static scenery spot — yaw/lift travel with the point itself.
+      setPosed({
+        uid: point.uid,
+        position: point.position,
+        yaw: point.yaw ?? 0,
+        pose: point.pose,
+        lift: point.lift ?? (point.pose === "sleep" ? SLEEP_SURFACE : 0),
+      });
+    }
     setNearPose(null);
     setActiveInteract(null);
   };
@@ -821,6 +861,24 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     };
     window.addEventListener("keydown", onDecorateKey);
     return () => window.removeEventListener("keydown", onDecorateKey);
+  }, []);
+
+  // Stuck-run guard: if focus moves into a text input (Enter opens chat while W is held — its
+  // handlers stopPropagation, so the real keyup never reaches window) or the window/tab blurs,
+  // release every movement key so the character stops instead of running forever.
+  useEffect(() => {
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        releaseMovementKeys();
+      }
+    };
+    window.addEventListener("blur", releaseMovementKeys);
+    window.addEventListener("focusin", onFocusIn);
+    return () => {
+      window.removeEventListener("blur", releaseMovementKeys);
+      window.removeEventListener("focusin", onFocusIn);
+    };
   }, []);
 
   // Make jump reliable in walk mode. In the browser, Space's default is to scroll the page or "click"
@@ -991,16 +1049,28 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   fresh mount when standPos changes). */}
               {(mode === "walk" || mode === "decorate") && !posed ? (
                 <Ecctrl
+                  // Snappy ground feel: reach max speed quickly (accDeltaTime 8→4), keep momentum
+                  // through turns (turnVelMultiplier 0.2→0.8, turnSpeed 15→22) and stop crisply
+                  // (dragDampingC 0.15→0.22) — the defaults read as icy/sticky.
+                  accDeltaTime={4}
                   camInitDis={-7}
                   ccd
                   camMaxDis={-14}
                   camMinDis={-1.5}
                   capsuleHalfHeight={0.5}
                   capsuleRadius={0.4}
+                  dragDampingC={0.22}
                   floatHeight={0.3}
                   jumpVel={0}
                   key={standPos.join(",")}
                   maxVelLimit={4}
+                  // Ecctrl applies the move impulse at moveImpulsePointY (default 0.5, ABOVE the
+                  // body centre) — under a sustained sprint that torque settles the capsule at a
+                  // ~45° forward lean. Apply the impulse at the centre (no pitch torque) and
+                  // stiffen the upright spring so bumps recover quickly without wobble.
+                  autoBalanceDampingC={0.08}
+                  autoBalanceSpringK={1.2}
+                  moveImpulsePointY={0}
                   position={standPos}
                   // Widen ecctrl's ground detection so "canJump" is reliably true on the deck — the
                   // default forgiveness (0.1) gave a tight 0.8 window vs the 0.7 float, so jump often
@@ -1008,6 +1078,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   rayHitForgiveness={0.5}
                   ref={playerBody}
                   sprintMult={2}
+                  turnSpeed={22}
+                  turnVelMultiplier={0.8}
                 >
                   <group position={[0, -0.9, 0]}>
                     <AvatarView bodyRef={playerBody} config={character.avatar} />

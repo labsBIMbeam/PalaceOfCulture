@@ -14,6 +14,7 @@ import { Enclosure, GATE_ARCH } from "./Enclosure";
 import { LampPost } from "./LampPost";
 import { PalaceTeaser } from "./PalaceTeaser";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza, type SolidSpec, YOUNG_TREE } from "./Plaza";
+import { Signpost } from "./Signpost";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
 import { mulberry32 } from "./rand";
@@ -216,6 +217,123 @@ function rimLampPositions(): [number, number, number][] {
   });
 }
 
+/** Worn stepping stones snaking along the approach path — one instanced draw. */
+function SteppingStones() {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const stones = useMemo(() => {
+    const rnd = mulberry32(212);
+    const out: { x: number; z: number; r: number; a: number }[] = [];
+    let z = APPROACH_Z0 + 6;
+    while (z < APPROACH_Z1 - 2) {
+      out.push({
+        x: Math.sin(z * 0.32) * 2 + (rnd() - 0.5) * 2.4,
+        z,
+        r: 0.45 + rnd() * 0.3,
+        a: rnd() * Math.PI,
+      });
+      z += 2.8 + rnd() * 1.6;
+    }
+    return out;
+  }, []);
+  const geo = useMemo(() => new THREE.CylinderGeometry(1, 1.06, 0.09, 7), []);
+  const mat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#a99e8c", flatShading: true, roughness: 1 }),
+    [],
+  );
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const s = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < stones.length; i++) {
+      const st = stones[i];
+      if (!st) continue;
+      q.setFromAxisAngle(up, st.a);
+      s.set(st.r, 1, st.r * (0.8 + (i % 3) * 0.12));
+      m.compose(new THREE.Vector3(st.x, 0.045, st.z), q, s);
+      mesh.setMatrixAt(i, m);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [stones]);
+  return <instancedMesh args={[geo, mat, stones.length]} receiveShadow ref={ref} />;
+}
+
+const PENNANT_COLOURS = ["#e8735a", "#e7b23c", "#23806f", "#efe6d2"]; // brand festival palette
+
+/** A festive pennant string between two points: instanced cable segments + coloured triangle
+ *  flags (two draws per string). Static + deterministic. */
+function PennantString({
+  from,
+  to,
+  sag = 0.8,
+}: {
+  from: [number, number, number];
+  to: [number, number, number];
+  sag?: number;
+}) {
+  const SEGS = 10;
+  const FLAGS = 9;
+  const cableRef = useRef<THREE.InstancedMesh>(null);
+  const flagRef = useRef<THREE.InstancedMesh>(null);
+  const cableGeo = useMemo(() => new THREE.CylinderGeometry(0.018, 0.018, 1, 4), []);
+  const cableMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#2c2620", roughness: 0.9 }),
+    [],
+  );
+  const flagGeo = useMemo(() => new THREE.CircleGeometry(0.22, 3), []);
+  const flagMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide }),
+    [],
+  );
+  useLayoutEffect(() => {
+    const cable = cableRef.current;
+    const flag = flagRef.current;
+    if (!cable || !flag) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const s = new THREE.Vector3(1, 1, 1);
+    const up = new THREE.Vector3(0, 1, 0);
+    const dir = new THREE.Vector3();
+    const at = (t: number) =>
+      new THREE.Vector3(
+        from[0] + (to[0] - from[0]) * t,
+        from[1] + (to[1] - from[1]) * t - Math.sin(Math.PI * t) * sag,
+        from[2] + (to[2] - from[2]) * t,
+      );
+    for (let k = 0; k < SEGS; k++) {
+      const p0 = at(k / SEGS);
+      const p1 = at((k + 1) / SEGS);
+      dir.subVectors(p1, p0);
+      const len = dir.length();
+      q.setFromUnitVectors(up, dir.normalize());
+      s.set(1, len, 1);
+      m.compose(p0.add(p1).multiplyScalar(0.5), q, s);
+      cable.setMatrixAt(k, m);
+    }
+    // flags hang point-down, facing along the walk direction (z)
+    q.setFromEuler(new THREE.Euler(0, 0, Math.PI));
+    s.set(1, 1, 1);
+    for (let k = 0; k < FLAGS; k++) {
+      const p = at((k + 1) / (FLAGS + 1));
+      p.y -= 0.24;
+      m.compose(p, q, s);
+      flag.setMatrixAt(k, m);
+      flag.setColorAt(k, new THREE.Color(PENNANT_COLOURS[k % PENNANT_COLOURS.length]));
+    }
+    cable.instanceMatrix.needsUpdate = true;
+    flag.instanceMatrix.needsUpdate = true;
+    if (flag.instanceColor) flag.instanceColor.needsUpdate = true;
+  }, [from, to, sag]);
+  return (
+    <group>
+      <instancedMesh args={[cableGeo, cableMat, SEGS]} ref={cableRef} />
+      <instancedMesh args={[flagGeo, flagMat, FLAGS]} ref={flagRef} />
+    </group>
+  );
+}
+
 const GARLAND_SEGS = 12; // cable segments per span
 const GARLAND_LANTERNS = 7; // lanterns per span
 const GARLAND_TOP = 4.32; // lamp-head height the cable hangs from
@@ -321,6 +439,23 @@ export function StreetWorld() {
       </mesh>
 
       <GateArch />
+      {/* festive pennants: across the gate arch + diagonally over the approach lamps */}
+      <PennantString
+        from={[-GATE_ARCH.halfSpan, GATE_ARCH.height + 0.1, GATE_ARCH.z]}
+        sag={0.7}
+        to={[GATE_ARCH.halfSpan, GATE_ARCH.height + 0.1, GATE_ARCH.z]}
+      />
+      <PennantString from={[-7.5, 4.3, 44]} sag={0.9} to={[7.5, 4.3, 54]} />
+      {/* worn stepping stones along the walk */}
+      <SteppingStones />
+      {/* waypost just inside the gate */}
+      <Signpost
+        boards={[
+          { text: "Plaza", angle: -1.57 },
+          { text: "Forge", angle: -2.1 },
+        ]}
+        position={[6.5, 0, 20]}
+      />
 
       {/* the world's edge — a palisade fence + a dense forest band enclosing the camp */}
       <Enclosure />
