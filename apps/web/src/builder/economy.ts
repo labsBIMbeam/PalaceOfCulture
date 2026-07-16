@@ -9,6 +9,7 @@ import {
   DRIP_PER_MINUTE,
   MATERIALS,
   MATERIAL_CAPS,
+  OBJECTS,
   clampMaterial,
   getRecipe,
 } from "./catalog";
@@ -20,6 +21,9 @@ const MOVE_IN_REWARD_ID = "fountain"; // v0: the single attractable object
 
 const STARTER_MATERIALS: Record<string, number> = { wood: 60, stone: 40, boards: 0 };
 const STARTER_INVENTORY: Record<string, number> = { block_stone: 18 };
+/** Dev builds top every placeable object up to this count on boot — building is testable without
+ *  waiting out month-scale crafts. Production keeps the real economy (drip + queue) untouched. */
+const DEV_INVENTORY_FLOOR = 600;
 
 export type EconomyEvent =
   | { kind: "craft_completed"; recipeId: string }
@@ -62,7 +66,8 @@ class Economy {
   constructor() {
     void this.boot();
     if (typeof window !== "undefined") {
-      // Never let a tick/unload snapshot the empty pre-boot singleton over a real IndexedDB save.
+      // Both guarded on `ready`: a tick or an unload BEFORE boot finishes would snapshot the
+      // still-empty economy over the real save (fast reloads reliably triggered this).
       window.setInterval(() => {
         if (this.ready) this.tick();
       }, TICK_MS);
@@ -89,6 +94,12 @@ class Economy {
       if (elapsed > 0) {
         this.advance(elapsed * this.timeScale);
         this.checkMoveIn();
+      }
+    }
+    // Testing floor (dev only): every placeable object is stocked, existing saves included.
+    if (import.meta.env?.DEV === true) {
+      for (const [id, def] of Object.entries(OBJECTS)) {
+        if (!def.attracts) this.inventory[id] = Math.max(this.getCount(id), DEV_INVENTORY_FLOOR);
       }
     }
     this.ready = true;
@@ -286,7 +297,7 @@ class Economy {
   }
 
   private persist(): void {
-    if (!this.ready) return;
+    if (!this.ready) return; // never snapshot a not-yet-loaded economy over the real save
     this.dirty = false;
     this.saveCooldown = AUTOSAVE_INTERVAL;
     const state: EconomyState = {

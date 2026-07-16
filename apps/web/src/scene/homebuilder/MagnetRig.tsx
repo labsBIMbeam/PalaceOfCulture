@@ -7,7 +7,7 @@ import { useKeyboardControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { BuildSystem, Cell } from "../../builder/buildState";
+import type { BrushSize, BuildSystem, Cell } from "../../builder/buildState";
 import { getObject } from "../../builder/catalog";
 
 const FLY_SPEED = 12;
@@ -37,11 +37,14 @@ type Aim = {
 export function MagnetRig({
   system,
   selected,
+  brush,
   targetsRef,
 }: {
   /** The world under the magnet — homeBuild (blocks allowed) or palaceBuild (decorate-only). */
   system: BuildSystem;
   selected: string;
+  /** Block brush size: 1 single cell, 2 = 2x2, 3 = 3x3. */
+  brush: BrushSize;
   targetsRef: MutableRefObject<THREE.Group | null>;
 }) {
   const { camera, gl } = useThree();
@@ -59,13 +62,17 @@ export function MagnetRig({
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   // Q/E turn the furniture ghost relative to the camera yaw (kept across placements, like decorate).
   const ghostYawOffset = useRef(0);
+  // Q/E on a block selection: quarter-turns for shaped blocks (door facing, roof slope direction).
+  const blockRot = useRef(0);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const brushRef = useRef<BrushSize>(brush);
+  brushRef.current = brush;
 
   const selectedDef = getObject(selected);
   const isBlock = selectedDef?.kind === "block";
   const ghostSize: [number, number, number] = isBlock
-    ? [3, 1, 3]
+    ? [brush, 1, brush]
     : (selectedDef?.size ?? [1, 1, 1]);
 
   // Camera takeover: jump to the magnet perch on entry; restore nothing on exit (the walk/orbit
@@ -105,9 +112,13 @@ export function MagnetRig({
         if (def.kind === "block" && system.allowBlocks) {
           // Shift+LMB repaints existing blocks in the footprint (replace_blocks); plain LMB stamps.
           if (event.shiftKey) {
-            system.replaceBlocks(system.footprintCells(current.absorbCell), id);
+            system.replaceBlocks(system.footprintCells(current.absorbCell, brushRef.current), id);
           } else {
-            system.placeBlocks(system.footprintCells(current.cell), id);
+            system.placeBlocks(
+              system.footprintCells(current.cell, brushRef.current),
+              id,
+              blockRot.current,
+            );
           }
         } else if (def.kind === "furniture") {
           system.placeDecor(
@@ -124,8 +135,14 @@ export function MagnetRig({
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (document.pointerLockElement !== canvas) return;
-      if (event.code === "KeyQ") ghostYawOffset.current -= Math.PI / 4;
-      else if (event.code === "KeyE") ghostYawOffset.current += Math.PI / 4;
+      const turningBlock = getObject(selectedRef.current)?.kind === "block";
+      if (event.code === "KeyQ") {
+        if (turningBlock) blockRot.current = (blockRot.current + 3) % 4;
+        else ghostYawOffset.current -= Math.PI / 4;
+      } else if (event.code === "KeyE") {
+        if (turningBlock) blockRot.current = (blockRot.current + 1) % 4;
+        else ghostYawOffset.current += Math.PI / 4;
+      }
     };
     const onContextMenu = (event: Event) => event.preventDefault();
     canvas.addEventListener("click", requestLock);
@@ -203,8 +220,14 @@ export function MagnetRig({
       ghost.visible = show;
       if (show) {
         if (isBlock) {
-          ghost.position.set(current.cell[0] + 0.5, current.cell[1] + 0.5, current.cell[2] + 0.5);
-          ghost.rotation.set(0, 0, 0);
+          // Even brushes (2x2) grow toward +x/+z from the aimed cell — the ghost centers on that.
+          const centerOffset = brushRef.current === 2 ? 1 : 0.5;
+          ghost.position.set(
+            current.cell[0] + centerOffset,
+            current.cell[1] + 0.5,
+            current.cell[2] + centerOffset,
+          );
+          ghost.rotation.set(0, (blockRot.current * Math.PI) / 2, 0);
         } else {
           ghost.position.set(
             current.point.x,
