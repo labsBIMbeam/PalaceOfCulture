@@ -5,11 +5,17 @@ import { CATALOG } from "../src/scene/furnitureCatalog";
 
 const models = CATALOG.filter((def) => def.kind === "model");
 assert.equal(models.length, 16, "the curated launch furniture set should have 16 models");
-assert.equal(new Set(CATALOG.map((def) => def.id)).size, CATALOG.length, "decor ids must be unique");
+assert.equal(
+  new Set(CATALOG.map((def) => def.id)).size,
+  CATALOG.length,
+  "decor ids must be unique",
+);
 
 for (const def of models) {
-  assert.ok(def.url?.startsWith("/furniture/"), `${def.id} must use the local furniture directory`);
-  const file = resolve("public", def.url!.slice(1));
+  if (!def.url?.startsWith("/furniture/")) {
+    throw new Error(`${def.id} must use the local furniture directory`);
+  }
+  const file = resolve("public", def.url.slice(1));
   assert.ok(existsSync(file), `${def.id} is missing ${file}`);
   const header = readFileSync(file).subarray(0, 4).toString("ascii");
   assert.equal(header, "glTF", `${def.id} must be a valid binary glTF/GLB`);
