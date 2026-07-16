@@ -16,6 +16,8 @@ const DAY = 86400;
 
 /** Units per MINUTE (≈21.6 wood / 10.8 stone a DAY). THE balancing knob — touch nothing else. */
 export const DRIP_PER_MINUTE: Record<string, number> = { wood: 0.015, stone: 0.0075 };
+/** Finite local-stock targets. Passive collection and processing stop when storage is full. */
+export const MATERIAL_CAPS: Record<string, number> = { wood: 100, stone: 80, boards: 100 };
 /** Move-in condition hold time (24 h, wall clock — never timescaled). */
 export const ATTRACTION_SUSTAIN_SEC = 86400;
 
@@ -178,6 +180,11 @@ export function getObject(id: string): ObjectDef | undefined {
 
 export function getRecipe(id: string): RecipeDef | undefined {
   return RECIPES[id];
+}
+
+/** Returns a material amount inside its authored finite stock boundary. */
+export function clampMaterial(id: string, amount: number): number {
+  return Math.min(MATERIAL_CAPS[id] ?? 0, Math.max(0, amount));
 }
 
 export function recipeIds(): string[] {

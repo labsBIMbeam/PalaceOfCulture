@@ -123,7 +123,7 @@ const KITS: FurnitureKit[] = [
   },
   {
     pieces: [
-      { url: "/furniture/bed-1.glb", fit: 0.65, dx: -0.4, dz: 1.6, rot: 0, pose: "sleep" },
+      { url: "/furniture/bed_single_A.glb", fit: 0.65, dx: -0.4, dz: 1.6, rot: 0, pose: "sleep" },
       { url: "/props/crate-1.glb", fit: 0.7, dx: 1.2, dz: 1.2, rot: 0.4 },
     ],
     solids: [{ dx: -0.4, dz: 1.6, half: [0.6, 0.3, 1.0] }],
