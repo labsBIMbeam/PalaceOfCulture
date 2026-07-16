@@ -36,6 +36,10 @@ for (const [label, value] of Object.entries({
   assert.ok(value.includes(WORLD_NAME.street), `${label}.street derives from WORLD_NAME.street`);
 }
 
-assert.match(TRAVEL_PENDING_TITLE.hq, /released soon/, "the travel curtain keeps Palace unreleased");
+assert.match(
+  TRAVEL_PENDING_TITLE.hq,
+  /released soon/,
+  "the travel curtain keeps Palace unreleased",
+);
 
 console.log("WORLD LABEL SMOKE TESTS GREEN");

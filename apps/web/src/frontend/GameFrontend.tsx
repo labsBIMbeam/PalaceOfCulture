@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { GeoJSON, MapContainer, ZoomControl, useMap, useMapEvents } from "react-leaflet";
-import { MATERIALS } from "../builder/catalog";
+import { MATERIALS, MATERIAL_CAPS } from "../builder/catalog";
 import { useEconomy } from "../builder/economy";
 import { createCharacterStore } from "../character/store";
 import { DEMO_WRITES_ENABLED, REAL_PAYMENTS_ENABLED } from "../config/safety";
@@ -1314,11 +1314,15 @@ function HomeResourceStrip() {
       {Object.entries(MATERIALS).map(([id, def]) => (
         <span className="resource-chip" key={id}>
           <span className="builder-swatch" style={{ background: def.color }} />
-          <strong>{economy.getMaterial(id)}</strong>
+          <strong>
+            {economy.getMaterial(id)} / {MATERIAL_CAPS[id] ?? 0}
+          </strong>
           {def.display}
         </span>
       ))}
-      <small>drip: real time · craft in the Workshop</small>
+      <small>
+        passive stock · finite caps · collection pauses when full · craft in the Workshop
+      </small>
     </div>
   );
 }
