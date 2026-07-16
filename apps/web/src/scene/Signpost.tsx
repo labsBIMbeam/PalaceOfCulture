@@ -1,5 +1,5 @@
 /**
- * Signpost — a Zelda-style wooden waypost: a pole with one or two arrow boards, each carrying a
+ * Signpost — a comic-fantasy wooden waypost: a pole with stacked arrow boards, each carrying a
  * short carved label (tiny cached CanvasTexture). Boards yaw independently so an arrow can point
  * at its destination. Primitives only; the label keeps orientation playable without a minimap.
  */
