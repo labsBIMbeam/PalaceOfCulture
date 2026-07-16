@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "tsx tests/builder-smoke.ts && tsx tests/security-smoke.ts && tsx tests/audit-smoke.ts && tsx tests/map-search-smoke.ts && tsx tests/indexeddb-audit.test.ts && tsx tests/multiplayer-smoke.ts && tsx tests/culture-smoke.ts && tsx tests/social-quality-smoke.ts && tsx tests/politics-smoke.ts && tsx tests/furniture-catalog-smoke.ts",
+    "test": "tsx tests/builder-smoke.ts && tsx tests/security-smoke.ts && tsx tests/audit-smoke.ts && tsx tests/map-search-smoke.ts && tsx tests/indexeddb-audit.test.ts && tsx tests/multiplayer-smoke.ts && tsx tests/culture-smoke.ts && tsx tests/social-quality-smoke.ts && tsx tests/politics-smoke.ts && tsx tests/street-layout.test.ts && tsx tests/world-labels-smoke.ts && tsx tests/furniture-catalog-smoke.ts",
     "game:sync": "node -e \"require('fs').cpSync('../../godot/dist/web','public/game',{recursive:true})\""
   },
   "dependencies": {
@@ -21,7 +21,7 @@
     "@react-three/fiber": "^8.17.10",
     "@react-three/postprocessing": "^2.16.0",
     "@react-three/rapier": "1.5.0",
-    "ecctrl": "1.0.88",
+    "ecctrl": "1.0.91",
     "leaflet": "^1.9.4",
     "leva": "0.10.0",
     "nostr-tools": "^2.23.5",

@@ -1,4 +1,6 @@
-// Local type shim for ecctrl 1.0.88.
+// Local type shim for ecctrl 1.0.91 (1.0.90+ is required for @react-three/rapier 1.5.0 — older
+// versions raycast with the pre-1.5 filter API, so the ground ray never hits: canJump stays false,
+// movement runs at airDragMultiplier and the keyup drag brake never engages → endless run).
 //
 // ecctrl's published .d.ts re-exports its mobile-joystick from `../src/EcctrlJoystick.tsx`, which
 // tsc then compiles under our strict config and reports errors *inside the library* (null checks we

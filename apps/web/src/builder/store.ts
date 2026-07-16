@@ -27,6 +27,8 @@ export interface EconomyState {
 export interface HomeBlock {
   id: string;
   cell: [number, number, number];
+  /** Quarter-turns (0..3) about y for shaped blocks; older saves omit it (= 0). */
+  rot?: number;
 }
 
 export interface HomeDecor {

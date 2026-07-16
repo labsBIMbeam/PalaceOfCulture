@@ -153,6 +153,7 @@ export const CATALOG: DecorDef[] = [
     label: "Single Bed",
     kind: "model",
     url: "/furniture/bed_single_A.glb",
+    modelScale: 0.5,
     pose: "sleep",
     glyph: "🛏",
   },

@@ -12,6 +12,16 @@ import { DEFAULT_HOME, type HomeData, loadHome, saveHome } from "./store";
 
 export type Cell = [number, number, number];
 
+/** Block brush edge length: 1 = single cell, 2 = 2x2, 3 = 3x3 (one y-layer). */
+export type BrushSize = 1 | 2 | 3;
+
+export interface PlacedBlock {
+  cell: Cell;
+  id: string;
+  /** Quarter-turns (0..3) about y — orients shaped blocks (doors, roof slopes). */
+  rot: number;
+}
+
 export interface PlacedDecor {
   uid: string;
   id: string;
@@ -28,8 +38,8 @@ const newUid = () => {
 };
 
 class BuildSystem {
-  /** cellKey -> block object id. */
-  private cells = new Map<string, string>();
+  /** cellKey -> placed block (object id + quarter-turn rotation). */
+  private cells = new Map<string, { id: string; rot: number }>();
   private decor: PlacedDecor[] = [];
   private version = 0;
   private listeners = new Set<() => void>();
@@ -56,7 +66,7 @@ class BuildSystem {
   // --- reads ---
 
   blockAt(cell: Cell): string | undefined {
-    return this.cells.get(cellKey(cell));
+    return this.cells.get(cellKey(cell))?.id;
   }
 
   blockCount(): number {
@@ -67,11 +77,15 @@ class BuildSystem {
     return this.decor.filter((item) => item.id === objectId).length;
   }
 
-  /** [cell, blockId] pairs for rendering. */
-  entries(): Array<{ cell: Cell; id: string }> {
-    return Array.from(this.cells.entries(), ([key, id]) => {
+  /** Placed blocks (cell + id + rotation) for rendering. */
+  entries(): PlacedBlock[] {
+    return Array.from(this.cells.entries(), ([key, value]) => {
       const parts = key.split(",").map(Number);
-      return { cell: [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0] as Cell, id };
+      return {
+        cell: [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0] as Cell,
+        id: value.id,
+        rot: value.rot,
+      };
     });
   }
 
@@ -79,11 +93,16 @@ class BuildSystem {
     return [...this.decor];
   }
 
-  /** The magnet's 3x3x1 placement footprint around a center cell. */
-  footprintCells(center: Cell): Cell[] {
+  /**
+   * The brush footprint around a center cell, one y-layer: 1 = the cell itself, 3 = the classic
+   * 3x3 stamp. Even sizes (2x2) grow toward +x/+z from the aimed cell.
+   */
+  footprintCells(center: Cell, size: BrushSize = 3): Cell[] {
+    const from = size === 3 ? -1 : 0;
+    const to = size === 1 ? 0 : 1;
     const cells: Cell[] = [];
-    for (let dx = -1; dx <= 1; dx += 1) {
-      for (let dz = -1; dz <= 1; dz += 1) {
+    for (let dx = from; dx <= to; dx += 1) {
+      for (let dz = from; dz <= to; dz += 1) {
         cells.push([center[0] + dx, center[1], center[2] + dz]);
       }
     }
@@ -93,13 +112,13 @@ class BuildSystem {
   // --- mutations (all settle with Economy) ---
 
   /** Places blockId into every free cell, consuming one from Economy per cell. */
-  placeBlocks(cells: Cell[], blockId: string): number {
+  placeBlocks(cells: Cell[], blockId: string, rot = 0): number {
     if (!this.allowBlocks || getObject(blockId)?.kind !== "block") return 0;
     let placed = 0;
     for (const cell of cells) {
       if (this.cells.has(cellKey(cell))) continue;
       if (!economy.consumeObject(blockId)) break;
-      this.cells.set(cellKey(cell), blockId);
+      this.cells.set(cellKey(cell), { id: blockId, rot: ((rot % 4) + 4) % 4 });
       placed += 1;
     }
     if (placed > 0) this.afterChange();
@@ -109,10 +128,10 @@ class BuildSystem {
   /** Clears the cell and returns the block to Economy. */
   absorbBlock(cell: Cell): boolean {
     if (!this.allowBlocks) return false;
-    const id = this.cells.get(cellKey(cell));
-    if (!id) return false;
+    const entry = this.cells.get(cellKey(cell));
+    if (!entry) return false;
     this.cells.delete(cellKey(cell));
-    economy.returnObject(id);
+    economy.returnObject(entry.id);
     this.afterChange();
     return true;
   }
@@ -120,16 +139,17 @@ class BuildSystem {
   /**
    * Atomic absorb+place: swaps existing blocks of another material to blockId.
    * New blocks are consumed, displaced blocks return intact. Empty cells stay empty.
+   * The repainted cell keeps its rotation (a repainted roof keeps its slope direction).
    */
   replaceBlocks(cells: Cell[], blockId: string): number {
     if (!this.allowBlocks || getObject(blockId)?.kind !== "block") return 0;
     let swapped = 0;
     for (const cell of cells) {
       const current = this.cells.get(cellKey(cell));
-      if (!current || current === blockId) continue;
+      if (!current || current.id === blockId) continue;
       if (!economy.consumeObject(blockId)) break;
-      economy.returnObject(current);
-      this.cells.set(cellKey(cell), blockId);
+      economy.returnObject(current.id);
+      this.cells.set(cellKey(cell), { id: blockId, rot: current.rot });
       swapped += 1;
     }
     if (swapped > 0) this.afterChange();
@@ -160,7 +180,7 @@ class BuildSystem {
 
   toData(): HomeData {
     return {
-      blocks: this.entries().map(({ cell, id }) => ({ id, cell })),
+      blocks: this.entries().map(({ cell, id, rot }) => ({ id, cell, rot })),
       decor: this.decor.map((item) => ({ id: item.id, pos: item.pos, rot_y: item.rotY })),
     };
   }
@@ -173,7 +193,10 @@ class BuildSystem {
       // stale save: block id no longer in Catalog — skip, never crash
       if (getObject(entry.id)?.kind !== "block") continue;
       const [x = 0, y = 0, z = 0] = entry.cell ?? [0, 0, 0];
-      this.cells.set(cellKey([Math.round(x), Math.round(y), Math.round(z)]), entry.id);
+      this.cells.set(cellKey([Math.round(x), Math.round(y), Math.round(z)]), {
+        id: entry.id,
+        rot: ((Math.round(entry.rot ?? 0) % 4) + 4) % 4,
+      });
     }
     for (const entry of data.decor ?? []) {
       if (getObject(entry.id)?.kind !== "furniture") continue;
