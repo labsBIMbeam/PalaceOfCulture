@@ -21,7 +21,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { homeBuild } from "../builder/buildState";
+import { type BrushSize, homeBuild } from "../builder/buildState";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
@@ -53,6 +53,13 @@ import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
 import { BuilderWorld } from "./homebuilder/BuilderWorld";
 import { MagnetRig } from "./homebuilder/MagnetRig";
 import { INTERACTABLES, type Interactable } from "./interactables";
+import {
+  TRAVEL_LABEL,
+  TRAVEL_PENDING_TITLE,
+  WORLD_IDLE_SUBTITLE,
+  WORLD_TITLE,
+  WORLD_WALK_SUBTITLE,
+} from "./worldLabels";
 
 // The street's built-in seats/beds, computed once (deterministic layout data).
 const STREET_POSES: PosePoint[] = streetPoseTargets();
@@ -120,11 +127,6 @@ const SPAWN_FOR: Record<EngineTarget, [number, number, number]> = {
   home: HOME_SPAWN,
   street: STREET_SPAWN,
 };
-const WORLD_TITLE: Record<EngineTarget, string> = {
-  hq: "Palace of Culture · TBA",
-  home: "Home — your map",
-  street: "Locktard Street",
-};
 // The Palace map ("hq") is switched OFF for launch: the game ships with Locktard Street + Home.
 // Re-adding "hq" here is the single switch that brings the Palace world back.
 const WORLD_ORDER: EngineTarget[] = ["street", "home"];
@@ -137,21 +139,6 @@ const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number
   // the compact camp: haze starts just past the plaza and swallows the forest edge
   street: { color: "#6a5a70", near: 26, far: 200 },
 };
-const TRAVEL_LABEL: Record<EngineTarget, string> = {
-  hq: "Travel: Palace TBA",
-  home: "Travel: Home",
-  street: "Travel: Street",
-};
-const WORLD_WALK_SUBTITLE: Record<EngineTarget, string> = {
-  hq: "teaser only — not released yet",
-  home: "private — your plot",
-  street: "public — first playable district",
-};
-const WORLD_IDLE_SUBTITLE: Record<EngineTarget, string> = {
-  hq: "3D engine — Palace released soon · date TBA",
-  home: "3D engine — private plot",
-  street: "3D engine — Locktard Street",
-};
 /** How long the travel curtain stays down (world swap happens under it). */
 const TRAVEL_SWAP_MS = 300;
 const TRAVEL_TOTAL_MS = 1500;
@@ -162,7 +149,10 @@ const KEYBOARD_MAP = [
   { name: "backward", keys: ["ArrowDown", "KeyS"] },
   { name: "leftward", keys: ["ArrowLeft", "KeyA"] },
   { name: "rightward", keys: ["ArrowRight", "KeyD"] },
-  { name: "jump", keys: ["Space"] },
+  // Deliberately NOT named "jump": ecctrl grabs that action, and while Space is held on the
+  // ground it setLinvel's the vertical velocity to jumpVel (0 for us) every frame — cancelling
+  // the custom jump in WalkSystems. "hop" keeps Space invisible to ecctrl.
+  { name: "hop", keys: ["Space"] },
   { name: "run", keys: ["ShiftLeft", "ShiftRight"] },
 ];
 const MOVEMENT_CODES = KEYBOARD_MAP.flatMap((entry) => entry.keys);
@@ -290,6 +280,8 @@ const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the
 // Capsule half height (0.5) + radius (0.4) + float (0.3) + slack: how far below the body centre
 // the ground may be and still count as "standing on it".
 const GROUND_RAY_LENGTH = 1.45;
+// Take-off speed of the custom jump (m/s) — also the anchor of the launch guard's ballistic curve.
+const JUMP_VELOCITY = 4.5;
 
 function WalkSystems({
   bodyRef,
@@ -313,7 +305,9 @@ function WalkSystems({
   const lastId = useRef<string | null>(null);
   const lastPose = useRef<string | null>(null);
   const jumpPrev = useRef(false);
-  useFrame(() => {
+  const jumpStartedAt = useRef(Number.NEGATIVE_INFINITY);
+  useFrame((state) => {
+    const now = state.clock.elapsedTime;
     const keys = getKeys() as Record<string, boolean>;
     const body = bodyRef.current;
     if (!body) return;
@@ -335,14 +329,53 @@ function WalkSystems({
     // disabled via jumpVel={0}; this is the single source). Grounded = a real downward raycast that
     // hits something within reach of the capsule (excluding the player itself) — the old |vy| gate
     // allowed an air jump at the arc's apex. Edge-detected so holding Space doesn't repeat.
-    const jumpNow = Boolean(keys.jump);
+    const jumpNow = Boolean(keys.hop);
+    let jumpedThisFrame = false;
     if (jumpNow && !jumpPrev.current) {
       const ray = new rapier.Ray(pos, { x: 0, y: -1, z: 0 });
       const grounded =
         world.castRay(ray, GROUND_RAY_LENGTH, true, undefined, undefined, undefined, body) !== null;
-      if (grounded) body.setLinvel({ x: linvel.x, y: 4.5, z: linvel.z }, true);
+      if (grounded) {
+        body.setLinvel({ x: linvel.x, y: JUMP_VELOCITY, z: linvel.z }, true);
+        jumpedThisFrame = true;
+        jumpStartedAt.current = now;
+      }
     }
     jumpPrev.current = jumpNow;
+
+    // Launch guard: for the first ~130 ms of a jump, hold the vertical velocity on its ballistic
+    // curve (never above it). Ecctrl's float spring damps vy for as long as its ground ray still
+    // reads "grounded" (the first ~0.15 m of ascent) — and the damping slows the climb, which keeps
+    // the body in that window even longer, eating most of the jump. Past ~130 ms the capsule is
+    // clear of the window and flies free.
+    const sinceJump = now - jumpStartedAt.current;
+    if (!jumpedThisFrame && sinceJump < 0.13) {
+      const vel = body.linvel();
+      const ballisticY = JUMP_VELOCITY - 9.81 * sinceJump;
+      if (vel.y < ballisticY) body.setLinvel({ x: vel.x, y: ballisticY, z: vel.z }, true);
+    }
+
+    // Hard stop: the moment no move key is held, kill horizontal momentum ourselves. Ecctrl's own
+    // drag brake only engages while ITS ground ray agrees (a missed frame reads as gliding), so
+    // stopping must not depend on it. Grounded-gated by our own ray so jump arcs keep their
+    // momentum; ×0.2/frame ≈ full stop within ~3 frames (50 ms) without a jarring 1-frame freeze.
+    // Skipped on the jump frame, and reads the velocity FRESH — the top-of-frame `linvel` is stale
+    // once the jump has set y, and writing it back would cancel the jump in the same frame.
+    const moving = keys.forward || keys.backward || keys.leftward || keys.rightward;
+    if (!jumpedThisFrame && !moving) {
+      const vel = body.linvel();
+      const planarSpeed = Math.hypot(vel.x, vel.z);
+      if (planarSpeed > 0.01) {
+        const ray = new rapier.Ray(pos, { x: 0, y: -1, z: 0 });
+        const grounded =
+          world.castRay(ray, GROUND_RAY_LENGTH, true, undefined, undefined, undefined, body) !==
+          null;
+        if (grounded) {
+          const brake = planarSpeed < 0.3 ? 0 : 0.2;
+          body.setLinvel({ x: vel.x * brake, y: vel.y, z: vel.z * brake }, true);
+        }
+      }
+    }
 
     let best: Interactable | null = null;
     let bestDist = Number.POSITIVE_INFINITY;
@@ -637,6 +670,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     transport: null,
   });
   const [builderSelected, setBuilderSelected] = useState("");
+  const [builderBrush, setBuilderBrush] = useState<BrushSize>(1);
   const builderTargets = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
@@ -1072,10 +1106,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   autoBalanceSpringK={1.2}
                   moveImpulsePointY={0}
                   position={standPos}
-                  // Widen ecctrl's ground detection so "canJump" is reliably true on the deck — the
-                  // default forgiveness (0.1) gave a tight 0.8 window vs the 0.7 float, so jump often
-                  // never fired. 0.5 keeps canJump solid while grounded without making mid-air jumps.
-                  rayHitForgiveness={0.5}
+                  // rayHitForgiveness stays at its default (0.1). The old widened value (0.5) was a
+                  // workaround for the dead ground ray in ecctrl ≤1.0.89 + rapier 1.5 — with the ray
+                  // fixed it kept the float spring's damping engaged half a metre up, eating jumps.
                   ref={playerBody}
                   sprintMult={2}
                   turnSpeed={22}
@@ -1091,6 +1124,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               {canBuild ? (
                 <BuilderWorld
                   building={mode === "build"}
+                  brush={builderBrush}
                   selected={builderSelected}
                   system={homeBuild}
                   targetsRef={builderTargets}
@@ -1158,7 +1192,12 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           </Suspense>
           {mode === "orbit" ? <OrbitView world={world} /> : null}
           {mode === "build" ? (
-            <MagnetRig selected={builderSelected} system={homeBuild} targetsRef={builderTargets} />
+            <MagnetRig
+              brush={builderBrush}
+              selected={builderSelected}
+              system={homeBuild}
+              targetsRef={builderTargets}
+            />
           ) : null}
           {mode === "walk" && posed ? <SeatedView at={posed.position} /> : null}
           {POSTFX_ENABLED ? <PostFx /> : null}
@@ -1168,13 +1207,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       {traveling ? (
         <div className="travel-screen">
           <Icon name={traveling === "home" ? "home" : "globe"} size={44} />
-          <strong>
-            {traveling === "home"
-              ? "Coming home…"
-              : traveling === "street"
-                ? "Heading to Locktard Street…"
-                : "Palace of Culture — released soon…"}
-          </strong>
+          <strong>{TRAVEL_PENDING_TITLE[traveling]}</strong>
           <small>
             {traveling === "home"
               ? "your own empty map — build slowly"
@@ -1303,6 +1336,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : null}
       {mode === "build" ? (
         <BuilderHud
+          brush={builderBrush}
+          onBrush={setBuilderBrush}
           onExit={toggleBuild}
           onSelect={setBuilderSelected}
           selected={builderSelected}

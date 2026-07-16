@@ -4665,6 +4665,117 @@ input.compose-input::placeholder {
   font-variant-numeric: tabular-nums;
 }
 
+.builder-slot--empty {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.builder-slot-icon--empty {
+  width: 22px;
+  height: 22px;
+  border: 1px dashed rgba(246, 236, 210, 0.3);
+  border-radius: 4px;
+  background: transparent;
+}
+
+/* block brush selector (1 / 2x2 / 3x3), floats above the action bar */
+.builder-brush {
+  position: absolute;
+  bottom: 178px;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(231, 178, 60, 0.4);
+  border-radius: 10px;
+  background: rgba(20, 13, 8, 0.74);
+  color: var(--cream);
+  transform: translateX(-50%);
+}
+
+.builder-brush-label,
+.builder-brush-key {
+  color: rgba(246, 236, 210, 0.55);
+  font-size: 0.68rem;
+}
+
+.builder-brush-chip {
+  padding: 3px 9px;
+  border: 1px solid rgba(246, 236, 210, 0.18);
+  border-radius: 8px;
+  background: rgba(246, 236, 210, 0.06);
+  color: var(--cream);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.builder-brush-chip--active {
+  border-color: var(--gold-bright);
+  background: rgba(231, 178, 60, 0.18);
+}
+
+/* the inventory: pockets (Pokémon sorting) with drag-source tiles */
+.builder-inventory {
+  width: min(420px, calc(100vw - 36px));
+}
+
+.builder-pocket {
+  display: grid;
+  gap: 8px;
+}
+
+.builder-pocket-title {
+  color: var(--gold-bright);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.builder-pocket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 8px;
+}
+
+.builder-inv-tile {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 6px 8px;
+  border: 1px solid rgba(246, 236, 210, 0.18);
+  border-radius: 10px;
+  background: rgba(246, 236, 210, 0.06);
+  color: var(--cream);
+  cursor: grab;
+}
+
+.builder-inv-tile:hover:not(:disabled) {
+  border-color: var(--gold);
+}
+
+.builder-inv-tile--active {
+  border-color: var(--gold-bright);
+  background: rgba(231, 178, 60, 0.18);
+}
+
+.builder-inv-tile:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.builder-inv-name {
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.builder-inv-count {
+  color: rgba(246, 236, 210, 0.65);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .builder-craft {
   position: absolute;
   top: 84px;

@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev:web": "pnpm --filter @600b/web dev",
+    "demo:assets": "node packages/assets-pipeline/props/fetch_props.mjs apps/web/public/nature packages/assets-pipeline/props/nature.json && node packages/assets-pipeline/props/fetch_props.mjs apps/web/public/tools packages/assets-pipeline/props/tools.json && node packages/assets-pipeline/props/fetch_props.mjs apps/web/public/props packages/assets-pipeline/props/street-props.json && node packages/assets-pipeline/props/fetch_props.mjs apps/web/public/props packages/assets-pipeline/props/furniture-tools.json && node packages/assets-pipeline/props/fetch_props.mjs apps/web/public/housekit packages/assets-pipeline/props/house-kit.json && node packages/assets-pipeline/props/fetch_props.mjs apps/web/public/village packages/assets-pipeline/props/village.json",
     "dev:server": "pnpm --filter @600b/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

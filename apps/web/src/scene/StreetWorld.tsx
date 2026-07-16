@@ -461,7 +461,9 @@ export function StreetWorld() {
       <Enclosure />
 
       {/* the living layer — Zelda-style grass, rocks, bushes, flowers & trees around the camp */}
-      <Vegetation />
+      <PropBoundary>
+        <Vegetation />
+      </PropBoundary>
 
       {/* the workshop yard (forge, chimney smoke, stations) — the second focal point */}
       <PropBoundary>
