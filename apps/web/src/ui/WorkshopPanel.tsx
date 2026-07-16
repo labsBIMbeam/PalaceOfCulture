@@ -9,6 +9,7 @@ import { homeBuild, useBuildSystem } from "../builder/buildState";
 import {
   ATTRACTION_SUSTAIN_SEC,
   MATERIALS,
+  MATERIAL_CAPS,
   OBJECTS,
   RECIPES,
   formatDuration,
@@ -50,9 +51,17 @@ export function WorkshopPanel() {
           return (
             <div className="workshop-resource" key={id}>
               <span className="builder-swatch" style={{ background: def.color }} />
-              <strong>{economy.getMaterial(id)}</strong>
+              <strong>
+                {economy.getMaterial(id)} / {MATERIAL_CAPS[id] ?? 0}
+              </strong>
               <span>{def.display}</span>
-              <small>{perDay > 0 ? `+${perDay.toFixed(1)}/day` : "refined — mill it"}</small>
+              <small>
+                {economy.getMaterial(id) >= (MATERIAL_CAPS[id] ?? 0)
+                  ? "cap met — paused"
+                  : perDay > 0
+                    ? `+${perDay.toFixed(1)}/day`
+                    : "refined — mill it"}
+              </small>
             </div>
           );
         })}

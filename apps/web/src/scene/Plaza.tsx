@@ -9,16 +9,20 @@
  */
 
 import { Suspense, useMemo } from "react";
-import { Building, type RoofStyle, buildingBayX, buildingDoorX } from "./Building";
+import { Building, buildingBayX, buildingDoorX } from "./Building";
 import { Embers } from "./Embers";
 import { GlbModel } from "./GlbModel";
 import { GrowableObject } from "./GrowableObject";
 import { Signpost } from "./Signpost";
-import { mulberry32 } from "./rand";
+import {
+  PLAZA_CENTRE,
+  PLAZA_WAYPOST,
+  type Ringed,
+  plazaRing,
+  plazaWayfinding,
+} from "./streetLayout";
 
-/** Game-space centre of the round plaza (x, z). */
-export const PLAZA_CENTRE: [number, number] = [0, 88];
-export const PLAZA_RADIUS = 24;
+export { PLAZA_CENTRE, PLAZA_RADIUS, plazaRing, type Ringed } from "./streetLayout";
 /** The young apple tree beside the prepared site (shared with its trunk collider + interactable). */
 export const YOUNG_TREE: [number, number] = [PLAZA_CENTRE[0] + 9, PLAZA_CENTRE[1] - 4];
 /** The well on the plaza's east rim (shared with its collider + interactable). */
@@ -35,6 +39,9 @@ export type SolidSpec = {
 };
 
 const TIMBER = "#6b4a2e";
+/** Waypost boards are pure layout math — computed once, stable across renders. Three boards need
+ *  a tighter stack than the Signpost default, or the lowest lands at knee height. */
+const WAYPOST_BOARDS = plazaWayfinding().map((board, i) => ({ ...board, height: 1.9 - i * 0.38 }));
 
 /** Benches ringing the plaza, facing the centre (south arc left open for the approach). */
 const BENCH_DEGS = [335, 20, 65, 110, 155, 200];
@@ -116,7 +123,7 @@ const KITS: FurnitureKit[] = [
   },
   {
     pieces: [
-      { url: "/furniture/bed-1.glb", fit: 0.65, dx: -0.4, dz: 1.6, rot: 0, pose: "sleep" },
+      { url: "/furniture/bed_single_A.glb", fit: 0.65, dx: -0.4, dz: 1.6, rot: 0, pose: "sleep" },
       { url: "/props/crate-1.glb", fit: 0.7, dx: 1.2, dz: 1.2, rot: 0.4 },
     ],
     solids: [{ dx: -0.4, dz: 1.6, half: [0.6, 0.3, 1.0] }],
@@ -422,49 +429,6 @@ function FoundationSite({ centre }: { centre: [number, number] }) {
   );
 }
 
-export type Ringed = {
-  pos: [number, number, number];
-  rotY: number;
-  rooms: 1 | 2 | 3 | 4;
-  wall: string;
-  roof: string;
-  height: number;
-  depth: number;
-  roofStyle: RoofStyle;
-  porch: boolean;
-};
-
-/** The ring building placements (shared by the visuals and the colliders so they line up).
- *  Six fronts spread around the whole ring — only the south arc stays open for the approach —
- *  with seeded per-building yaw jitter, height/depth variation, roof style and porches so the
- *  row never reads as copies of one hut. */
-export function plazaRing(): Ringed[] {
-  const [cx, cz] = PLAZA_CENTRE;
-  const R = 35;
-  const walls = ["#cbb083", "#c7a271", "#d0c0a0", "#c2ab86", "#cbb083", "#bfa47c"];
-  const roofs = ["#7a4a2c", "#6d4530", "#7f5433", "#71452a", "#7a4e36", "#684026"];
-  const roomPlan: (1 | 2 | 3 | 4)[] = [2, 1, 3, 2, 4, 1];
-  const degs = [318, 350, 22, 58, 94, 130]; // south arc (≈270°±) kept open for the approach
-  const rnd = mulberry32(517);
-  return degs.map((d, i) => {
-    const a = (d * Math.PI) / 180;
-    const x = cx + Math.cos(a) * R;
-    const z = cz + Math.sin(a) * R;
-    const rotY = Math.atan2(cx - x, cz - z) + (rnd() - 0.5) * 0.12; // front faces centre, jittered
-    return {
-      pos: [x, 0, z] as [number, number, number],
-      rotY,
-      rooms: roomPlan[i] ?? 1,
-      wall: walls[i % walls.length] ?? "#cbb083",
-      roof: roofs[i % roofs.length] ?? "#7a4a2c",
-      height: 3.0 + rnd() * 0.9,
-      depth: 5.6 + rnd() * 1.4,
-      roofStyle: (rnd() > 0.45 ? "hip" : "flat") as RoofStyle,
-      porch: rnd() > 0.4,
-    };
-  });
-}
-
 /** The whole plaza: the staged site + the tended young tree, benches + well on the rim, ringed by
  *  walkable buildings. */
 export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
@@ -549,18 +513,12 @@ export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
       </Suspense>
       <FireBowl />
       {/* waypost where the approach meets the plaza */}
-      <Signpost
-        boards={[
-          { text: "Build Site", angle: -1.95 },
-          { text: "Forge", angle: 2.4 },
-        ]}
-        position={[10, 0, 64]}
-      />
+      <Signpost boards={WAYPOST_BOARDS} position={PLAZA_WAYPOST} />
       {ring.map((b) => (
         <Building
           depth={b.depth}
           height={b.height}
-          key={`${b.pos[0].toFixed(1)},${b.pos[2].toFixed(1)}`}
+          key={b.id}
           porch={b.porch}
           position={b.pos}
           roof={b.roof}

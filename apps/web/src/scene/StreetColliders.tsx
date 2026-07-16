@@ -56,7 +56,7 @@ export function StreetColliders() {
       {ring.map((b) => (
         <RigidBody
           colliders={false}
-          key={`b-${b.pos[0].toFixed(1)},${b.pos[2].toFixed(1)}`}
+          key={b.id}
           position={b.pos}
           rotation={[0, b.rotY, 0]}
           type="fixed"
