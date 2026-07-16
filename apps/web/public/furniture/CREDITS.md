@@ -11,6 +11,7 @@ Quaternius — the cohesive low-poly toon libraries from the FOSS foundation res
 | chair-3.glb | Quaternius | CC0 | https://poly.pizza/m/9kIjuRFMFw |
 | table-1.glb | Kenney | CC0 | https://poly.pizza/m/41R2HTYj1O |
 | lamp-1.glb | Kenney | CC0 | https://poly.pizza/m/8LiDIfXVLi |
+| bed_single_A.glb | Kenney | CC0 | Kenney Furniture Kit |
 
 ## Adding more
 

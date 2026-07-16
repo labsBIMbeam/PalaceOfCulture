@@ -4,7 +4,15 @@
 // Persists via builder/store.ts; offline time is caught up from the saved last_tick on boot.
 
 import { useSyncExternalStore } from "react";
-import { ATTRACTION_SUSTAIN_SEC, DRIP_PER_MINUTE, MATERIALS, OBJECTS, getRecipe } from "./catalog";
+import {
+  ATTRACTION_SUSTAIN_SEC,
+  DRIP_PER_MINUTE,
+  MATERIALS,
+  MATERIAL_CAPS,
+  OBJECTS,
+  clampMaterial,
+  getRecipe,
+} from "./catalog";
 import { type EconomyState, type QueueEntry, loadState, saveState } from "./store";
 
 const AUTOSAVE_INTERVAL = 3; // seconds
@@ -75,7 +83,9 @@ class Economy {
       this.materials = { ...STARTER_MATERIALS };
       this.inventory = { ...STARTER_INVENTORY };
     } else {
-      this.materials = { ...state.materials };
+      this.materials = Object.fromEntries(
+        Object.keys(MATERIALS).map((id) => [id, clampMaterial(id, state.materials[id] ?? 0)]),
+      );
       this.inventory = { ...state.inventory };
       this.queue = state.queue.map((entry) => ({ ...entry }));
       this.specialty = { ...state.specialty };
@@ -116,12 +126,25 @@ class Economy {
 
   /** Units per minute: base rate times the placed-specialty multiplier. */
   dripRate(id: string): number {
+    if (this.getMaterial(id) >= (MATERIAL_CAPS[id] ?? 0)) return 0;
     return (DRIP_PER_MINUTE[id] ?? 0) * (this.specialty[id] ?? 1);
   }
 
   canAfford(recipeId: string): boolean {
     const recipe = getRecipe(recipeId);
     if (!recipe) return false;
+    if (MATERIALS[recipe.outputId]) {
+      const pendingOutput = this.queue.reduce((total, entry) => {
+        const pending = getRecipe(entry.recipe_id);
+        return pending?.outputId === recipe.outputId ? total + pending.outputCount : total;
+      }, 0);
+      if (
+        this.getMaterial(recipe.outputId) + pendingOutput + recipe.outputCount >
+        (MATERIAL_CAPS[recipe.outputId] ?? 0)
+      ) {
+        return false;
+      }
+    }
     return Object.entries(recipe.cost).every(([mat, count]) => this.getMaterial(mat) >= count);
   }
 
@@ -214,7 +237,10 @@ class Economy {
     let changed = false;
     for (const id of Object.keys(DRIP_PER_MINUTE)) {
       const before = Math.floor(this.materials[id] ?? 0);
-      this.materials[id] = (this.materials[id] ?? 0) + (this.dripRate(id) * seconds) / 60;
+      this.materials[id] = clampMaterial(
+        id,
+        (this.materials[id] ?? 0) + (this.dripRate(id) * seconds) / 60,
+      );
       if (Math.floor(this.materials[id]) !== before) {
         changed = true;
         this.dirty = true;
@@ -244,7 +270,10 @@ class Economy {
     const recipe = getRecipe(recipeId);
     if (!recipe) return; // recipe removed from Catalog since save — drop silently
     if (MATERIALS[recipe.outputId]) {
-      this.materials[recipe.outputId] = (this.materials[recipe.outputId] ?? 0) + recipe.outputCount;
+      this.materials[recipe.outputId] = clampMaterial(
+        recipe.outputId,
+        (this.materials[recipe.outputId] ?? 0) + recipe.outputCount,
+      );
     } else {
       this.inventory[recipe.outputId] = this.getCount(recipe.outputId) + recipe.outputCount;
     }

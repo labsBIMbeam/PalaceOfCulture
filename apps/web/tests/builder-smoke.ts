@@ -2,10 +2,12 @@
 // Godot-parity smoke test for the ported builder logic (run in Node, storage is a silent no-op).
 import { homeBuild as buildSystem, palaceBuild } from "../src/builder/buildState";
 import {
+  MATERIAL_CAPS,
   OBJECTS,
   POCKETS,
   RECIPES,
   blockIds,
+  clampMaterial,
   formatDuration,
   pocketObjectIds,
   pocketOf,
@@ -29,6 +31,9 @@ assert(
 assert("stool takes 21 days", RECIPES.craft_stool?.seconds === 21 * 86400);
 assert("duration renders 21d", formatDuration(RECIPES.craft_stool?.seconds ?? 0) === "21d");
 assert("fountain attracts", OBJECTS.fountain?.attracts === true);
+assert("every material has a finite cap", Object.values(MATERIAL_CAPS).every(Number.isFinite));
+assert("offline catch-up clamps wood", clampMaterial("wood", 10_000) === MATERIAL_CAPS.wood);
+assert("negative stock clamps to zero", clampMaterial("stone", -1) === 0);
 
 // build modules: windows/doors/roofs are grid blocks with a shape
 assert("window is a shaped block", OBJECTS.block_window?.shape === "window");
@@ -100,10 +105,13 @@ buildSystem.placeDecor("sawbench", [4, 0, 4], 0);
 assert("wood drip x1.5", Math.abs(economy.dripRate("wood") - 0.015 * 1.5) < 1e-9);
 
 // craft queue consumes materials up-front
+assert("first bounded board batch queues", economy.queueCraft("mill_boards") === true);
+assert("second bounded board batch queues", economy.queueCraft("mill_boards") === true);
+assert("pending output reserves the board cap", economy.canAfford("mill_boards") === false);
 assert("can afford stone blocks", economy.canAfford("craft_block_stone") === true);
 assert("queue craft", economy.queueCraft("craft_block_stone") === true);
 assert("stone paid", economy.getMaterial("stone") === 31);
-assert("queue length 1", economy.getQueue().length === 1);
+assert("queue length 3", economy.getQueue().length === 3);
 
 // serialization roundtrip (godot contract shape)
 const data = buildSystem.toData();
