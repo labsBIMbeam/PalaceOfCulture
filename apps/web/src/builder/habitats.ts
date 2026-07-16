@@ -310,7 +310,8 @@ export const HABITATS: Record<HabitatId, HabitatDef> = {
     commissioningJob: "bake_first_loaf",
     grants: ["baking", "hospitality"],
     attractsRole: "Baker",
-    realWorldOutcome: "Grain is milled, dough is prepared, and a repeatable loaf is baked and served.",
+    realWorldOutcome:
+      "Grain is milled, dough is prepared, and a repeatable loaf is baked and served.",
   },
   forge: {
     display: "Street Forge",
@@ -349,7 +350,13 @@ export const HABITATS: Record<HabitatId, HabitatDef> = {
     display: "Mycelium Relay Hut",
     stage: 4,
     description: "A cozy mushroom landmark whose infrastructure teaches sovereign communication.",
-    requiresItems: { relay_mast: 1, node_terminal: 1, cable_spool: 2, archive_shelf: 1, lantern: 1 },
+    requiresItems: {
+      relay_mast: 1,
+      node_terminal: 1,
+      cable_spool: 2,
+      archive_shelf: 1,
+      lantern: 1,
+    },
     requiresCapabilities: ["energy", "metalwork", "community"],
     commissioningJob: "publish_first_note",
     grants: ["network"],
@@ -359,13 +366,15 @@ export const HABITATS: Record<HabitatId, HabitatDef> = {
   civic_workshop: {
     display: "Civic Workshop",
     stage: 5,
-    description: "All production chains meet at a public table where the next district is designed.",
+    description:
+      "All production chains meet at a public table where the next district is designed.",
     requiresItems: { workbench: 2, archive_shelf: 2, notice_board: 1, meeting_table: 1, seat: 6 },
     requiresCapabilities: ["baking", "woodwork", "metalwork", "energy", "network", "community"],
     commissioningJob: "ratify_first_blueprint",
     grants: ["civic_building"],
     attractsRole: "Coordinator",
-    realWorldOutcome: "The settlement can review, sign, and execute a shared construction blueprint.",
+    realWorldOutcome:
+      "The settlement can review, sign, and execute a shared construction blueprint.",
   },
 };
 
@@ -403,13 +412,15 @@ export function resolveCapabilities(completedHabitats: readonly HabitatId[]): Se
 export function evaluateHabitat(id: HabitatId, state: HabitatWorldState): HabitatEvaluation {
   const def = HABITATS[id];
   const capabilities = resolveCapabilities(state.completedHabitats);
-  const missingItems = (Object.entries(def.requiresItems) as Array<[HabitatItemId, number]>).flatMap(
-    ([itemId, need]) => {
-      const have = state.itemCounts[itemId] ?? 0;
-      return have >= need ? [] : [{ itemId, need, have }];
-    },
+  const missingItems = (
+    Object.entries(def.requiresItems) as Array<[HabitatItemId, number]>
+  ).flatMap(([itemId, need]) => {
+    const have = state.itemCounts[itemId] ?? 0;
+    return have >= need ? [] : [{ itemId, need, have }];
+  });
+  const missingCapabilities = def.requiresCapabilities.filter(
+    (capability) => !capabilities.has(capability),
   );
-  const missingCapabilities = def.requiresCapabilities.filter((capability) => !capabilities.has(capability));
   const commissioningComplete = state.commissionedJobs.includes(def.commissioningJob);
   const alreadyCompleted = state.completedHabitats.includes(id);
   const bundleComplete = missingItems.length === 0;
@@ -447,18 +458,23 @@ export function validateHabitatGraph(): string[] {
     }
     if (seen.has(id)) errors.push(`duplicate habitat order entry: ${id}`);
     seen.add(id);
-    if (def.stage < previousStage) errors.push(`${id}: stage ${def.stage} decreases after ${previousStage}`);
+    if (def.stage < previousStage)
+      errors.push(`${id}: stage ${def.stage} decreases after ${previousStage}`);
     previousStage = def.stage;
     if (commissioningJobs.has(def.commissioningJob)) {
       errors.push(`${id}: duplicate commissioning job ${def.commissioningJob}`);
     }
     commissioningJobs.add(def.commissioningJob);
-    for (const [itemId, count] of Object.entries(def.requiresItems) as Array<[HabitatItemId, number]>) {
+    for (const [itemId, count] of Object.entries(def.requiresItems) as Array<
+      [HabitatItemId, number]
+    >) {
       if (!HABITAT_ITEMS[itemId]) errors.push(`${id}: unknown item ${itemId}`);
-      if (!Number.isInteger(count) || count <= 0) errors.push(`${id}: ${itemId} requires invalid count ${count}`);
+      if (!Number.isInteger(count) || count <= 0)
+        errors.push(`${id}: ${itemId} requires invalid count ${count}`);
     }
     for (const capability of def.requiresCapabilities) {
-      if (!produced.has(capability)) errors.push(`${id}: capability ${capability} has no earlier producer`);
+      if (!produced.has(capability))
+        errors.push(`${id}: capability ${capability} has no earlier producer`);
     }
     for (const capability of def.grants) produced.add(capability);
   }

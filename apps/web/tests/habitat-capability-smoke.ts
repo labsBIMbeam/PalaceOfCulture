@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { OBJECTS } from "../src/builder/catalog";
 import {
+  HABITATS,
   HABITAT_ITEMS,
   HABITAT_ORDER,
-  HABITATS,
   type HabitatItemId,
   type HabitatWorldState,
   completeHabitat,
@@ -29,7 +29,9 @@ const empty: HabitatWorldState = {
 const missingCamp = evaluateHabitat("hearth_camp", empty);
 assert.equal(missingCamp.bundleComplete, false);
 assert.equal(missingCamp.missingCapabilities.length, 0);
-assert.ok(missingCamp.missingItems.some((item) => item.itemId === "shelter_block" && item.need === 9));
+assert.ok(
+  missingCamp.missingItems.some((item) => item.itemId === "shelter_block" && item.need === 9),
+);
 
 const campReady: HabitatWorldState = {
   ...empty,
@@ -66,7 +68,11 @@ const lumberWithoutCamp = evaluateHabitat("lumber_yard", {
 });
 assert.equal(lumberWithoutCamp.bundleComplete, true);
 assert.deepEqual(lumberWithoutCamp.missingCapabilities.sort(), ["basic_fabrication", "shelter"]);
-assert.equal(lumberWithoutCamp.unlockable, false, "objects alone do not bypass prerequisite knowledge");
+assert.equal(
+  lumberWithoutCamp.unlockable,
+  false,
+  "objects alone do not bypass prerequisite knowledge",
+);
 
 // Stage 1 is a real branch: Water Garden and Lumber Yard work in either order after Hearth Camp.
 const stageOneItems: HabitatWorldState["itemCounts"] = {
@@ -107,7 +113,11 @@ const allItems = Object.fromEntries(
   (Object.keys(HABITAT_ITEMS) as HabitatItemId[]).map((itemId) => [itemId, 99]),
 ) as Record<HabitatItemId, number>;
 const allJobs = HABITAT_ORDER.map((id) => HABITATS[id].commissioningJob);
-let world: HabitatWorldState = { itemCounts: allItems, commissionedJobs: allJobs, completedHabitats: [] };
+let world: HabitatWorldState = {
+  itemCounts: allItems,
+  commissionedJobs: allJobs,
+  completedHabitats: [],
+};
 for (const habitatId of HABITAT_ORDER) {
   const evaluation = evaluateHabitat(habitatId, world);
   assert.equal(evaluation.unlockable, true, `${habitatId} unlocks in graph order`);
