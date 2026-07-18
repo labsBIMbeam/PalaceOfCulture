@@ -91,8 +91,9 @@ godot4 --headless --path godot --export-release "Windows Steam"
 godot/dist/linux/MeaningverseOfCulture.x86_64 --headless -- --smoke
 godot/dist/linux/MeaningverseOfCulture.x86_64 --headless -- --moc-route-smoke
 
-# Native Kerni/world-agent visual QA
+# Native Kerni/world-agent and longest intro-card visual QA
 godot4 --path godot -- --moc-kerni-capture
+godot4 --path godot -- --moc-intro-capture
 ```
 
 Godot export templates were downloaded from the official 4.7.1 release URL. The downloaded TPZ
@@ -102,6 +103,7 @@ claimed.
 
 ## Human playtest checklist
 
+- [ ] Watch or skip the 15-second video; advance Bite → Kaiserwarte → Locktard Street; confirm Kerni is revealed as the raccoon.
 - [ ] Fresh start with `--moc-fresh`; reach the workshop from the Palace spawn.
 - [ ] Read every Calling marker at normal third-person distance.
 - [ ] Create and visibly place slot 25 in under ten minutes without instructions from the tester.

@@ -14,7 +14,7 @@ REQUEST_KEYS = frozenset({"request_id", "phase", "allowed_templates"})
 RESPONSE_KEYS = frozenset({"authority", "phase", "request_id", "template_id"})
 REQUEST_ID_RE = re.compile(r"^kerni-[0-9]+-[0-9]+$")
 PHASE_TEMPLATES: dict[int, tuple[str, str]] = {
-    0: ("welcome", "least_dangerous_opinion"),
+    0: ("welcome", "raccoon_reveal"),
     1: ("observe_calling", "no_correct_class"),
     2: ("suggest_small_start", "anti_masterpiece"),
     3: ("place_choice", "draft_not_destiny"),

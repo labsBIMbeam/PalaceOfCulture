@@ -38,6 +38,9 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--moc-kerni-capture"):
 		_run_moc_kerni_capture()
 		return
+	if OS.get_cmdline_user_args().has("--moc-intro-capture"):
+		_run_moc_intro_capture()
+		return
 	if OS.get_cmdline_user_args().has("--moc-capture"):
 		_run_moc_capture()
 		return
@@ -109,6 +112,13 @@ func _run_smoke() -> void:
 func _run_moc_release() -> void:
 	if DisplayServer.get_name() != "headless":
 		get_window().min_size = Vector2i(960, 540)
+		if not OS.get_cmdline_user_args().has("--moc-skip-intro"):
+			_intro = IntroScreenScript.new()
+			add_child(_intro)
+			_intro.open()
+			await _intro.intro_done
+			_intro.queue_free()
+			_intro = null
 	Game.goto_palace()
 	_world = PalaceWorldScript.new()
 	add_child(_world)
@@ -160,6 +170,26 @@ func _run_moc_kerni_capture() -> void:
 	print("KERNI_CAPTURE path=%s size=%dx%d error=%d avg_fps=%.1f authority=%s" % [
 		output, image.get_width(), image.get_height(), error, 100.0 / maxf(frame_seconds, 0.001),
 		String(demo.world_agent.last_proposal.get("authority", "missing")),
+	])
+	get_tree().quit(0 if error == OK else 1)
+
+
+## Deterministic native-render QA for the longest canonical intro card.
+func _run_moc_intro_capture() -> void:
+	get_window().size = Vector2i(1280, 720)
+	_intro = IntroScreenScript.new()
+	add_child(_intro)
+	_intro.open()
+	_intro._show_cards()
+	_intro._card_index = _intro.STORY_CARDS.size() - 1
+	_intro._render_card()
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var output := ProjectSettings.globalize_path("user://moc_intro_story_capture.png")
+	var error := image.save_png(output)
+	print("MOC_INTRO_CAPTURE path=%s size=%dx%d error=%d card=%d" % [
+		output, image.get_width(), image.get_height(), error, _intro._card_index + 1,
 	])
 	get_tree().quit(0 if error == OK else 1)
 

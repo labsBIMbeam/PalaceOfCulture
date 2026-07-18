@@ -50,6 +50,20 @@ def test_request_requires_exact_phase_capability() -> None:
         KerniTemplateRequest.from_mapping(wrong_templates)
 
 
+def test_raccoon_reveal_is_a_bounded_arrival_template() -> None:
+    assert PHASE_TEMPLATES[0] == ("welcome", "raccoon_reveal")
+    request = KerniTemplateRequest.from_mapping(payload(0))
+
+    class RevealSelector:
+        def select(self, request: KerniTemplateRequest) -> str:
+            assert request.phase == 0
+            return "raccoon_reveal"
+
+    response = resolve_template(request, RevealSelector())
+    assert response.template_id == "raccoon_reveal"
+    assert set(response.to_mapping()) == {"authority", "phase", "request_id", "template_id"}
+
+
 def test_selector_output_is_confined_to_canonical_templates() -> None:
     request = KerniTemplateRequest.from_mapping(payload())
 

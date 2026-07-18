@@ -16,7 +16,7 @@ const ALLOWED_FOCUS := [
 ]
 const ALLOWED_SOURCES := ["offline_policy", "fail_closed_fallback", "external_template"]
 const PHASE_TEMPLATES := {
-	0: ["welcome", "least_dangerous_opinion"],
+	0: ["welcome", "raccoon_reveal"],
 	1: ["observe_calling", "no_correct_class"],
 	2: ["suggest_small_start", "anti_masterpiece"],
 	3: ["place_choice", "draft_not_destiny"],
@@ -121,9 +121,9 @@ func _build(phase: int, request_id: String, source: String, template_id := "") -
 	var line := _line_for_template(phase, template_id) if not template_id.is_empty() else _line_for_phase(phase)
 	if source == "offline_policy" and phase == 0 and _ask_count > 0:
 		line = {
-			"kind": "orientation",
-			"text": "Still no rush. Look around before choosing. I will not turn your attention into a task list.",
-			"focus": "calling_lights",
+			"kind": "acknowledgement",
+			"text": "Yes. The raccoon was me. The bite was less elegant than the invitation. Different shell, same Kerni.",
+			"focus": "Kerni",
 		}
 	return {
 		"kind": String(line.kind),
@@ -153,7 +153,7 @@ func _line_for_phase(phase: int) -> Dictionary:
 func _line_for_template(phase: int, template_id: String) -> Dictionary:
 	match template_id:
 		"welcome": return _line_for_phase(0)
-		"least_dangerous_opinion": return {"kind": "orientation", "text": "I am Kerni: the workshop's least dangerous floating opinion. Ask for context; keep your own steering wheel.", "focus": "Kerni"}
+		"raccoon_reveal": return {"kind": "acknowledgement", "text": "Yes. The raccoon was me. The bite was less elegant than the invitation. Different shell, same Kerni.", "focus": "Kerni"}
 		"observe_calling": return _line_for_phase(1)
 		"no_correct_class": return {"kind": "dialogue", "text": "Four callings. Zero personality tests. Pick the light that bothers you productively.", "focus": "calling_lights"}
 		"suggest_small_start": return _line_for_phase(2)

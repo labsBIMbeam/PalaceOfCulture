@@ -195,6 +195,12 @@ func _check_moc_contract() -> bool:
 	if not _check(loop.phase == phase_before_agent and loop.committed_modules_snapshot().is_empty(),
 			"Kerni world-agent mutated cultural state"):
 		return false
+	var raccoon_reveal := agent.request(loop.snapshot())
+	if not _check(String(raccoon_reveal.text).contains("The raccoon was me") \
+			and String(raccoon_reveal.text).contains("same Kerni") \
+			and loop.phase == phase_before_agent,
+			"asked-only Kerni reveal lost the raccoon identity or mutated state"):
+		return false
 	var oversized := proposal.duplicate(true)
 	oversized["text"] = "x".repeat(241)
 	if not _check(not agent.validate(oversized), "Kerni accepted oversized embodied text"):
@@ -466,6 +472,13 @@ func _check_world_screens() -> bool:
 	var intro: CanvasLayer = load("res://scripts/ui/intro_screen.gd").new()
 	add_child(intro)
 	await get_tree().process_frame
+	if not _check(intro.STORY_CARDS.size() == 3 \
+			and String(intro.STORY_CARDS[0].caption).contains("raccoon") \
+			and String(intro.STORY_CARDS[1].caption).contains("Kaiserwarte") \
+			and String(intro.STORY_CARDS[2].line).contains("Kerni") \
+			and String(intro.STORY_CARDS[2].line).contains("Locktard Street"),
+			"Godot intro cards lost the canonical story order"):
+		return false
 	var done := [false]
 	intro.intro_done.connect(func() -> void: done[0] = true)
 	intro.open()

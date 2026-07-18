@@ -6,6 +6,7 @@ import {
   buildMeaningverseInvite,
   hasCoCreated,
 } from "../meaningverse/model";
+import { TUTORIAL, tutorialStageFor } from "../meaningverse/onboardingStory";
 import type {
   MultiplayerViewState,
   PalaceMultiplayerTransport,
@@ -41,6 +42,13 @@ export function MeaningPath({
   const [submitError, setSubmitError] = useState("");
   const mine = ownModule(multiplayer);
   const coCreated = hasCoCreated(multiplayer.shipModules, multiplayer.localSessionId);
+  const tutorialStage = tutorialStageFor({
+    connected: multiplayer.status === "connected",
+    label,
+    hasOwnModule: Boolean(mine),
+    inviteCopied,
+    coCreated,
+  });
   const recentModules = useMemo(
     () => [...multiplayer.shipModules].sort((a, b) => b.slot - a.slot).slice(0, 5),
     [multiplayer.shipModules],
@@ -92,6 +100,11 @@ export function MeaningPath({
           ×
         </button>
       </header>
+
+      <p className="moc-objective">
+        <small>{tutorialStage.replace("_", "-")}</small>
+        <strong>{TUTORIAL[tutorialStage].objective}</strong>
+      </p>
 
       <ol aria-label="creation path" className="moc-steps">
         <li className={multiplayer.status === "connected" ? "done" : ""}>Enter</li>
