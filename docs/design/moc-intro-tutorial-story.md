@@ -25,15 +25,15 @@ At the entrance, the raccoon is gone. A small copper lantern body floats where i
 
 ## Runtime intro
 
-The existing 15-second video is decorative and carries only this emotional movement:
+The approved five-second silent video makes the identity beat visible:
 
-`screen-city → quiet coast and tree → shared library → Palace reveal`
+`Kerni as raccoon at Kaiserwarte → restrained copper-particle shift → Kerni's lantern body above Locktard Street`
 
-It does not depict the raccoon, Kaiserwarte, or Locktard Street. Those facts live in three standalone cards after the video. If the video fails, the cards still appear. Skip exits the intro at any point.
+The generated video is supportive imagery, not the sole carrier of canon: its two approved keyframes guided Grok rather than binding exact endpoints. The three standalone cards still state the raccoon, Kaiserwarte, and Locktard Street facts. If the video fails, the cards still appear. Skip exits the intro at any point.
 
 | Beat | Kicker | Caption | Line |
 |---|---|---|---|
-| Video | — | no overlay claim | mood only |
+| Video | — | no overlay claim | visual identity beat; cards remain authoritative |
 | Bite | `BEFORE` | `A raccoon bit you. You don't remember agreeing to this.` | `Rude. Effective.` |
 | Wake | `MORNING` | `You wake somewhere high and quiet. A sign says Kaiserwarte. Probably.` | `Nobody official has named it yet.` |
 | Street | `DOWNHILL` | `Below: lamps, and a spaceship nobody finished on purpose.` | `The raccoon is gone. A copper lantern floats where it stood. Kerni, apparently. Welcome to Locktard Street: thirty-six sockets, no owner.` |

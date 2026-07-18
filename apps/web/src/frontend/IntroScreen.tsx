@@ -9,32 +9,14 @@ import { Icon } from "./icons";
 export function IntroScreen({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cardRef = useRef<HTMLButtonElement | null>(null);
-  const [muted, setMuted] = useState(false);
   const [showCards, setShowCards] = useState(false);
   const [cardIndex, setCardIndex] = useState(0);
-
-  // Try to start with sound. If the browser blocks unmuted autoplay, the click-to-play below covers it.
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = muted;
-    video.play().catch(() => {});
-  }, [muted]);
 
   useEffect(() => {
     if (showCards) cardRef.current?.focus();
   }, [showCards]);
 
-  const toggleSound = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const next = !muted;
-    video.muted = next;
-    if (!next) video.play().catch(() => {});
-    setMuted(next);
-  };
-
-  // Fallback: if a browser blocks autoplay, clicking the video starts it (with sound).
+  // Fallback: if a browser blocks autoplay, clicking the silent video starts it.
   const resume = () => videoRef.current?.play().catch(() => {});
 
   const openCards = () => {
@@ -72,12 +54,12 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
           <b>{cardIndex === INTRO_CARDS.length - 1 ? "Walk in" : "Continue"}</b>
         </button>
       ) : (
-        // biome-ignore lint/a11y/useKeyWithClickEvents: Skip/Sound buttons are the keyboard path
+        // biome-ignore lint/a11y/useKeyWithClickEvents: the Skip button is the keyboard path
         <video
-          aria-label="Intro video: noise, then quiet, then a first look at the Palace. Skip to continue."
+          aria-label="Intro video: Kerni changes from raccoon to copper lantern above Locktard Street. Skip to continue."
           autoPlay
           className="intro-video"
-          muted={muted}
+          muted
           onClick={resume}
           onEnded={openCards}
           onError={openCards}
@@ -88,11 +70,6 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
         />
       )}
       <div className="intro-controls">
-        {!showCards ? (
-          <button className="intro-button" onClick={toggleSound} type="button">
-            {muted ? "Sound on" : "Mute"}
-          </button>
-        ) : null}
         <button className="intro-button" onClick={onComplete} type="button">
           Skip
           <Icon name="play" size={14} />

@@ -103,7 +103,7 @@ claimed.
 
 ## Human playtest checklist
 
-- [ ] Watch or skip the 15-second video; advance Bite → Kaiserwarte → Locktard Street; confirm Kerni is revealed as the raccoon.
+- [ ] Watch or skip the five-second silent raccoon→Kerni video; advance Bite → Kaiserwarte → Locktard Street; confirm Kerni is revealed as the raccoon.
 - [ ] Fresh start with `--moc-fresh`; reach the workshop from the Palace spawn.
 - [ ] Read every Calling marker at normal third-person distance.
 - [ ] Create and visibly place slot 25 in under ten minutes without instructions from the tester.

@@ -32,7 +32,7 @@ nur die Podcast-Suche im Media-Player bleibt dann tot.
 
 ## 2. Das eigentliche Hosting-Problem: die Assets (1,1 GB)
 
-- `apps/web/public` ist **1,1 GB**, davon **996 MB Avatare** (`public/avatar/`), 24 MB `intro.mp4`.
+- `apps/web/public` ist primär wegen der Avatar-Rohpakete groß: **996 MB Avatare** (`public/avatar/`). Das stumme Runtime-`intro.mp4` ist auf ca. **3,3 MB** reduziert.
 - `public/avatar/` und `public/feeds/` sind **`.gitignore`-d** → nur 11 Dateien aus `public/`
   liegen im Git. Die Avatar-Packs (CC0 Quaternius/VRM/FBX) werden lokal „reingedroppt", nicht
   committet.
