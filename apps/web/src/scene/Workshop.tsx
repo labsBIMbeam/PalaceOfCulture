@@ -22,6 +22,14 @@ export const WORKSHOP_CENTRE: [number, number] = [-35, 88];
 /** The forge chimney — the yard's dominant vertical (shared with its collider + the smoke). */
 export const FORGE_CHIMNEY: [number, number] = [-39.5, 86];
 
+/** The Tuesday demo's first physical production chain, kept as authored layout data so the board,
+ * staged input and manual station remain one readable cluster. */
+export const WORK_ORDER_CORNER = [
+  { role: "board", pos: [-27, 0, 83], rotY: -0.35 },
+  { role: "input", pos: [-29, 0, 81], rotY: 0.25 },
+  { role: "manual", pos: [-31, 0, 79], rotY: 0.6 },
+] as const;
+
 export type StationSpec = {
   pos: [number, number, number];
   rotY: number;
@@ -46,11 +54,100 @@ export function workshopSolids(): SolidSpec[] {
     { pos: [FORGE_CHIMNEY[0], 3.25, FORGE_CHIMNEY[1]], half: [0.85, 3.25, 0.85] },
     // the log pile behind the carpenter
     { pos: [-41, 0.5, 94], half: [0.6, 0.5, 1.4] },
+    // the work-order corner: board posts + the reclaimed-timber input rack
+    {
+      pos: [WORK_ORDER_CORNER[0].pos[0], 1.25, WORK_ORDER_CORNER[0].pos[2]],
+      half: [1.7, 1.25, 0.18],
+      rotY: WORK_ORDER_CORNER[0].rotY,
+    },
+    {
+      pos: [WORK_ORDER_CORNER[1].pos[0], 0.45, WORK_ORDER_CORNER[1].pos[2]],
+      half: [1.55, 0.45, 0.75],
+      rotY: WORK_ORDER_CORNER[1].rotY,
+    },
   ];
   for (const s of STATIONS) {
     out.push({ pos: [s.pos[0], 0.55, s.pos[2]], half: [1.3, 0.55, 0.7], rotY: s.rotY });
   }
   return out;
+}
+
+function workOrderTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 768;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  const texture = new THREE.CanvasTexture(canvas);
+  if (!ctx) return texture;
+
+  ctx.fillStyle = "#ead8ae";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#5f3b25";
+  ctx.lineWidth = 22;
+  ctx.strokeRect(18, 18, canvas.width - 36, canvas.height - 36);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#39251c";
+  ctx.font = "700 50px system-ui, sans-serif";
+  ctx.fillText("COMMUNAL BAKERY", 384, 94);
+  ctx.fillStyle = "#a64b32";
+  ctx.font = "800 62px system-ui, sans-serif";
+  ctx.fillText("REPAIR THE COUNTER", 384, 178);
+  ctx.fillStyle = "#39251c";
+  ctx.font = "600 39px system-ui, sans-serif";
+  ctx.fillText("RECLAIMED WOOD  →  CUT  →  FIT", 384, 260);
+  ctx.fillStyle = "#237365";
+  ctx.fillRect(74, 310, 620, 96);
+  ctx.fillStyle = "#fff4d6";
+  ctx.font = "800 54px system-ui, sans-serif";
+  ctx.fillText("PUBLIC TARGET   0 / 3", 384, 377);
+  ctx.fillStyle = "#5f3b25";
+  ctx.font = "600 28px system-ui, sans-serif";
+  ctx.fillText("FIRST: LEARN BY HAND", 384, 463);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+/** A street-level promise rather than a menu: finite target, input bundle, and the manual first
+ * step are all visible together from the workshop approach. */
+function WorkOrderCorner() {
+  const texture = useMemo(workOrderTexture, []);
+  return (
+    <group>
+      <group position={WORK_ORDER_CORNER[0].pos} rotation-y={WORK_ORDER_CORNER[0].rotY}>
+        {[-1.35, 1.35].map((x) => (
+          <mesh castShadow key={x} position={[x, 1.2, 0]}>
+            <cylinderGeometry args={[0.09, 0.12, 2.4, 8]} />
+            <meshStandardMaterial color="#49301f" roughness={1} />
+          </mesh>
+        ))}
+        <mesh castShadow position={[0, 2.05, 0.02]}>
+          <boxGeometry args={[3.5, 1.75, 0.16]} />
+          <meshStandardMaterial color="#5f3b25" roughness={1} />
+        </mesh>
+        <mesh position={[0, 2.05, 0.115]}>
+          <planeGeometry args={[3.22, 1.48]} />
+          <meshStandardMaterial map={texture} roughness={0.9} />
+        </mesh>
+      </group>
+      <group position={WORK_ORDER_CORNER[1].pos} rotation-y={WORK_ORDER_CORNER[1].rotY}>
+        <mesh castShadow position={[0, 0.16, 0]} receiveShadow>
+          <boxGeometry args={[3.1, 0.18, 1.35]} />
+          <meshStandardMaterial color="#59402a" roughness={1} />
+        </mesh>
+        {[-0.9, 0, 0.9].map((x, i) => (
+          <mesh castShadow key={x} position={[x, 0.48 + i * 0.06, 0]} rotation-z={Math.PI / 2}>
+            <cylinderGeometry args={[0.18, 0.23, 2.3, 8]} />
+            <meshStandardMaterial color={i === 1 ? "#9a6a3d" : "#745033"} roughness={1} />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.04, 0.8]} rotation-x={-Math.PI / 2}>
+          <planeGeometry args={[3.3, 0.42]} />
+          <meshStandardMaterial color="#237365" emissive="#12443c" emissiveIntensity={0.35} />
+        </mesh>
+      </group>
+    </group>
+  );
 }
 
 /** A jury-rigged build terminal on a crate: the street's sparse cypherpunk accent — a patched-on
@@ -291,6 +388,7 @@ function Forge() {
 export function Workshop() {
   return (
     <group>
+      <WorkOrderCorner />
       <Suspense fallback={null}>
         {STATIONS.map((s) => (
           <Station key={s.kind + s.pos.join(",")} {...s} />

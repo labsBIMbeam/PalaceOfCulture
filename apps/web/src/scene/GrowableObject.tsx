@@ -14,6 +14,7 @@ export function GrowableObject({
   progress,
   fitHeight,
   lift = 0,
+  visibleParts,
 }: {
   glbUrl: string;
   manifestUrl: string;
@@ -22,12 +23,16 @@ export function GrowableObject({
   fitHeight: number;
   /** Extra y-offset for the seated base (e.g. onto a plinth). */
   lift?: number;
+  /** Exact manifest-node count for contributor assembly; overrides time-based progress when set. */
+  visibleParts?: number;
 }) {
   const [growable, setGrowable] = useState<Growable | null>(null);
   const [fit, setFit] = useState<{ scale: number; posY: number } | null>(null);
-  const target = useRef(progress);
-  target.current = progress;
-  const lastApplied = useRef(-1);
+  const growthTarget = useRef(progress);
+  growthTarget.current = progress;
+  const partsTarget = useRef(visibleParts);
+  partsTarget.current = visibleParts;
+  const lastApplied = useRef("");
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: load once per asset; progress is read via ref each frame
   useEffect(() => {
@@ -45,8 +50,14 @@ export function GrowableObject({
       const box = new Box3().setFromObject(g.root);
       const height = box.max.y - box.min.y || 1;
       const scale = fitHeight / height;
-      g.setGrowth(target.current);
-      lastApplied.current = target.current;
+      const initialParts = partsTarget.current;
+      if (initialParts === undefined) {
+        g.setGrowth(growthTarget.current);
+        lastApplied.current = `growth:${growthTarget.current}`;
+      } else {
+        g.setVisibleParts(initialParts);
+        lastApplied.current = `parts:${initialParts}`;
+      }
       setFit({ scale, posY: lift - box.min.y * scale });
       setGrowable(g);
     });
@@ -58,10 +69,13 @@ export function GrowableObject({
 
   useFrame(() => {
     if (!growable) return;
-    if (Math.abs(target.current - lastApplied.current) > 0.0005) {
-      growable.setGrowth(target.current);
-      lastApplied.current = target.current;
-    }
+    const nextParts = partsTarget.current;
+    const nextKey =
+      nextParts === undefined ? `growth:${growthTarget.current}` : `parts:${Math.floor(nextParts)}`;
+    if (nextKey === lastApplied.current) return;
+    if (nextParts === undefined) growable.setGrowth(growthTarget.current);
+    else growable.setVisibleParts(nextParts);
+    lastApplied.current = nextKey;
   });
 
   if (!growable || !fit) return null;

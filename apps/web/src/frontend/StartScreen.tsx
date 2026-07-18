@@ -1,26 +1,32 @@
 import { Icon } from "./icons";
 
-/**
- * The very first screen — a Start gate before the intro video. Its click is the user gesture that
- * lets the browser play the intro WITH sound (unmuted autoplay is otherwise blocked on a cold load).
- */
-export function StartScreen({ onStart }: { onStart: () => void }) {
+/** First user gesture: normal visits may continue to the intro; invitations go straight to creation. */
+export function StartScreen({
+  onStart,
+  joining = false,
+}: { onStart: () => void; joining?: boolean }) {
   return (
     <main className="game-screen screen--title start-screen">
       <section className="start-card">
         <span className="start-mark">
           <Icon name="sprout" size={40} />
         </span>
-        <h1>600 Billion</h1>
-        <p>Locktard Street</p>
-        <small className="start-teaser">Palace of Culture · released soon · date TBA</small>
+        <small className="start-teaser">Meaningverse of Culture · x600billion</small>
+        <h1>
+          {joining ? "Someone invited you to the ship." : "Build the spaceship. Nothing less."}
+        </h1>
+        <p>
+          {joining
+            ? "Bring one idea. Weird is allowed."
+            : "Create one part, place it live, then bring someone who changes it."}
+        </p>
         <button
           className="coral-button coral-button--hero start-button"
           onClick={onStart}
           type="button"
         >
           <Icon name="play" size={20} />
-          Start
+          {joining ? "Join the workshop" : "Enter MoC"}
         </button>
       </section>
     </main>

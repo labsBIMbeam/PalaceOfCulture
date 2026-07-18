@@ -5162,3 +5162,272 @@ input.compose-input::placeholder {
     font-size: 24px;
   }
 }
+
+/* Meaningverse of Culture — youth-first creation path inside the 3D workshop. */
+.moc-path,
+.moc-path-tab {
+  position: fixed;
+  z-index: 20;
+  left: 18px;
+  bottom: 18px;
+  color: #f4f7ff;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+.moc-path {
+  width: min(370px, calc(100vw - 36px));
+  max-height: min(690px, calc(100vh - 112px));
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(98, 218, 255, 0.46);
+  border-radius: 18px;
+  background: linear-gradient(155deg, rgba(10, 12, 25, 0.96), rgba(20, 13, 35, 0.94));
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.52), inset 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.moc-path button,
+.moc-path input,
+.moc-path-tab {
+  font: inherit;
+}
+
+.moc-path button {
+  cursor: pointer;
+}
+
+.moc-path__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.moc-path__head h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.moc-path__head > button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 22px;
+}
+
+.moc-path__kicker {
+  color: #65dbff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.moc-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  margin: 15px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moc-steps li {
+  padding: 6px 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #8990a8;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.moc-steps li.done {
+  background: rgba(73, 224, 164, 0.17);
+  color: #73f3bf;
+}
+
+.moc-create {
+  display: grid;
+  gap: 9px;
+}
+
+.moc-create label,
+.moc-remixes > span {
+  color: #aeb5cb;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.moc-create input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  outline: 0;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+.moc-create input:focus {
+  border-color: #65dbff;
+  box-shadow: 0 0 0 3px rgba(101, 219, 255, 0.12);
+}
+
+.moc-role-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.moc-role-picker button,
+.moc-remixes button {
+  padding: 7px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #b4bbcf;
+  font-size: 11px;
+}
+
+.moc-role-picker button.active {
+  border-color: #ff62cf;
+  background: rgba(255, 98, 207, 0.16);
+  color: #fff;
+}
+
+.moc-primary {
+  min-height: 42px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(120deg, #ff45c8, #6a66ff 55%, #31c9ed);
+  color: #fff;
+  font-weight: 850;
+}
+
+.moc-primary:disabled {
+  filter: grayscale(0.8);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.moc-error {
+  margin: 0;
+  color: #ff879c;
+  font-size: 12px;
+}
+
+.moc-own-module {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border-radius: 12px;
+  background: rgba(70, 229, 171, 0.09);
+}
+
+.moc-own-module span {
+  color: #72efbd;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.moc-own-module p {
+  margin: 0;
+  color: #acb5c9;
+  font-size: 12px;
+}
+
+.moc-remixes {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.moc-remixes > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.moc-remixes p {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+}
+
+.moc-remixes p small {
+  overflow: hidden;
+  color: #8089a4;
+  text-overflow: ellipsis;
+}
+
+.moc-path footer {
+  margin-top: 12px;
+  color: #79829e;
+  font-size: 10px;
+  text-align: right;
+}
+
+.moc-path-tab {
+  padding: 10px 14px;
+  border: 1px solid rgba(98, 218, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(10, 12, 25, 0.9);
+}
+
+.moc-ship-label {
+  min-width: 150px;
+  padding: 8px 12px;
+  border: 1px solid rgba(99, 216, 255, 0.6);
+  border-radius: 9px;
+  background: rgba(8, 10, 24, 0.88);
+  color: white;
+  text-align: center;
+  pointer-events: none;
+}
+
+.moc-ship-label strong,
+.moc-ship-label span {
+  display: block;
+}
+
+.moc-ship-label span {
+  margin-top: 3px;
+  color: #65dbff;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 680px) {
+  .moc-path {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-height: 54vh;
+    padding: 13px;
+  }
+
+  .moc-path-tab {
+    bottom: 10px;
+    left: 10px;
+  }
+
+  .moc-path__head h2 {
+    font-size: 18px;
+  }
+}

@@ -76,7 +76,7 @@ func _apply_active() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if Game.typing:  # chat owns the keyboard/mouse
+	if Game.world_input_blocked():
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_pivot.rotation.y -= event.relative.x * MOUSE_SENSITIVITY
@@ -86,9 +86,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if Game.typing:
-		# Chat owns the keyboard (Input.is_action_* polls global state, so GUI
-		# focus alone does not stop it): keep falling, drop all steering.
+	if Game.world_input_blocked():
+		# UI owns global input polling: keep falling, drop steering and jump.
 		if not is_on_floor():
 			velocity.y -= GRAVITY * delta
 		velocity.x = 0.0

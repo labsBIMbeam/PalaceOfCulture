@@ -7,13 +7,14 @@ const BuildSystemScript := preload("res://scripts/build_system.gd")
 const PlayerScript := preload("res://scripts/player.gd")
 const MagnetScript := preload("res://scripts/magnet_controller.gd")
 const TreeAssetScript := preload("res://scripts/scene_assets/tree_asset.gd")
-const SpaceshipAssetScript := preload("res://scripts/scene_assets/spaceship_asset.gd")
+const MocDemoScript := preload("res://scripts/moc/moc_demo.gd")
 
 const PALACE_SCENE_PATH := "res://assets/palace.glb"
 const FLOOR_SIZE := 600.0
 
 var build_system: BuildSystemScript
 var magnet: MagnetScript
+var moc_demo: MocDemo
 
 var _player: CharacterBody3D
 
@@ -35,6 +36,8 @@ func _ready() -> void:
 	_player = PlayerScript.new()
 	_player.position = Vector3(6, 2, 44)
 	add_child(_player)
+	if moc_demo != null:
+		moc_demo.attach_player(_player)
 
 	magnet = MagnetScript.new()
 	magnet.position = Vector3(6, 8, 44)
@@ -138,61 +141,11 @@ func _add_landmarks() -> void:
 		shrub.material_override = Catalog.make_material(shrub_spot[2])
 		garden.add_child(shrub)
 
-	# --- Raketenbauplatz at (30, 0, 62): dark pad, the Spaceship, gold scaffold ---
-	var pad := Node3D.new()
-	pad.name = "Raketenbauplatz"
-	pad.position = Vector3(30, 0, 62)
-	add_child(pad)
-	pad.add_child(_disc(7.0, 0.2, Color("6e6e73")))
-	var ship: Node3D = SpaceshipAssetScript.new()
-	ship.scale_factor = 2.2
-	ship.position = Vector3(0, 0.2, 0)
-	pad.add_child(ship)
-	var strut_mat := Catalog.make_material(Color("e7b23c"))
-	for corner: Vector2 in [
-		Vector2(3.2, 3.2), Vector2(-3.2, 3.2), Vector2(3.2, -3.2), Vector2(-3.2, -3.2),
-	]:
-		var upright := MeshInstance3D.new()
-		var upright_mesh := BoxMesh.new()
-		upright_mesh.size = Vector3(0.15, 8.0, 0.15)
-		upright.mesh = upright_mesh
-		upright.position = Vector3(corner.x, 4.0, corner.y)
-		upright.material_override = strut_mat
-		pad.add_child(upright)
-	for rail_y: float in [3.0, 6.5]:
-		for side: int in 4:
-			var rail := MeshInstance3D.new()
-			var rail_mesh := BoxMesh.new()
-			rail_mesh.size = Vector3(6.4, 0.12, 0.12)
-			rail.mesh = rail_mesh
-			rail.rotation = Vector3(0, PI / 2.0 * side, 0)
-			rail.position = Vector3(0, rail_y, 0) \
-				+ rail.basis * Vector3(0, 0, 3.2)
-			rail.material_override = strut_mat
-			pad.add_child(rail)
-	# Coral warning light on a pole — "under construction", comic never grim.
-	var pole := MeshInstance3D.new()
-	var pole_mesh := CylinderMesh.new()
-	pole_mesh.top_radius = 0.06
-	pole_mesh.bottom_radius = 0.06
-	pole_mesh.height = 2.2
-	pole.mesh = pole_mesh
-	pole.position = Vector3(5.2, 1.1, 4.2)
-	pole.material_override = Catalog.make_material(Color("3a3a40"))
-	pad.add_child(pole)
-	var lamp := MeshInstance3D.new()
-	var lamp_mesh := SphereMesh.new()
-	lamp_mesh.radius = 0.22
-	lamp_mesh.height = 0.44
-	lamp.mesh = lamp_mesh
-	lamp.position = Vector3(5.2, 2.35, 4.2)
-	var lamp_mat := StandardMaterial3D.new()
-	lamp_mat.albedo_color = Color("e8704f")
-	lamp_mat.emission_enabled = true
-	lamp_mat.emission = Color("f08a55")
-	lamp_mat.emission_energy_multiplier = 1.2
-	lamp.material_override = lamp_mat
-	pad.add_child(lamp)
+	# --- Meaningverse workshop at (30, 0, 62): the complete 21-minute vertical slice. ---
+	moc_demo = MocDemoScript.new()
+	moc_demo.name = "Raketenbauplatz"  # stable landmark contract for saves/tests
+	moc_demo.position = Vector3(30, 0, 62)
+	add_child(moc_demo)
 
 
 func _disc(radius: float, height: float, color: Color) -> MeshInstance3D:
@@ -210,19 +163,20 @@ func _disc(radius: float, height: float, color: Color) -> MeshInstance3D:
 func _add_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Catalog.COLOR_CREAM
+	env.background_color = Color("050714")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Catalog.COLOR_CREAM
-	env.ambient_light_energy = 0.7
+	env.ambient_light_color = Color("43547d")
+	env.ambient_light_energy = 0.42
 	env.fog_enabled = true
-	env.fog_light_color = Catalog.COLOR_CREAM
-	env.fog_density = 0.004
+	env.fog_light_color = Color("101a35")
+	env.fog_density = 0.007
 	var world_env := WorldEnvironment.new()
 	world_env.environment = env
 	add_child(world_env)
 
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-50, -30, 0)
+	light.light_color = Color("ffbf8a")
 	light.shadow_enabled = true
-	light.light_energy = 1.1
+	light.light_energy = 1.35
 	add_child(light)

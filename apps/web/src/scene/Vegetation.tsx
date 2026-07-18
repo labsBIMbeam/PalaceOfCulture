@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { FENCE, GATE_X } from "./Enclosure";
 import { GlbModel } from "./GlbModel";
 import { PLAZA_CENTRE, PLAZA_RADIUS, plazaRing } from "./Plaza";
-import { WORKSHOP_CENTRE } from "./Workshop";
+import { WORKSHOP_CENTRE, WORK_ORDER_CORNER } from "./Workshop";
 import { mulberry32 } from "./rand";
 
 // The ring buildings + workshop yard, precomputed once — scatter must not grow through floors.
@@ -28,6 +28,9 @@ function blocked(x: number, z: number): boolean {
     if (Math.hypot(x - b.pos[0], z - b.pos[2]) < 8.5) return true; // inside a ring building
   }
   if (Math.hypot(x - WORKSHOP_CENTRE[0], z - WORKSHOP_CENTRE[1]) < 9) return true; // workshop yard
+  for (const w of WORK_ORDER_CORNER) {
+    if (Math.hypot(x - w.pos[0], z - w.pos[2]) < 3.5) return true; // the yard's work-order corner
+  }
   return false;
 }
 

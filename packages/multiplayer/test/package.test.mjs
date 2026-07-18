@@ -9,8 +9,10 @@ import {
   PALACE_SPAWN,
   PalaceRoomState,
   PlayerPresenceState,
+  ShipModuleState,
   parseMovementMessage,
   parsePalaceJoinOptions,
+  parsePlaceShipModuleMessage,
   parsePositionCorrection,
 } from "@600b/multiplayer";
 
@@ -20,8 +22,8 @@ function assertInputError(callback) {
   assert.throws(callback, MultiplayerInputError);
 }
 
-test("the public HQ spawn is one immutable shared protocol constant", () => {
-  assert.deepEqual(PALACE_SPAWN, { x: 6, y: 4, z: 44 });
+test("the public Street spawn is one immutable shared protocol constant", () => {
+  assert.deepEqual(PALACE_SPAWN, { x: 0, y: 3, z: 30 });
   assert.equal(Object.isFrozen(PALACE_SPAWN), true);
 });
 
@@ -38,14 +40,24 @@ test("the built ESM package registers schemas that round-trip through schema 4",
   player.connected = false;
   player.connectedAt = 1_725_000_000_000;
   state.players.set("session-1", player);
+  const shipModule = new ShipModuleState();
+  shipModule.id = "module-one";
+  shipModule.slot = 1;
+  shipModule.authorSessionId = "session-1";
+  shipModule.authorHandle = "dni_21";
+  shipModule.label = "Common signal deck";
+  shipModule.role = "signal";
+  shipModule.createdAt = 1_725_000_000_001;
+  state.shipModules.set(shipModule.id, shipModule);
 
   const bytes = new Encoder(state).encodeAll();
   const decoded = new PalaceRoomState();
   new Decoder(decoded).decode(bytes);
   const decodedPlayer = decoded.players.get("session-1");
+  const decodedModule = decoded.shipModules.get("module-one");
 
   assert.equal(decoded.protocolVersion, MULTIPLAYER_PROTOCOL_VERSION);
-  assert.equal(decoded.worldId, "hq");
+  assert.equal(decoded.worldId, "street");
   assert.equal(decoded.players.size, 1);
   assert.ok(decodedPlayer instanceof PlayerPresenceState);
   assert.equal(decodedPlayer.avatarAssetId, "dni");
@@ -57,6 +69,12 @@ test("the built ESM package registers schemas that round-trip through schema 4",
   assert.equal(decodedPlayer.sequence, player.sequence);
   assert.equal(decodedPlayer.connected, false);
   assert.equal(decodedPlayer.connectedAt, player.connectedAt);
+  assert.ok(decodedModule instanceof ShipModuleState);
+  assert.equal(decodedModule.slot, 1);
+  assert.equal(decodedModule.authorSessionId, "session-1");
+  assert.equal(decodedModule.authorHandle, "dni_21");
+  assert.equal(decodedModule.label, "Common signal deck");
+  assert.equal(decodedModule.role, "signal");
 });
 
 test("new player presence starts connected", () => {
@@ -65,31 +83,31 @@ test("new player presence starts connected", () => {
 
 test("join options accept only an exact own-field public-world shape", () => {
   assert.deepEqual(
-    parsePalaceJoinOptions({ avatarAssetId: "dni", handle: "dni_21", worldId: "hq" }),
+    parsePalaceJoinOptions({ avatarAssetId: "dni", handle: "dni_21", worldId: "street" }),
     {
       avatarAssetId: "dni",
       handle: "dni_21",
-      worldId: "hq",
+      worldId: "street",
     },
   );
   assert.deepEqual(
-    parsePalaceJoinOptions({ avatarAssetId: "placeholder", handle: "a", worldId: "hq" }),
+    parsePalaceJoinOptions({ avatarAssetId: "placeholder", handle: "a", worldId: "street" }),
     {
       avatarAssetId: "placeholder",
       handle: "a",
-      worldId: "hq",
+      worldId: "street",
     },
   );
   assert.deepEqual(
     parsePalaceJoinOptions({
       avatarAssetId: "a".repeat(32),
       handle: "a".repeat(24),
-      worldId: "hq",
+      worldId: "street",
     }),
     {
       avatarAssetId: "a".repeat(32),
       handle: "a".repeat(24),
-      worldId: "hq",
+      worldId: "street",
     },
   );
 
@@ -105,7 +123,7 @@ test("join options accept only an exact own-field public-world shape", () => {
     "dní",
   ]) {
     assertInputError(() =>
-      parsePalaceJoinOptions({ avatarAssetId: "placeholder", handle, worldId: "hq" }),
+      parsePalaceJoinOptions({ avatarAssetId: "placeholder", handle, worldId: "street" }),
     );
   }
   for (const worldId of [undefined, null, "HQ", "home:guessable", 1]) {
@@ -114,21 +132,25 @@ test("join options accept only an exact own-field public-world shape", () => {
     );
   }
   for (const avatarAssetId of ["", "DNI", "../dni", "dni.glb", "a".repeat(33), null]) {
-    assertInputError(() => parsePalaceJoinOptions({ avatarAssetId, handle: "dni", worldId: "hq" }));
+    assertInputError(() =>
+      parsePalaceJoinOptions({ avatarAssetId, handle: "dni", worldId: "street" }),
+    );
   }
 });
 
 test("join options reject arrays, inherited fields, accessors, and stale shapes", () => {
   assertInputError(() => parsePalaceJoinOptions([]));
   assertInputError(() =>
-    parsePalaceJoinOptions(Object.create({ avatarAssetId: "dni", handle: "dni", worldId: "hq" })),
+    parsePalaceJoinOptions(
+      Object.create({ avatarAssetId: "dni", handle: "dni", worldId: "street" }),
+    ),
   );
   assertInputError(() =>
     parsePalaceJoinOptions(
       Object.assign(Object.create({ polluted: true }), {
         handle: "dni",
         avatarAssetId: "dni",
-        worldId: "hq",
+        worldId: "street",
       }),
     ),
   );
@@ -138,28 +160,33 @@ test("join options reject arrays, inherited fields, accessors, and stale shapes"
         return "dni";
       },
       avatarAssetId: "dni",
-      worldId: "hq",
+      worldId: "street",
     }),
   );
   assertInputError(() =>
-    parsePalaceJoinOptions({ avatarAssetId: "dni", handle: "dni", worldId: "hq", role: "admin" }),
+    parsePalaceJoinOptions({
+      avatarAssetId: "dni",
+      handle: "dni",
+      worldId: "street",
+      role: "admin",
+    }),
   );
   assertInputError(() => parsePalaceJoinOptions({ avatarAssetId: "dni", handle: "dni" }));
   assertInputError(() =>
     parsePalaceJoinOptions(
-      JSON.parse('{"avatarAssetId":"dni","handle":"dni","worldId":"hq","__proto__":{}}'),
+      JSON.parse('{"avatarAssetId":"dni","handle":"dni","worldId":"street","__proto__":{}}'),
     ),
   );
 
   const safeNullPrototype = Object.assign(Object.create(null), {
     avatarAssetId: "dni",
     handle: "dni",
-    worldId: "hq",
+    worldId: "street",
   });
   assert.deepEqual(parsePalaceJoinOptions(safeNullPrototype), {
     avatarAssetId: "dni",
     handle: "dni",
-    worldId: "hq",
+    worldId: "street",
   });
 });
 
@@ -230,6 +257,30 @@ test("movement rejects arrays, inherited fields, accessors, and stale shapes", (
 
   const safeNullPrototype = Object.assign(Object.create(null), MOVEMENT);
   assert.deepEqual(parseMovementMessage(safeNullPrototype), MOVEMENT);
+});
+
+test("ship modules are deliberate human labels with a bounded role", () => {
+  const module = {
+    moduleId: "module-21",
+    label: "Music belongs in the engine room",
+    role: "signal",
+  };
+  assert.deepEqual(parsePlaceShipModuleMessage(module), module);
+  assert.deepEqual(
+    parsePlaceShipModuleMessage({ moduleId: "a", label: "Musica per tutti", role: "habitat" }),
+    { moduleId: "a", label: "Musica per tutti", role: "habitat" },
+  );
+  for (const invalid of [
+    { ...module, moduleId: "../module" },
+    { ...module, label: "" },
+    { ...module, label: " padded " },
+    { ...module, label: "x".repeat(65) },
+    { ...module, label: "hidden\u202e" },
+    { ...module, role: "weapon" },
+    { ...module, aiApproved: true },
+  ]) {
+    assertInputError(() => parsePlaceShipModuleMessage(invalid));
+  }
 });
 
 test("position corrections are exact, bounded authoritative poses", () => {

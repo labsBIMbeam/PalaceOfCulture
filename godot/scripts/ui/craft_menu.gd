@@ -123,6 +123,7 @@ func _on_inventory_changed() -> void:
 
 func _open() -> void:
 	visible = true
+	Game.set_world_input_blocked(&"craft_menu", true)
 	_prev_mouse = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_refresh_afford()
@@ -133,10 +134,20 @@ func _open() -> void:
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
-func _close() -> void:
+func close(restore_mouse := true) -> void:
+	_close(restore_mouse)
+
+
+func _close(restore_mouse := true) -> void:
 	visible = false
-	if Game.space != Game.Space.MENU:
+	Game.set_world_input_blocked(&"craft_menu", false)
+	if restore_mouse and Game.space != Game.Space.MENU:
 		Input.mouse_mode = _prev_mouse
+
+
+
+func _exit_tree() -> void:
+	Game.set_world_input_blocked(&"craft_menu", false)
 
 
 ## One recipe line: bold name, per-material cost chips, mono duration, Queue.

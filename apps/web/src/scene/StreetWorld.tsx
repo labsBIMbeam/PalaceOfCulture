@@ -12,7 +12,6 @@ import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef }
 import * as THREE from "three";
 import { Enclosure, GATE_ARCH } from "./Enclosure";
 import { LampPost } from "./LampPost";
-import { PalaceTeaser } from "./PalaceTeaser";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza, type SolidSpec, YOUNG_TREE } from "./Plaza";
 import { Signpost } from "./Signpost";
 import { Vegetation } from "./Vegetation";
@@ -475,8 +474,7 @@ export function StreetWorld() {
         <Plaza />
       </PropBoundary>
 
-      {/* Palace of Culture is not playable yet — teaser landmark at the civic centre */}
-      <PalaceTeaser />
+      {/* The civic centre now holds the live MoC ship assembly, mounted by PalaceScene. */}
 
       {/* approach lamps — the guiding light pools between gate and plaza */}
       {APPROACH_LAMPS.map(([lx, lz]) => (

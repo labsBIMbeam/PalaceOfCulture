@@ -37,10 +37,12 @@ import {
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
 import { DecorPicker } from "../ui/DecorPicker";
+import { MeaningPath } from "../ui/MeaningPath";
 import { MediaPlayer } from "../ui/MediaPlayer";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { GrowableObject } from "./GrowableObject";
+import { MeaningShip } from "./MeaningShip";
 import { PalaceTeaser } from "./PalaceTeaser";
 import { streetPoseTargets } from "./Plaza";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
@@ -123,7 +125,7 @@ const SPAWN_FOR: Record<EngineTarget, [number, number, number]> = {
 const WORLD_TITLE: Record<EngineTarget, string> = {
   hq: "Palace of Culture · TBA",
   home: "Home — your map",
-  street: "Locktard Street",
+  street: "MoC · Leviathan Workshop",
 };
 // The Palace map ("hq") is switched OFF for launch: the game ships with Locktard Street + Home.
 // Re-adding "hq" here is the single switch that brings the Palace world back.
@@ -145,12 +147,12 @@ const TRAVEL_LABEL: Record<EngineTarget, string> = {
 const WORLD_WALK_SUBTITLE: Record<EngineTarget, string> = {
   hq: "teaser only — not released yet",
   home: "private — your plot",
-  street: "public — first playable district",
+  street: "public — build the ship together",
 };
 const WORLD_IDLE_SUBTITLE: Record<EngineTarget, string> = {
   hq: "3D engine — Palace released soon · date TBA",
   home: "3D engine — private plot",
-  street: "3D engine — Locktard Street",
+  street: "Meaningverse of Culture · x600billion",
 };
 /** How long the travel curtain stays down (world swap happens under it). */
 const TRAVEL_SWAP_MS = 300;
@@ -628,14 +630,13 @@ function useMultiplayerView(
 
 function MultiplayerLayer({
   bodyRef,
-  session,
+  view,
   transportRef,
 }: {
   bodyRef: RefObject<RapierRigidBody>;
-  session: MultiplayerSession;
+  view: MultiplayerViewState;
   transportRef: RefObject<PalaceMultiplayerTransport | null>;
 }) {
-  const view = useMultiplayerView(session.transport, session.detail);
   return (
     <>
       <MultiplayerMovementSync bodyRef={bodyRef} transportRef={transportRef} />
@@ -644,8 +645,7 @@ function MultiplayerLayer({
   );
 }
 
-function MultiplayerStatus({ session }: { session: MultiplayerSession }) {
-  const view = useMultiplayerView(session.transport, session.detail);
+function MultiplayerStatus({ view }: { view: MultiplayerViewState }) {
   const label =
     view.status === "connected"
       ? `connected · ${view.players.filter((player) => player.connected).length + 1} online`
@@ -682,12 +682,16 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession>({
     transport: null,
   });
+  const multiplayerView = useMultiplayerView(
+    multiplayerSession.transport,
+    multiplayerSession.detail,
+  );
   const [builderSelected, setBuilderSelected] = useState("");
   const [builderBrush, setBuilderBrush] = useState<BrushSize>(1);
   const builderTargets = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
-    if (world !== "hq") {
+    if (world !== "street") {
       multiplayerTransportRef.current = null;
       setMultiplayerSession({ transport: null });
       return;
@@ -1158,12 +1162,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             {/* The street is pure scenery (no colliders) — rendered OUTSIDE <Physics> so its many
                 lazy GLB loads don't churn the physics tree on mount (kept the world walkable via the
                 street ground collider inside Physics above). */}
-            {world === "street" ? <StreetWorld /> : null}
-            {world === "hq" ? (
+            {world === "street" ? (
+              <>
+                <StreetWorld />
+                <MeaningShip moduleCount={multiplayerView.shipModules.length} />
+              </>
+            ) : null}
+            {world === "street" ? (
               <MultiplayerLayer
                 bodyRef={playerBody}
-                session={multiplayerSession}
                 transportRef={multiplayerTransportRef}
+                view={multiplayerView}
               />
             ) : null}
             {/* Posed: a static avatar at the chair/bed. Holds the sit/sleep clip if present on the rig,
@@ -1245,7 +1254,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span>{title}</span>
           <small>{subtitle}</small>
         </div>
-        {world === "hq" ? <MultiplayerStatus session={multiplayerSession} /> : null}
+        {world === "street" ? <MultiplayerStatus view={multiplayerView} /> : null}
         <div className="engine-actions">
           {mode !== "decorate" && mode !== "build" ? (
             <button className="nav-pill nav-pill--engine" onClick={toggleOverview} type="button">
@@ -1273,6 +1282,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           ) : null}
         </div>
       </div>
+      {world === "street" && mode !== "decorate" ? (
+        <MeaningPath multiplayer={multiplayerView} transport={multiplayerSession.transport} />
+      ) : null}
       {mode === "walk" ? (
         <div className="fp-hint">
           <strong>
