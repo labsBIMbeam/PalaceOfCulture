@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   GAME_NAME,
   GAME_SHORT_NAME,
@@ -17,6 +20,9 @@ import {
   tutorialStageFor,
 } from "../src/meaningverse/onboardingStory";
 import type { ShipModuleSnapshot } from "../src/net/multiplayer";
+
+const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = resolve(webRoot, "../..");
 
 const module = (
   authorSessionId: string,
@@ -116,6 +122,41 @@ assert.equal(
     coCreated: true,
   }),
   "co_create",
+);
+
+const menuBackgrounds = ["title.webp", "home.webp", "market.webp"];
+for (const filename of menuBackgrounds) {
+  const asset = resolve(webRoot, "public/frontend/bg", filename);
+  assert.ok(existsSync(asset), `${filename} menu keyart must ship`);
+  const size = statSync(asset).size;
+  assert.ok(size >= 100_000 && size <= 500_000, `${filename} must stay within the web menu budget`);
+}
+const frontendCss = readFileSync(resolve(webRoot, "src/frontend/frontend.css"), "utf8");
+for (const filename of menuBackgrounds) {
+  assert.ok(
+    frontendCss.includes(`/frontend/bg/${filename}`),
+    `${filename} must be wired to a menu`,
+  );
+}
+assert.ok(frontendCss.includes(".screen--workshop::before"), "market keyart covers Workshop");
+assert.ok(
+  readFileSync(resolve(webRoot, "src/scene/furnitureCatalog.ts"), "utf8").includes(
+    'DEFAULT_FRAME_IMAGE = "/frontend/bg/home.webp"',
+  ),
+  "placed frames use the approved Home keyart",
+);
+for (const obsolete of ["title.png", "home.png", "pleb.png", "style.png"]) {
+  assert.equal(
+    existsSync(resolve(webRoot, "public/frontend/bg", obsolete)),
+    false,
+    `${obsolete} giant-palace keyart must stay removed`,
+  );
+}
+const godotMenu = readFileSync(resolve(repositoryRoot, "godot/scripts/ui/main_menu.gd"), "utf8");
+assert.ok(godotMenu.includes('preload("res://assets/ui/title.webp")'), "Godot shares title keyart");
+assert.ok(
+  existsSync(resolve(repositoryRoot, "godot/assets/ui/title.webp")),
+  "Godot title keyart ships",
 );
 
 console.log("\nMEANINGVERSE SMOKE TESTS GREEN");

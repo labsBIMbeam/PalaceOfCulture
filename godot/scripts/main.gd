@@ -41,6 +41,9 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--moc-intro-capture"):
 		_run_moc_intro_capture()
 		return
+	if OS.get_cmdline_user_args().has("--moc-menu-capture"):
+		_run_moc_menu_capture()
+		return
 	if OS.get_cmdline_user_args().has("--moc-capture"):
 		_run_moc_capture()
 		return
@@ -190,6 +193,23 @@ func _run_moc_intro_capture() -> void:
 	var error := image.save_png(output)
 	print("MOC_INTRO_CAPTURE path=%s size=%dx%d error=%d card=%d" % [
 		output, image.get_width(), image.get_height(), error, _intro._card_index + 1,
+	])
+	get_tree().quit(0 if error == OK else 1)
+
+
+## Deterministic native-render QA for menu keyart, terminal typography and focus state.
+func _run_moc_menu_capture() -> void:
+	get_window().size = Vector2i(1280, 720)
+	_main_menu = MainMenuScript.new()
+	add_child(_main_menu)
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var output := ProjectSettings.globalize_path("user://moc_menu_keyart_capture.png")
+	var error := image.save_png(output)
+	print("MOC_MENU_CAPTURE path=%s size=%dx%d error=%d keyart=%s" % [
+		output, image.get_width(), image.get_height(), error,
+		str(_main_menu.find_child("TitleKeyart", true, false) != null),
 	])
 	get_tree().quit(0 if error == OK else 1)
 

@@ -33,7 +33,7 @@ export interface DecorDef {
   glyph: string;
 }
 
-export const DEFAULT_FRAME_IMAGE = "/frontend/bg/home.png";
+export const DEFAULT_FRAME_IMAGE = "/frontend/bg/home.webp";
 export const DEFAULT_SCREEN_VIDEO = "/intro.mp4";
 
 export const CATALOG: DecorDef[] = [

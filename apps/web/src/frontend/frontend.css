@@ -117,17 +117,17 @@ button:focus-visible {
 }
 
 .screen--title::before {
-  background-image: url("/frontend/bg/title.png");
+  background-image: url("/frontend/bg/title.webp");
   background-position: 50% 42%;
 }
 
 .screen--home::before {
-  background-image: url("/frontend/bg/home.png");
+  background-image: url("/frontend/bg/home.webp");
   background-position: 50% 48%;
 }
 
 .screen--culture::before {
-  background-image: url("/frontend/bg/home.png");
+  background-image: url("/frontend/bg/home.webp");
   background-position: 50% 38%;
   filter: saturate(0.55) contrast(1.08);
   opacity: 0.48;
@@ -159,14 +159,10 @@ button:focus-visible {
     linear-gradient(135deg, rgba(9, 11, 16, 0.82), rgba(9, 11, 16, 0.96));
 }
 
-.screen--pleb::before {
-  background-image: url("/frontend/bg/pleb.png");
+.screen--pleb::before,
+.screen--workshop::before {
+  background-image: url("/frontend/bg/market.webp");
   background-position: 48% 48%;
-}
-
-.screen--style::before {
-  background-image: url("/frontend/bg/style.png");
-  background-position: 52% 44%;
 }
 
 .screen--map {
