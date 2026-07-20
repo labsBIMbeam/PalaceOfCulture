@@ -1,4 +1,9 @@
 import type { AvatarConfig } from "@600b/shared";
+import {
+  type RaidSpecialtyStatus,
+  raidSpecialtyFor,
+  raidSpecialtyStatusFor,
+} from "../meaningverse/firstRaid";
 import { importUrl } from "../scene/avatarImports";
 import { AGES, AURAS, GENDERS, HAIR_COLORS, OUTFITS, SKIN_TONES } from "./avatarTraits";
 
@@ -11,6 +16,9 @@ import { AGES, AURAS, GENDERS, HAIR_COLORS, OUTFITS, SKIN_TONES } from "./avatar
 export interface Member {
   name: string;
   role: string;
+  /** Playful raid contribution, not biography, rank, or authority. */
+  specialty: string;
+  specialtyStatus: RaidSpecialtyStatus;
   nostr: string;
   avatar: AvatarConfig;
 }
@@ -94,7 +102,24 @@ const SEEDS: ReadonlyArray<MemberSeed> = [
 export const MEMBERS: ReadonlyArray<Member> = SEEDS.map((seed) => ({
   name: seed.name,
   role: seed.role,
+  specialty: raidSpecialtyFor(seed.name),
+  specialtyStatus: raidSpecialtyStatusFor(seed.name),
   nostr: seed.nostr,
   // Own model if one exists for this name, else the shared placeholder (overrides the parametric base).
   avatar: avatarFor(seed.name, { ...seed.avatar, modelUrl: modelForMember(seed.name) }),
 }));
+
+// The neutral hooded Builder — the archetype for everyone who is not (yet) a 600.wtf member. You
+// enter as yourself, not wearing someone else's name; your own Nostr key comes later. Kept out of
+// MEMBERS so the org roster stays the real org.
+export const BUILDER: Member = {
+  name: "Builder",
+  role: "start fresh",
+  specialty: raidSpecialtyFor("Builder"),
+  specialtyStatus: raidSpecialtyStatusFor("Builder"),
+  nostr: "your own key, later",
+  avatar: avatarFor("Builder", { modelUrl: importUrl("builder") }),
+};
+
+/** The character-select line-up: the neutral archetype first, then the 600.wtf member roster. */
+export const ROSTER: ReadonlyArray<Member> = [BUILDER, ...MEMBERS];

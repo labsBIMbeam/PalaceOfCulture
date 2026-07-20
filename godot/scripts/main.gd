@@ -182,7 +182,10 @@ func _run_moc_intro_capture() -> void:
 	get_window().size = Vector2i(1280, 720)
 	_intro = IntroScreenScript.new()
 	add_child(_intro)
-	_intro.open()
+	# Capture is intentionally headless, so bypass open(): open() correctly resolves immediately when
+	# there is no display and therefore does not build the card controls needed for this QA image.
+	_intro._build()
+	_intro.visible = true
 	_intro._show_cards()
 	_intro._card_index = _intro.STORY_CARDS.size() - 1
 	_intro._render_card()

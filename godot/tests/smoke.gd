@@ -474,9 +474,10 @@ func _check_world_screens() -> bool:
 	await get_tree().process_frame
 	if not _check(intro.STORY_CARDS.size() == 3 \
 			and String(intro.STORY_CARDS[0].caption).contains("raccoon") \
-			and String(intro.STORY_CARDS[1].caption).contains("Kaiserwarte") \
-			and String(intro.STORY_CARDS[2].line).contains("Kerni") \
-			and String(intro.STORY_CARDS[2].line).contains("Locktard Street"),
+			and String(intro.STORY_CARDS[0].line).contains("blood") \
+			and String(intro.STORY_CARDS[1].caption).contains("Kerni") \
+			and String(intro.STORY_CARDS[2].line).contains("not a cult") \
+			and String(intro.STORY_CARDS[2].kicker).contains("LOCKTARD STREET"),
 			"Godot intro cards lost the canonical story order"):
 		return false
 	var done := [false]

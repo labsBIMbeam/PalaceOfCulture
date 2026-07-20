@@ -1,76 +1,107 @@
-# MoC Intro and Tutorial Story
+# MoC Intro, First Raid, and V4V Story
 
-Status: canonical launch copy for the current Web/Godot vertical slice  
-Story draft: Fable 5  
-Senior cut and runtime review: Opus  
-Final canon decision: Felix — the raccoon is Kerni in another form
+Status: canonical launch copy for the current Web/Godot vertical slice
+Final canon decision: Felix — the raccoon is Kerni in another form; family-slapstick bite and fainting open the game
 
 ## Principle
 
-The story demonstrates the anti-Tower instead of preaching it: many small contributions, one visible shared change, one honest invitation, and no fabricated peer. Kerni may orient when asked, but never commands, commits, publishes, or claims cultural authority.
+The story demonstrates the anti-Tower instead of preaching it: many small contributions, one visible shared change, one honest invitation, and no fabricated peer. Kerni may orient when asked, but never commands, commits, publishes, pays, or claims cultural authority.
 
-## Three-act spine
+## Family-slapstick intro
 
-### I — Capture and bite
+The neutral hooded Builder follows a small natural raccoon through Locktard Street and reaches toward it without asking. The raccoon gives one quick comic bite. The Builder sees one tiny, stylized drop of blood, says **“I can’t see blood,”** and immediately faints backward into a harmless pile of copper parts.
 
-The player was deep in the feed. Kerni appears as a raccoon and bites them. Rude. Effective. The noise cuts out.
+The raccoon observes the Builder, changes into Kerni, and delivers a dry diagnostic:
 
-### II — Waking and descent
+> Builder offline. Cause: three millimetres of blood. Suggestion only.
 
-The player wakes somewhere high and quiet. A provisional sign says **Kaiserwarte**. Below are lamps, pennants, and a half-built spaceship. The player follows the raccoon downhill into **Locktard Street**.
+The Builder wakes and asks whether the gathering around the unfinished ship is a cult. Kerni points toward the independent workshops:
 
-### III — The anti-Tower
+> We’re not a cult. We’re culture. Culture builds things.
 
-At the entrance, the raccoon is gone. A small copper lantern body floats where it stood: the same Kerni in another form. The ship has 36 sockets and no owner. The player names one small part, places it live, and invites one real person. If nobody comes, the second chair stays honestly empty.
+The fall has scattered a signal lamp. That accident becomes the seam into play.
 
-## Runtime intro
+### Family boundary
 
-The approved five-second silent video makes the identity beat visible:
+- one tiny stylized drop only;
+- no wound detail, spray, gore, pain performance, horror framing, or lasting injury;
+- the bite is a timing setup for the Builder’s exaggerated fainting;
+- Kerni is the same raccoon in another form, not a controller or rescuer;
+- comedy targets the Builder’s reaction, never bodily harm.
 
-`Kerni as raccoon at Kaiserwarte → restrained copper-particle shift → Kerni's lantern body above Locktard Street`
+## Runtime intro cards
 
-The generated video is supportive imagery, not the sole carrier of canon: its two approved keyframes guided Grok rather than binding exact endpoints. The three standalone cards still state the raccoon, Kaiserwarte, and Locktard Street facts. If the video fails, the cards still appear. Skip exits the intro at any point.
+The existing video remains decorative until a matching family-slapstick sequence is produced. The cards are authoritative, and video failure leads to the same cards. "Skip video" lands on the cards; each tap then advances one card, and the final card's "Walk in" exits, so the canon facts cannot be bypassed by one reflexive tap.
 
 | Beat | Kicker | Caption | Line |
 |---|---|---|---|
-| Video | — | no overlay claim | visual identity beat; cards remain authoritative |
-| Bite | `BEFORE` | `A raccoon bit you. You don't remember agreeing to this.` | `Rude. Effective.` |
-| Wake | `MORNING` | `You wake somewhere high and quiet. A sign says Kaiserwarte. Probably.` | `Nobody official has named it yet.` |
-| Street | `DOWNHILL` | `Below: lamps, and a spaceship nobody finished on purpose.` | `The raccoon is gone. A copper lantern floats where it stood. Kerni, apparently. Welcome to Locktard Street: thirty-six sockets, no owner.` |
+| Bite | `CHOMP` | `A raccoon bites your finger. One tiny drop of blood.` | `“I can’t see blood.” You immediately faint.` |
+| Reveal | `DIAGNOSTIC` | `You wake in a pile of copper parts. The raccoon is now Kerni.` | `“Builder offline. Cause: three millimetres of blood.” Suggestion only.` |
+| Street | `LOCKTARD STREET` | `Thirty-six sockets. No owner. One unfinished spaceship.` | `“We’re not a cult. We’re culture.” Build one small part. Place it. Invite someone.` |
 
-`Kaiserwarte` remains intentionally isolated to one card so its provisional spelling can be changed without save or UI migration.
+## Raid 01 — Light the Street
 
-## Runtime tutorial
+This is a cooperative repair raid, not combat, conquest, looting, or a command chain. It should take roughly five minutes.
 
-The tutorial is derived only from real application state. Copy never awards progress.
+**Premise:** The Builder’s fall scattered a signal lamp. Rebuild it, place it on the street, and ask another live session to answer.
 
-| Stage | Objective | Completion truth | Failure truth |
+| Checkpoint | Player-visible action | Value brought | Completion truth |
 |---|---|---|---|
-| Enter | `Walk in. The room connects on its own.` | live room connected | walking works; no room is simulated |
-| Create | `Name one part of the ship. Weird is allowed.` | non-empty local label | typing alone stores nothing |
-| Place | `Place your part. The ship changes for all.` | server accepted the local module | rejected/offline placement never ticks |
-| Invite | `Copy one invite for one real person.` | invite copied or surfaced for manual copy | no peer is invented |
-| Co-create | `A real person finishes this — or it stays open.` | second real session placed a module | remains open without penalty; no bot, ghost, or timer |
+| Connect | Wake the node | uptime | live room connected |
+| Name | Name the missing part | idea | non-empty local label |
+| Place | Install the lamp part | craft | server accepts the local module |
+| Broadcast | Share the work order | attention | clipboard copy succeeds, or player explicitly confirms the manually shown link was shared |
+| Answer | Receive one live response | co-creation | a second live session places a module |
 
-## Kerni reveal and authority
+No bot, ghost, timer, or story copy completes a checkpoint. If nobody answers, the final socket stays honestly open without penalty.
 
-The reveal is app-owned copy, eligible only after the player explicitly asks Kerni during Arrival:
+## Value for Value
 
-> Yes. The raccoon was me. The bite was less elegant than the invitation. Different shell, same Kerni.
+The raid explains V4V through action rather than a payment lecture:
 
-External AI may choose only the canonical `raccoon_reveal` template ID through the short-lived, phase-bound suggestion-only capability. It can never supply the embodied prose.
+> No entry fee. Bring time, knowledge, hardware, code, art, attention, routing, hosting, or sats. Recognition, remix, and optional zaps follow voluntary use. No central score decides value. This raid moves no money.
 
-## First magic moment
+The first slice moves no money. Any future zap requires explicit player consent, validated recipients, and the existing payment safety boundary. V4V is not a mandatory price, pooled treasury, leaderboard, or centrally assigned worth.
 
-Launch uses only the existing, player-initiated Kerni channel. The bird/idle scene remains future work until a real bird model, animation, audio layer, and idle detector exist. It must never block the five tutorial stages.
+## Raid specialties
+
+Character themes are playful contribution cues — not biographies, ranks, classes, or cultural authority. Only the two FLX-approved anchors are presented as approved:
+
+- **benarc — Hardware Thinker**
+- **michael1011 — Node Operator**
+
+The full mapping lives in `apps/web/src/meaningverse/firstRaid.ts` and is visible in character selection. Every other entry is labeled `Draft` until the member has an actual approval/editing path.
+
+## Runtime tutorial truth
+
+| Stage | Objective | Failure truth |
+|---|---|---|
+| Enter | `Walk in. The room connects on its own.` | walking works; no room is simulated |
+| Create | `Name one part of the ship. Weird is allowed.` | typing alone stores nothing |
+| Place | `Place your part. The ship changes for all.` | rejected/offline placement never ticks |
+| Invite | `Share one invite link.` | showing the fallback link is insufficient; cancellation stays open and explicit share confirmation completes it |
+| Co-create | `Another live session answers — or it stays open.` | sessions are not claimed as authenticated people; remains open without penalty |
+
+## Kerni authority
+
+Kerni is a visible, bounded creation tool. Runtime label:
+
+`KERNI · WORLD AGENT · SUGGESTION ONLY`
+
+External AI may select only approved, phase-bound templates. It may never write free provider prose into the embodied path, transition game state, publish, sign, pay, invent a peer, or decide cultural value.
 
 ## Acceptance contract
 
-1. Intro order is video → Bite → Wake → Street, exactly three cards.
-2. Video failure starts the same cards instead of completing the intro.
-3. The fallback text preserves raccoon, Kaiserwarte, Kerni identity, Locktard Street, and the 36-socket ship.
-4. Invitation bypass remains unchanged and skips the intro.
-5. Tutorial stages tick only from their existing state predicates.
-6. Slot 26 is never promised or exposed without real receive-side provenance.
-7. Kerni never auto-speaks, commits, transitions, publishes, or invents a peer.
-8. Web and Godot keep the same three card texts and Kerni reveal.
+1. Intro order is video → Bite → Reveal → Street, exactly three cards.
+2. The blood image stays tiny, stylized, momentary, and non-graphic.
+3. Video failure starts the same cards rather than completing the intro.
+4. Fallback text preserves bite, fainting, Kerni identity, culture, Locktard Street, and the shared ship.
+5. Raid checkpoints derive only from existing application-owned multiplayer facts.
+6. The V4V panel explains voluntary contribution and performs no transfer.
+7. Invitation bypass remains unchanged and skips the intro.
+8. Web and Godot keep the same three card texts.
+9. Kerni never auto-speaks, commits, transitions, publishes, pays, or invents a peer.
+10. Reconnect snapshots establish a silent baseline and never replay placement feedback.
+11. Presence counts only connected remote snapshots plus the connected local session.
+12. Session IDs and retained modules are never presented as authenticated people or current human presence.
+13. Video input, output, report, and derived temporary paths are distinct; output/report publication rolls back together on failure.

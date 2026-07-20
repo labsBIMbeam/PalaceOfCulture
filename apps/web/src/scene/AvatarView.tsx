@@ -65,12 +65,15 @@ export function AvatarView({
   bodyRef,
   locomotion = true,
   pose,
+  scanning,
 }: {
   config: AvatarConfig;
   bodyRef?: RefObject<RapierRigidBody | null>;
   locomotion?: boolean;
   /** Hold a cozy pose (sit/sleep) instead of speed-driven locomotion. */
   pose?: "sit" | "sleep";
+  /** Build/scan context: the Builder pilot's toggleable eye scan-beams (see `scanBeamsActive`). */
+  scanning?: boolean;
 }) {
   const url = config.modelUrl || presetUrl(config);
   if (!url) return <CharacterModel config={config} />;
@@ -79,7 +82,14 @@ export function AvatarView({
   return (
     <AvatarAssetBoundary fallback={<CharacterModel config={config} />} key={url}>
       <Suspense fallback={null}>
-        <RiggedAvatar bodyRef={bodyRef} clipUrls={clipUrls} config={config} pose={pose} url={url} />
+        <RiggedAvatar
+          bodyRef={bodyRef}
+          clipUrls={clipUrls}
+          config={config}
+          pose={pose}
+          scanning={scanning}
+          url={url}
+        />
       </Suspense>
     </AvatarAssetBoundary>
   );

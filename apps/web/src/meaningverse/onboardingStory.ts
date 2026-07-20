@@ -19,33 +19,41 @@ export const INTRO_SEQUENCE: readonly IntroBeat[] = [
   {
     id: "card_bite",
     visualMode: "card",
-    kicker: "BEFORE",
-    caption: "A raccoon bit you. You don't remember agreeing to this.",
-    line: "Rude. Effective.",
-    fallbackText: "A raccoon bit you.",
+    kicker: "CHOMP",
+    caption: "A raccoon bites your finger. One tiny drop of blood.",
+    line: '"I can\'t see blood." You immediately faint.',
+    fallbackText: "A raccoon bites you. You see one tiny drop of blood and faint.",
   },
   {
     id: "card_wake",
     visualMode: "card",
-    kicker: "MORNING",
-    caption: "You wake somewhere high and quiet. A sign says Kaiserwarte. Probably.",
-    line: "Nobody official has named it yet.",
-    fallbackText: "You wake at Kaiserwarte, high and quiet.",
+    kicker: "DIAGNOSTIC",
+    caption: "You wake in a pile of copper parts. The raccoon is now Kerni.",
+    line: '"Builder offline. Cause: three millimetres of blood." Suggestion only.',
+    fallbackText: "You wake beside Kerni, the same raccoon in another form.",
   },
   {
     id: "card_street",
     visualMode: "card",
-    kicker: "DOWNHILL",
-    caption: "Below: lamps, and a spaceship nobody finished on purpose.",
-    line: "The raccoon is gone. A copper lantern floats where it stood. Kerni, apparently. Welcome to Locktard Street: thirty-six sockets, no owner.",
+    kicker: "LOCKTARD STREET",
+    caption: "Thirty-six sockets. No owner. One unfinished spaceship.",
+    line: "\"We're not a cult. We're culture.\" Build one small part. Place it. Invite someone.",
     fallbackText:
-      "Kerni was the raccoon. You follow Kerni into Locktard Street, where people build the ship.",
+      "Kerni was the raccoon. Locktard Street is culture made together: build, place, and invite.",
   },
 ] as const;
 
 export const INTRO_CARDS = INTRO_SEQUENCE.filter(
   (beat): beat is IntroBeat & { readonly visualMode: "card" } => beat.visualMode === "card",
 );
+
+/**
+ * Skip never erases the canon: skipping the decorative video lands on the story cards; only
+ * skipping from the cards leaves the intro. The bite, Kerni, and the Street survive every path.
+ */
+export function introSkipTarget(phase: "video" | "cards"): "cards" | "complete" {
+  return phase === "video" ? "cards" : "complete";
+}
 
 export type TutorialStageId = "enter" | "create" | "place" | "invite" | "co_create";
 
@@ -64,7 +72,7 @@ export const TUTORIAL: Readonly<Record<TutorialStageId, TutorialStage>> = {
     optionalKerniLine:
       "Welcome. No rush — the Palace gets better when people leave something useful behind. Start with one small thing.",
     status: "The live room is connected.",
-    worldResponse: "Other people and their modules become visible.",
+    worldResponse: "Connected sessions become visible; retained room modules stay visible.",
     offlineFallback: "Walking and looking still work. No room or player is simulated.",
   },
   create: {
@@ -83,37 +91,60 @@ export const TUTORIAL: Readonly<Record<TutorialStageId, TutorialStage>> = {
       "A rejected or offline placement changes nothing and never completes the step.",
   },
   invite: {
-    objective: "Copy one invite for one real person.",
+    objective: "Share one invite link.",
     optionalKerniLine:
-      "A ship built by one person is a very ambitious chair. There's an invite button, if you want it.",
-    status: "The invite was copied or surfaced for manual copy.",
+      "A ship built in one session is a very ambitious chair. There's an invite button, if you want it.",
+    status: "The invite was copied or its manual share was explicitly confirmed.",
     worldResponse: "The invite is available; no peer is invented.",
-    offlineFallback: "Manual copy is offered when clipboard access fails.",
+    offlineFallback: "Manual copy stays open until the player confirms sharing.",
   },
   co_create: {
-    objective: "A real person finishes this — or it stays open.",
+    objective: "Another live session answers — or it stays open.",
     optionalKerniLine:
       "The second chair is honestly empty. Honest beats full. Full is nicer, though.",
-    status: "A second real session placed its own module.",
+    status: "A second live session placed its own module.",
     worldResponse: "The peer's module appears live and Co-create completes.",
     offlineFallback: "The step stays open without penalty. No bot, ghost, or timer completes it.",
   },
 } as const;
 
+/** Canonical stage order — the single source for the step rail and the objective header. */
+export const TUTORIAL_STAGE_ORDER: readonly TutorialStageId[] = [
+  "enter",
+  "create",
+  "place",
+  "invite",
+  "co_create",
+] as const;
+
+export const TUTORIAL_STAGE_LABELS: Readonly<Record<TutorialStageId, string>> = {
+  enter: "Enter",
+  create: "Create",
+  place: "Place",
+  invite: "Invite",
+  co_create: "Co-create",
+} as const;
+
+/** 1-based position of a stage in the canonical order, for "Step N of 5" framing. */
+export function tutorialStepNumber(stage: TutorialStageId): number {
+  return TUTORIAL_STAGE_ORDER.indexOf(stage) + 1;
+}
+
 export type TutorialSignals = {
   readonly connected: boolean;
   readonly label: string;
   readonly hasOwnModule: boolean;
-  readonly inviteCopied: boolean;
+  readonly inviteShared: boolean;
   readonly coCreated: boolean;
 };
 
 /** Derive tutorial framing only from application-owned facts; never award progress here. */
 export function tutorialStageFor(signals: TutorialSignals): TutorialStageId {
-  if (signals.coCreated) return "co_create";
-  if (signals.hasOwnModule && signals.inviteCopied) return "co_create";
+  // Disconnected means Enter, whatever else is typed or remembered — the header can never
+  // contradict a step rail whose first checkpoint is "the live room is connected".
+  if (!signals.connected) return "enter";
+  if (signals.hasOwnModule && signals.inviteShared) return "co_create";
   if (signals.hasOwnModule) return "invite";
   if (signals.label.trim()) return "place";
-  if (signals.connected) return "create";
-  return "enter";
+  return "create";
 }

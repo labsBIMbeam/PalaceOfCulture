@@ -103,7 +103,7 @@ claimed.
 
 ## Human playtest checklist
 
-- [ ] Watch or skip the five-second silent raccoon→Kerni video; advance Bite → Kaiserwarte → Locktard Street; confirm Kerni is revealed as the raccoon.
+- [ ] Watch or skip the current decorative raccoon→Kerni video; advance Chomp → Diagnostic → Locktard Street; confirm the tiny blood beat stays non-graphic, the Builder faints, Kerni is the raccoon, and “We’re not a cult. We’re culture.” is readable.
 - [ ] Fresh start with `--moc-fresh`; reach the workshop from the Palace spawn.
 - [ ] Read every Calling marker at normal third-person distance.
 - [ ] Create and visibly place slot 25 in under ten minutes without instructions from the tester.

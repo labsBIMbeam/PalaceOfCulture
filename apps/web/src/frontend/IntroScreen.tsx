@@ -3,8 +3,9 @@ import { INTRO_CARDS } from "../meaningverse/onboardingStory";
 import { Icon } from "./icons";
 
 /**
- * Skippable intro video followed by three canonical story cards. A video error goes to the same
- * cards, so the raccoon/Kaiserwarte/Locktard Street facts never depend on decorative media.
+ * Skippable intro video followed by three canonical story cards. A video error — and the Skip
+ * button itself — goes to the same cards, so the family-slapstick bite, Kerni reveal, and
+ * Locktard Street facts never depend on media and cannot be bypassed by the reflexive first tap.
  */
 export function IntroScreen({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -56,7 +57,7 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
       ) : (
         // biome-ignore lint/a11y/useKeyWithClickEvents: the Skip button is the keyboard path
         <video
-          aria-label="Intro video: Kerni changes from raccoon to copper lantern above Locktard Street. Skip to continue."
+          aria-label="Decorative Kerni intro. The canonical bite and reveal continue in the story cards. Skip to continue."
           autoPlay
           className="intro-video"
           muted
@@ -69,12 +70,14 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
           src="/intro.mp4"
         />
       )}
-      <div className="intro-controls">
-        <button className="intro-button" onClick={onComplete} type="button">
-          Skip
-          <Icon name="play" size={14} />
-        </button>
-      </div>
+      {!showCards ? (
+        <div className="intro-controls">
+          <button className="intro-button" onClick={openCards} type="button">
+            Skip video
+            <Icon name="play" size={14} />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

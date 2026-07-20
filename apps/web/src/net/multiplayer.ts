@@ -67,6 +67,13 @@ export type MultiplayerViewState = {
   detail?: string;
 };
 
+/** Connected local session plus only remote snapshots explicitly marked connected. */
+export function connectedParticipantCount(
+  players: ReadonlyArray<Pick<RemotePlayerSnapshot, "connected">>,
+): number {
+  return 1 + players.filter((player) => player.connected).length;
+}
+
 export type LocalPlayerPose = {
   x: number;
   y: number;

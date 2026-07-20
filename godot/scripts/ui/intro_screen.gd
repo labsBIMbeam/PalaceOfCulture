@@ -1,6 +1,6 @@
 extends CanvasLayer
-## Full-screen intro video followed by the canonical raccoon/Kaiserwarte/Locktard cards.
-## Skip always exits; missing media falls through to the same cards. Shown once per launch.
+## Full-screen intro video followed by the canonical family-slapstick bite/Kerni/Locktard cards.
+## Video skip lands on the cards; missing media falls through to the same cards. Shown once per launch.
 ## Headless-safe: with no display the intro resolves immediately.
 
 signal intro_done
@@ -9,24 +9,25 @@ const VIDEO_PATH := "res://assets/intro.ogv"
 const UITheme := preload("res://scripts/ui/ui_theme.gd")
 const STORY_CARDS := [
 	{
-		"kicker": "BEFORE",
-		"caption": "A raccoon bit you. You don't remember agreeing to this.",
-		"line": "Rude. Effective.",
+		"kicker": "CHOMP",
+		"caption": "A raccoon bites your finger. One tiny drop of blood.",
+		"line": "\"I can't see blood.\" You immediately faint.",
 	},
 	{
-		"kicker": "MORNING",
-		"caption": "You wake somewhere high and quiet. A sign says Kaiserwarte. Probably.",
-		"line": "Nobody official has named it yet.",
+		"kicker": "DIAGNOSTIC",
+		"caption": "You wake in a pile of copper parts. The raccoon is now Kerni.",
+		"line": "\"Builder offline. Cause: three millimetres of blood.\" Suggestion only.",
 	},
 	{
-		"kicker": "DOWNHILL",
-		"caption": "Below: lamps, and a spaceship nobody finished on purpose.",
-		"line": "The raccoon is gone. A copper lantern floats where it stood. Kerni, apparently. Welcome to Locktard Street: thirty-six sockets, no owner.",
+		"kicker": "LOCKTARD STREET",
+		"caption": "Thirty-six sockets. No owner. One unfinished spaceship.",
+		"line": "\"We're not a cult. We're culture.\" Build one small part. Place it. Invite someone.",
 	},
 ]
 
 var _player: VideoStreamPlayer
 var _mute_button: Button
+var _skip_button: Button
 var _card_panel: PanelContainer
 var _card_kicker: Label
 var _card_caption: Label
@@ -72,8 +73,8 @@ func _build() -> void:
 	_player.finished.connect(_show_cards)
 	ratio.add_child(_player)
 
-	# Click anywhere = skip (the web version resumes on click; here playback is
-	# already running, so the whole surface doubles as the skip gesture).
+	# Click anywhere on the video advances to the authoritative cards. Card clicks
+	# advance one beat at a time, matching the web intro's fail-safe canon path.
 	backdrop.gui_input.connect(_on_gui_input)
 
 	var controls := HBoxContainer.new()
@@ -88,9 +89,9 @@ func _build() -> void:
 	_mute_button = _text_button("[ MUTE ]")
 	_mute_button.pressed.connect(_toggle_mute)
 	controls.add_child(_mute_button)
-	var skip := _text_button("[ SKIP ]")
-	skip.pressed.connect(_finish)
-	controls.add_child(skip)
+	_skip_button = _text_button("[ SKIP VIDEO ]")
+	_skip_button.pressed.connect(_show_cards)
+	controls.add_child(_skip_button)
 
 	_card_panel = PanelContainer.new()
 	_card_panel.visible = false
@@ -155,14 +156,15 @@ func _on_gui_input(event: InputEvent) -> void:
 		if _card_index >= 0:
 			_advance_card()
 		else:
-			_finish()
+			_show_cards()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible or _done:
 		return
 	if event.is_action_pressed("ui_cancel"):
-		_finish()
+		if _card_index < 0:
+			_show_cards()
 	elif event.is_action_pressed("ui_accept") and _card_index >= 0:
 		_advance_card()
 
@@ -171,9 +173,12 @@ func _show_cards() -> void:
 	if _done or STORY_CARDS.is_empty():
 		_finish()
 		return
+	if _card_index >= 0:
+		return
 	_player.stop()
 	_player.visible = false
 	_mute_button.visible = false
+	_skip_button.visible = false
 	_card_index = 0
 	_card_panel.visible = true
 	_render_card()

@@ -3517,6 +3517,14 @@ input.compose-input::placeholder {
   letter-spacing: 0.05em;
 }
 
+.member-preview-tag > span {
+  margin-top: 3px;
+  color: #f7b04a;
+  font: 750 11px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .member-preview-tag small {
   color: #9c8a64;
   font: 600 9px var(--mono);
@@ -3531,9 +3539,32 @@ input.compose-input::placeholder {
   grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
   overflow-y: auto;
   gap: 8px;
-  padding-right: 6px;
+  padding: 3px 6px 3px 3px;
   scrollbar-width: thin;
   scrollbar-color: rgba(231, 178, 60, 0.3) transparent;
+  /* Keyboard scrolling: keep the focused chip (and its ring) clear of the clip edges. */
+  scroll-padding: 8px;
+}
+
+/* Ring inside the scroll clip: tighter offset than the global one so it never gets shaved off. */
+.member-chip:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 1px;
+}
+
+.member-keys {
+  padding-top: 8px;
+  color: var(--muted);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .member-keys {
+    display: none;
+  }
 }
 
 .member-chip {
@@ -5313,6 +5344,47 @@ input.compose-input::placeholder {
   line-height: 1.35;
 }
 
+.moc-raid {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(247, 176, 74, 0.22);
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(247, 176, 74, 0.08), rgba(101, 219, 255, 0.04));
+}
+
+.moc-raid--complete {
+  border-color: rgba(101, 219, 255, 0.32);
+  background: rgba(101, 219, 255, 0.08);
+}
+
+.moc-raid__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #f7b04a;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.moc-raid p,
+.moc-raid small {
+  margin: 0;
+  color: #aeb5cb;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.moc-raid > strong {
+  color: #ffe9c4;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
 .moc-steps {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -5323,6 +5395,8 @@ input.compose-input::placeholder {
 }
 
 .moc-steps li {
+  display: grid;
+  gap: 2px;
   padding: 6px 2px;
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.06);
@@ -5333,9 +5407,26 @@ input.compose-input::placeholder {
   text-transform: uppercase;
 }
 
+.moc-steps li small {
+  overflow: hidden;
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+}
+
+/* Signal language of the whole panel: cyan = server-confirmed status, amber = your move now. */
 .moc-steps li.done {
-  background: rgba(73, 224, 164, 0.17);
-  color: #73f3bf;
+  background: rgba(92, 216, 255, 0.14);
+  color: #7fe0ff;
+}
+
+.moc-steps li.now {
+  padding-bottom: 4px;
+  border-bottom: 2px solid #f7b04a;
+  background: rgba(247, 176, 74, 0.14);
+  color: #f7b04a;
 }
 
 .moc-create {
@@ -5384,18 +5475,37 @@ input.compose-input::placeholder {
   font-size: 11px;
 }
 
-.moc-role-picker button.active {
-  border-color: #ff62cf;
-  background: rgba(255, 98, 207, 0.16);
-  color: #fff;
+.moc-role-picker button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
+/* Same role → colour mapping as the berth lights on the assembly ring (shipBerths.ts). */
+.moc-role-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+}
+
+.moc-role-picker button.active {
+  border-color: #f7b04a;
+  background: rgba(247, 176, 74, 0.16);
+  color: #ffe9c4;
+}
+
+/* Maker action: the same copper/amber as the own-placement pulse on the ship. */
 .moc-primary {
   min-height: 42px;
   border: 0;
   border-radius: 11px;
-  background: linear-gradient(120deg, #ff45c8, #6a66ff 55%, #31c9ed);
-  color: #fff;
+  background: linear-gradient(120deg, #f7b04a, #e8704f 85%);
+  box-shadow: inset 0 1px rgba(255, 240, 210, 0.55), inset 0 -2px rgba(90, 30, 8, 0.35);
+  color: #2a1508;
   font-weight: 850;
 }
 
@@ -5416,11 +5526,11 @@ input.compose-input::placeholder {
   gap: 8px;
   padding: 13px;
   border-radius: 12px;
-  background: rgba(70, 229, 171, 0.09);
+  background: rgba(92, 216, 255, 0.08);
 }
 
 .moc-own-module span {
-  color: #72efbd;
+  color: #7fe0ff;
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -5495,6 +5605,47 @@ input.compose-input::placeholder {
   color: #65dbff;
   font-size: 10px;
   text-transform: uppercase;
+}
+
+/* Your word on the ship: floats over the player's own berth beacon. Soot chassis, copper credit;
+   the border carries the module's role colour (set inline from shipBerths.ts). */
+.moc-berth-label {
+  max-width: 190px;
+  padding: 6px 10px;
+  border: 1px solid #e0824a;
+  border-radius: 9px;
+  background: rgba(28, 19, 11, 0.9);
+  color: #ffe9c4;
+  text-align: center;
+  pointer-events: none;
+}
+
+.moc-berth-label strong {
+  display: block;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moc-berth-label span {
+  display: block;
+  margin-top: 2px;
+  color: #f3c98a;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+/* Social proof under the counter: who placed the most recent human module. Amber = maker credit. */
+.moc-ship-label .moc-ship-latest {
+  display: block;
+  overflow: hidden;
+  max-width: 200px;
+  margin-top: 4px;
+  color: #f3c98a;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 680px) {

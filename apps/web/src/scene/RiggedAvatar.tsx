@@ -55,6 +55,70 @@ function improveTextureSampling(material: THREE.MeshStandardMaterial, anisotropy
   }
 }
 
+// Builder scan-beams (the pilot's laser eyes as a *tool light*): thin additive rays cast forward
+// from the rig's eye bones while building/scanning. A pure scene effect — the beam GLB never loads.
+const BEAM_LENGTH = 6.5;
+const BEAM_RADIUS = 0.014;
+const BEAM_COLOR = "#ff9a63"; // warm ember, matching the core model's M_EyeGlow eyes
+
+/** Two forward rays that track the eye bones' world positions (so they ride the idle head sway)
+ *  while staying level along the avatar's facing — a steady scanning gaze, not a wobbling torch. */
+function ScanBeams({
+  eyes,
+  container,
+}: {
+  eyes: THREE.Object3D[];
+  container: RefObject<THREE.Group | null>;
+}) {
+  const anchors = useRef<Array<THREE.Group | null>>([]);
+  const world = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    const parent = container.current;
+    if (!parent) return;
+    eyes.forEach((eye, i) => {
+      const anchor = anchors.current[i];
+      if (!anchor) return;
+      eye.getWorldPosition(world);
+      anchor.position.copy(parent.worldToLocal(world));
+    });
+  });
+  return (
+    <>
+      {eyes.map((eye, i) => (
+        <group
+          key={eye.name || i}
+          ref={(el) => {
+            anchors.current[i] = el;
+          }}
+        >
+          <mesh position={[0, 0, BEAM_LENGTH / 2]} rotation-x={Math.PI / 2}>
+            <cylinderGeometry args={[BEAM_RADIUS, BEAM_RADIUS, BEAM_LENGTH, 6, 1, true]} />
+            <meshBasicMaterial
+              blending={THREE.AdditiveBlending}
+              color={BEAM_COLOR}
+              depthWrite={false}
+              opacity={0.8}
+              toneMapped={false}
+              transparent
+            />
+          </mesh>
+          <mesh>
+            <sphereGeometry args={[0.032, 10, 10]} />
+            <meshBasicMaterial
+              blending={THREE.AdditiveBlending}
+              color={BEAM_COLOR}
+              depthWrite={false}
+              opacity={0.9}
+              toneMapped={false}
+              transparent
+            />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
 /** Find the clip name for a gait, tolerating per-pack naming (Quaternius "Walk", Meshy "walking_man"…). */
 function clipFor(gait: Gait, names: string[], idleFallback: string): string {
   const find = (sub: string) => names.find((n) => n.toLowerCase().includes(sub));
@@ -83,6 +147,7 @@ export function RiggedAvatar({
   clipUrls = EMPTY,
   bodyRef,
   pose,
+  scanning = false,
 }: {
   url: string;
   config: AvatarConfig;
@@ -90,6 +155,8 @@ export function RiggedAvatar({
   bodyRef?: RefObject<RapierRigidBody | null>;
   /** When set, the avatar holds this pose clip (sit/sleep) instead of speed-driven locomotion. */
   pose?: "sit" | "sleep";
+  /** Build/scan context: show the eye-bone scan beams (rigs without eye bones simply show none). */
+  scanning?: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
   const anisotropy = useThree((state) => Math.min(8, state.gl.capabilities.getMaxAnisotropy()));
@@ -102,7 +169,7 @@ export function RiggedAvatar({
     return [...animations, ...extraClips];
   }, [animations, extra]);
 
-  const { root, ownedMats, skinMats, hairMats, hips } = useMemo(() => {
+  const { root, ownedMats, skinMats, hairMats, hips, eyes } = useMemo(() => {
     const cloned = SkeletonUtils.clone(scene);
     cloned.updateMatrixWorld(true);
     const height = new THREE.Box3().setFromObject(cloned).getSize(new THREE.Vector3()).y || 1;
@@ -113,6 +180,7 @@ export function RiggedAvatar({
     const skin: THREE.MeshStandardMaterial[] = [];
     const hair: THREE.MeshStandardMaterial[] = [];
     const ownedMaterials: THREE.Material[] = [];
+    const eyeBones: THREE.Object3D[] = [];
     let hipBone: THREE.Object3D | null = null;
     cloned.traverse((object) => {
       object.castShadow = true;
@@ -120,6 +188,8 @@ export function RiggedAvatar({
       object.frustumCulled = false;
       // The hip/root bone carries the body-moving translation track — grab it to plant the avatar.
       if (!hipBone && /^(hips|hip|pelvis|root)$/i.test(object.name)) hipBone = object;
+      // Eye bones (Mixamo "LeftEye"/"RightEye") anchor the Builder's scan beams.
+      if ((object as THREE.Bone).isBone && /eye/i.test(object.name)) eyeBones.push(object);
       const mesh = object as THREE.Mesh;
       if (!mesh.material) return;
       const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -143,6 +213,7 @@ export function RiggedAvatar({
       skinMats: skin,
       hairMats: hair,
       hips: hipBone as THREE.Object3D | null,
+      eyes: eyeBones,
     };
   }, [anisotropy, scene]);
 
@@ -235,6 +306,7 @@ export function RiggedAvatar({
   return (
     <group ref={group}>
       <primitive object={root} />
+      {scanning && eyes.length > 0 ? <ScanBeams container={group} eyes={eyes} /> : null}
     </group>
   );
 }

@@ -1,17 +1,33 @@
 import type { ShipModuleRole } from "@600b/multiplayer";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FIRST_RAID,
+  type InviteShareState,
+  inviteShareComplete,
+  inviteStateAfterManualCopy,
+  raidCompleteFor,
+} from "../meaningverse/firstRaid";
 import {
   PROJECT_SCALE,
   SHIP_MODULE_CAPACITY,
   buildMeaningverseInvite,
   hasCoCreated,
 } from "../meaningverse/model";
-import { TUTORIAL, tutorialStageFor } from "../meaningverse/onboardingStory";
+import {
+  TUTORIAL,
+  TUTORIAL_STAGE_LABELS,
+  TUTORIAL_STAGE_ORDER,
+  type TutorialStageId,
+  tutorialStageFor,
+  tutorialStepNumber,
+} from "../meaningverse/onboardingStory";
 import type {
   MultiplayerViewState,
   PalaceMultiplayerTransport,
   ShipModuleSnapshot,
 } from "../net/multiplayer";
+import { connectedParticipantCount } from "../net/multiplayer";
+import { SHIP_ROLE_COLORS } from "../scene/shipBerths";
 
 const ROLES: Array<{ id: ShipModuleRole; label: string }> = [
   { id: "structure", label: "Shape" },
@@ -31,29 +47,52 @@ function ownModule(state: MultiplayerViewState): ShipModuleSnapshot | undefined 
 export function MeaningPath({
   multiplayer,
   transport,
+  open,
+  onOpenChange,
+  focusNonce = 0,
 }: {
   multiplayer: MultiplayerViewState;
   transport: PalaceMultiplayerTransport | null;
+  /** Panel visibility — owned by the scene so the ship dock can open it and mode switches keep it. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Bumped by the ship dock's E-action: land focus straight in the "Name your part" field. */
+  focusNonce?: number;
 }) {
-  const [open, setOpen] = useState(true);
   const [label, setLabel] = useState("");
   const [role, setRole] = useState<ShipModuleRole>("signal");
-  const [inviteCopied, setInviteCopied] = useState(false);
+  const [inviteState, setInviteState] = useState<InviteShareState>("idle");
   const [submitError, setSubmitError] = useState("");
+  const inviteComplete = inviteShareComplete(inviteState);
   const mine = ownModule(multiplayer);
   const coCreated = hasCoCreated(multiplayer.shipModules, multiplayer.localSessionId);
+  const raidComplete = raidCompleteFor(inviteState, coCreated);
   const tutorialStage = tutorialStageFor({
     connected: multiplayer.status === "connected",
     label,
     hasOwnModule: Boolean(mine),
-    inviteCopied,
+    inviteShared: inviteComplete,
     coCreated,
   });
+  const stageDone: Record<TutorialStageId, boolean> = {
+    enter: multiplayer.status === "connected",
+    create: Boolean(label.trim()),
+    place: Boolean(mine),
+    invite: inviteComplete,
+    co_create: raidComplete,
+  };
   const recentModules = useMemo(
     () => [...multiplayer.shipModules].sort((a, b) => b.slot - a.slot).slice(0, 5),
     [multiplayer.shipModules],
   );
   const full = multiplayer.shipModules.length >= SHIP_MODULE_CAPACITY;
+
+  // Runs after the open render, so the input exists by the time we focus it. When the player has
+  // already placed (no input), opening the panel is the whole response — nothing to focus.
+  const labelInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (focusNonce > 0) labelInput.current?.select();
+  }, [focusNonce]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -74,16 +113,16 @@ export function MeaningPath({
     const invite = buildMeaningverseInvite(window.location.href);
     try {
       await navigator.clipboard.writeText(invite);
-      setInviteCopied(true);
+      setInviteState("copied");
     } catch {
-      window.prompt("Copy this invite", invite);
-      setInviteCopied(true);
+      const manualCopy = window.prompt("Copy this invite, then press OK", invite);
+      setInviteState(inviteStateAfterManualCopy(manualCopy));
     }
   };
 
   if (!open) {
     return (
-      <button className="moc-path-tab" onClick={() => setOpen(true)} type="button">
+      <button className="moc-path-tab" onClick={() => onOpenChange(true)} type="button">
         MoC · Ship {multiplayer.shipModules.length}/{SHIP_MODULE_CAPACITY}
       </button>
     );
@@ -94,24 +133,42 @@ export function MeaningPath({
       <header className="moc-path__head">
         <div>
           <span className="moc-path__kicker">Meaningverse of Culture · {PROJECT_SCALE}</span>
-          <h2>What is this spaceship missing?</h2>
+          <h2>{raidComplete ? "Leviathan workshop" : `Raid 01 · ${FIRST_RAID.title}`}</h2>
         </div>
-        <button aria-label="Close creation panel" onClick={() => setOpen(false)} type="button">
+        <button aria-label="Close creation panel" onClick={() => onOpenChange(false)} type="button">
           ×
         </button>
       </header>
 
       <p className="moc-objective">
-        <small>{tutorialStage.replace("_", "-")}</small>
+        <small>
+          Step {tutorialStepNumber(tutorialStage)} of {TUTORIAL_STAGE_ORDER.length} ·{" "}
+          {TUTORIAL_STAGE_LABELS[tutorialStage]}
+        </small>
         <strong>{TUTORIAL[tutorialStage].objective}</strong>
       </p>
 
+      <section className={`moc-raid${raidComplete ? " moc-raid--complete" : ""}`}>
+        <div className="moc-raid__meta">
+          <span>{FIRST_RAID.mode}</span>
+          <b>{raidComplete ? "Complete" : FIRST_RAID.duration}</b>
+        </div>
+        <p>{raidComplete ? "Two live sessions changed the same street." : FIRST_RAID.premise}</p>
+        <strong>V4V · bring what you can</strong>
+        <small>{FIRST_RAID.v4v}</small>
+      </section>
+
       <ol aria-label="creation path" className="moc-steps">
-        <li className={multiplayer.status === "connected" ? "done" : ""}>Enter</li>
-        <li className={label.trim() ? "done" : ""}>Create</li>
-        <li className={mine ? "done" : ""}>Place</li>
-        <li className={inviteCopied ? "done" : ""}>Invite</li>
-        <li className={coCreated ? "done" : ""}>Co-create</li>
+        {FIRST_RAID.checkpoints.map(({ stage, contribution }) => (
+          <li
+            aria-current={stage === tutorialStage ? "step" : undefined}
+            className={stageDone[stage] ? "done" : stage === tutorialStage ? "now" : ""}
+            key={stage}
+          >
+            {TUTORIAL_STAGE_LABELS[stage]}
+            <small>{contribution}</small>
+          </li>
+        ))}
       </ol>
 
       {!mine && !full ? (
@@ -123,6 +180,7 @@ export function MeaningPath({
             maxLength={64}
             onChange={(event) => setLabel(event.target.value)}
             placeholder="a room, meme, sound, ugly joke…"
+            ref={labelInput}
             value={label}
           />
           <div aria-label="part role" className="moc-role-picker">
@@ -133,6 +191,11 @@ export function MeaningPath({
                 onClick={() => setRole(option.id)}
                 type="button"
               >
+                <i
+                  aria-hidden
+                  className="moc-role-dot"
+                  style={{ color: SHIP_ROLE_COLORS[option.id] }}
+                />
                 {option.label}
               </button>
             ))}
@@ -142,21 +205,31 @@ export function MeaningPath({
             disabled={multiplayer.status !== "connected"}
             type="submit"
           >
-            Place my module
+            {multiplayer.status === "connected" ? "Place my module" : "Waiting for the live room…"}
           </button>
           {submitError ? <p className="moc-error">{submitError}</p> : null}
         </form>
       ) : mine ? (
         <div className="moc-own-module">
-          <span>Module {mine.slot} is live</span>
+          <span>Berth {mine.slot} is live · copper beacon on the ring</span>
           <strong>{mine.label}</strong>
-          <button className="moc-primary" onClick={copyInvite} type="button">
-            {inviteCopied ? "Invite copied" : "Invite a friend"}
+          <button
+            className="moc-primary"
+            onClick={inviteState === "shown" ? () => setInviteState("confirmed") : copyInvite}
+            type="button"
+          >
+            {inviteState === "copied"
+              ? "Invite copied"
+              : inviteState === "shown"
+                ? "Confirm link was shared"
+                : inviteState === "confirmed"
+                  ? "Invite share confirmed"
+                  : "Invite another session"}
           </button>
           <p>
             {coCreated
-              ? "Two people changed the same ship. Keep going."
-              : "Their part will appear here live."}
+              ? "Another live session changed the same ship. Keep going."
+              : "A module from another session will appear here live."}
           </p>
         </div>
       ) : (
@@ -165,7 +238,7 @@ export function MeaningPath({
 
       {recentModules.length ? (
         <section className="moc-remixes">
-          <span>Built by people here</span>
+          <span>Recent room modules</span>
           {recentModules.map((module) => (
             <div key={module.id}>
               <p>
@@ -190,7 +263,7 @@ export function MeaningPath({
 
       <footer>
         {multiplayer.status === "connected"
-          ? `${multiplayer.players.length + 1} here now`
+          ? `${connectedParticipantCount(multiplayer.players)} connected now`
           : "Connecting to the live workshop…"}
       </footer>
     </aside>
