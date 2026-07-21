@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "tsx tests/builder-smoke.ts && tsx tests/security-smoke.ts && tsx tests/audit-smoke.ts && tsx tests/map-search-smoke.ts && tsx tests/indexeddb-audit.test.ts && tsx tests/multiplayer-smoke.ts && tsx tests/culture-smoke.ts && tsx tests/social-quality-smoke.ts && tsx tests/politics-smoke.ts && tsx tests/street-layout.test.ts && tsx tests/world-labels-smoke.ts && tsx tests/furniture-catalog-smoke.ts",
+    "test": "tsx tests/builder-smoke.ts && tsx tests/habitat-capability-smoke.ts && tsx tests/security-smoke.ts && tsx tests/audit-smoke.ts && tsx tests/map-search-smoke.ts && tsx tests/indexeddb-audit.test.ts && tsx tests/multiplayer-smoke.ts && tsx tests/culture-smoke.ts && tsx tests/social-quality-smoke.ts && tsx tests/politics-smoke.ts && tsx tests/street-layout.test.ts && tsx tests/world-labels-smoke.ts && tsx tests/furniture-catalog-smoke.ts",
     "game:sync": "node -e \"require('fs').cpSync('../../godot/dist/web','public/game',{recursive:true})\""
   },
   "dependencies": {
