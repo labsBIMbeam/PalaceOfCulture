@@ -38,6 +38,15 @@ export const PLAZA_RADIUS = 24;
 /** Waypost at the point where the south approach opens into the plaza. */
 export const PLAZA_WAYPOST: [number, number, number] = [10, 0, 64];
 
+/** Radius of the MoC assembly's glowing ring — the ship hovers over the plaza centre. */
+export const SHIP_RING_RADIUS = 10.2;
+/** Boarding point (x, z) on the open south approach, just outside the glowing ring — the world-side
+ *  entry into the create→place loop (its interactable opens the creation panel). */
+export const SHIP_DOCK: [number, number] = [
+  PLAZA_CENTRE[0],
+  PLAZA_CENTRE[1] - SHIP_RING_RADIUS - 1.8,
+];
+
 const WAYFINDING_PLACES: readonly PlaceId[] = [
   "place:market:ring",
   "place:guild:culture",

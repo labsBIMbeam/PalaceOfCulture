@@ -1699,10 +1699,13 @@ function renderScreen(screen: ScreenId, props: ScreenProps) {
 const PERSIST_CHARACTER = characterPersistenceEnabled(import.meta.env.VITE_PERSIST_CHARACTER);
 
 export function GameFrontend() {
+  const joiningStreet =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("join") === "street";
   const [started, setStarted] = useState(false);
   const [introDone, setIntroDone] = useState(() => {
     const search = typeof window === "undefined" ? "" : window.location.search;
-    return !shouldShowIntro(getBrowserIntroStorage(), search);
+    return joiningStreet || !shouldShowIntro(getBrowserIntroStorage(), search);
   });
   const [character, setCharacter] = useState<Character | null>(null);
   const [screen, setScreen] = useState<ScreenId>("title");
@@ -1753,7 +1756,7 @@ export function GameFrontend() {
   };
 
   if (!started) {
-    return <StartScreen onStart={() => setStarted(true)} />;
+    return <StartScreen joining={joiningStreet} onStart={() => setStarted(true)} />;
   }
 
   if (!introDone) {
@@ -1770,6 +1773,7 @@ export function GameFrontend() {
       const finish = (withKey: Character) => {
         if (PERSIST_CHARACTER) void store.save(withKey).catch(() => {});
         setCharacter(withKey);
+        if (joiningStreet) setEngineTarget("street");
       };
       if (!DEMO_WRITES_ENABLED) {
         finish(created);

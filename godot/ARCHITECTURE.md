@@ -23,6 +23,7 @@ coral `#e8735a` (single accent). Toon low-poly: StandardMaterial3D, flat colors,
 | theme | `scripts/ui/ui_theme.gd` (shared Theme/stylebox/font factory, static funcs) |
 | social ui | `scripts/ui/chat_panel.gd`, `scripts/ui/voice_dock.gd`, `scripts/ui/media_player.gd` |
 | net seams | `scripts/net/chat_transport.gd`, `scripts/net/voice_transport.gd`, `scripts/net/media_catalog.gd` |
+| meaningverse | `scripts/moc/moc_loop.gd`, `moc_demo.gd`, `leviathan_assembly.gd`, `kerni_world_agent.gd`, `kerni_live_client.gd`, `kerni_3d.gd` |
 | world | `scripts/main.gd`, `scripts/world/home_world.gd`, `scripts/world/palace_world.gd`, `tests/smoke.gd` |
 
 Autoloads (project.godot, already wired): `Catalog`, `Economy`, `Store`, `Game` — the four
@@ -116,7 +117,9 @@ signal mode_changed(mode: int)
 var space: int
 var mode: int
 var current_home: String
-var typing: bool   # chat input owns the keyboard; player + magnet early-return on it
+var typing: bool   # compatibility mirror for chat focus
+func set_world_input_blocked(owner: StringName, blocked: bool) -> void
+func world_input_blocked() -> bool  # chat/craft/media gate all Player, Magnet and MoC polling
 func goto_menu() -> void; func goto_home(home_name: String) -> void; func goto_palace() -> void
 func toggle_mode() -> void   # ignored in MENU; in PALACE magnet = decorate-only (Game exposes
 func magnet_can_build() -> bool   # true only in HOME
@@ -230,6 +233,25 @@ swapping in the real backend never touches UI code.
   NIP-57 zaps to `value_recipient`.
 
 ## Worlds
+
+### Meaningverse + Kerni authority boundary
+
+`moc_loop.gd` owns the action-driven cultural state. `kerni_world_agent.gd` receives only a copied
+snapshot dictionary and returns canonical dialogue/orientation/acknowledgement proposals. It never
+receives a `MocLoop` reference. External selectors cannot supply prose: they may choose one ID from
+an exact phase-owned template list, bound to a short-lived single-use request capability.
+`moc_demo.gd` independently validates request ID, phase, schema and authority before presentation
+through `kerni_3d.gd`; presentation cannot transition a phase, commit a module, create peer
+provenance, save or publish. `kerni_live_client.gd` is opt-in (`--kerni-live`), hardcodes
+`127.0.0.1:8791`, rejects redirects/oversized or malformed responses, and never sends player text or
+world objects. The release always retains the deterministic offline policy.
+
+Slot 26 is deliberately unreachable until a real receive-side peer transport exists. Do not model
+transport provenance as a caller-supplied Boolean. `MocLoop` never emits it, and
+`MocLeviathanAssembly` independently rejects it in `reveal_to`, `apply_occupied_slots` and
+`pulse_commit`; its final visibility sink also sanitizes poisoned occupied-state maps and future
+slots. The verified solo set is slots `1–25, 27–30`; slot 26 and future slots 31–36 remain visibly
+empty.
 
 - `home_world.gd` (`extends Node3D`): cream ground plane 64×64 (StaticBody3D + collider),
   soft DirectionalLight + WorldEnvironment (cream fog like the web build), BuildSystem

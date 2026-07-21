@@ -17,6 +17,24 @@ var current_home: String = ""
 ## enter/exit). Gameplay input (player, magnet) early-returns while it is set so
 ## WASD/Space never leak into the world mid-sentence.
 var typing := false
+var _world_input_blockers: Dictionary = {}
+
+
+func set_world_input_blocked(source: StringName, blocked: bool) -> void:
+	if source == &"":
+		return
+	if blocked:
+		_world_input_blockers[source] = true
+	else:
+		_world_input_blockers.erase(source)
+
+
+func world_input_blocked() -> bool:
+	return typing or not _world_input_blockers.is_empty()
+
+
+func world_input_blockers_snapshot() -> Array:
+	return _world_input_blockers.keys().duplicate()
 
 
 func _enter_tree() -> void:
@@ -86,6 +104,9 @@ func _register_actions() -> void:
 	_add_key_action("chat_focus", [KEY_ENTER, KEY_KP_ENTER])
 	_add_key_action("media_player", [KEY_M])
 	_add_key_action("voice_toggle", [KEY_V])
+	_add_key_action("moc_invite", [KEY_I])
+	_add_key_action("moc_remix", [KEY_R])
+	_add_key_action("moc_debug_advance", [KEY_F10])
 
 
 func _add_key_action(action: String, keys: Array[int]) -> void:

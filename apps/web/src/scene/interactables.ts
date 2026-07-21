@@ -7,9 +7,12 @@
 
 import { PLAZA_CENTRE, PLAZA_WELL, YOUNG_TREE } from "./Plaza";
 import { WORKSHOP_CENTRE } from "./Workshop";
+import { SHIP_DOCK } from "./streetLayout";
 
 export type InteractKind = "door" | "npc" | "object";
 export type InteractWorld = "hq" | "home" | "street";
+/** Beyond-dialog activations: the ship dock opens the MoC creation panel instead of a message. */
+export type InteractAction = "open-ship-panel";
 
 export interface Interactable {
   id: string;
@@ -24,6 +27,8 @@ export interface Interactable {
   label: string;
   /** Response shown when activated (placeholder until doors animate / NPCs get dialog trees). */
   message: string;
+  /** When set, activation routes to this app action instead of showing `message`. */
+  action?: InteractAction;
 }
 
 // HQ: spawn is ~[6,4,44]; the growing tree sits at [-7,0,40], the asset shelf at z≈52.
@@ -85,6 +90,16 @@ export const INTERACTABLES: Interactable[] = [
     label: "Warm up at the forge",
     message:
       "The forge is glowing. Study, build, repair — the crafts on these benches feed the whole economy.",
+  },
+  {
+    id: "street-ship-dock",
+    world: "street",
+    position: [SHIP_DOCK[0], 0, SHIP_DOCK[1]],
+    radius: 5,
+    kind: "object",
+    label: "Add your part to the ship",
+    action: "open-ship-panel",
+    message: "The assembly ring hums overhead, waiting for the next session module.",
   },
   {
     id: "street-well",

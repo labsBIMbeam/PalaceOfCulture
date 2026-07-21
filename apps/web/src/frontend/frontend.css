@@ -117,17 +117,17 @@ button:focus-visible {
 }
 
 .screen--title::before {
-  background-image: url("/frontend/bg/title.png");
+  background-image: url("/frontend/bg/title.webp");
   background-position: 50% 42%;
 }
 
 .screen--home::before {
-  background-image: url("/frontend/bg/home.png");
+  background-image: url("/frontend/bg/home.webp");
   background-position: 50% 48%;
 }
 
 .screen--culture::before {
-  background-image: url("/frontend/bg/home.png");
+  background-image: url("/frontend/bg/home.webp");
   background-position: 50% 38%;
   filter: saturate(0.55) contrast(1.08);
   opacity: 0.48;
@@ -159,14 +159,10 @@ button:focus-visible {
     linear-gradient(135deg, rgba(9, 11, 16, 0.82), rgba(9, 11, 16, 0.96));
 }
 
-.screen--pleb::before {
-  background-image: url("/frontend/bg/pleb.png");
+.screen--pleb::before,
+.screen--workshop::before {
+  background-image: url("/frontend/bg/market.webp");
   background-position: 48% 48%;
-}
-
-.screen--style::before {
-  background-image: url("/frontend/bg/style.png");
-  background-position: 52% 44%;
 }
 
 .screen--map {
@@ -3521,6 +3517,14 @@ input.compose-input::placeholder {
   letter-spacing: 0.05em;
 }
 
+.member-preview-tag > span {
+  margin-top: 3px;
+  color: #f7b04a;
+  font: 750 11px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .member-preview-tag small {
   color: #9c8a64;
   font: 600 9px var(--mono);
@@ -3535,9 +3539,32 @@ input.compose-input::placeholder {
   grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
   overflow-y: auto;
   gap: 8px;
-  padding-right: 6px;
+  padding: 3px 6px 3px 3px;
   scrollbar-width: thin;
   scrollbar-color: rgba(231, 178, 60, 0.3) transparent;
+  /* Keyboard scrolling: keep the focused chip (and its ring) clear of the clip edges. */
+  scroll-padding: 8px;
+}
+
+/* Ring inside the scroll clip: tighter offset than the global one so it never gets shaved off. */
+.member-chip:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 1px;
+}
+
+.member-keys {
+  padding-top: 8px;
+  color: var(--muted);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .member-keys {
+    display: none;
+  }
 }
 
 .member-chip {
@@ -3668,8 +3695,74 @@ input.compose-input::placeholder {
   object-fit: cover;
 }
 
+.intro-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: clamp(32px, 8vw, 120px);
+  border: 0;
+  background: radial-gradient(circle at 50% 36%, rgba(231, 178, 60, 0.14), transparent 32%),
+    linear-gradient(145deg, #080807, #161008 58%, #050505);
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+}
+
+.intro-card::before {
+  position: absolute;
+  inset: 22px;
+  border: 1px solid rgba(231, 178, 60, 0.18);
+  border-radius: 24px;
+  content: "";
+  pointer-events: none;
+}
+
+.intro-card small {
+  color: var(--gold);
+  font: 800 11px var(--display);
+  letter-spacing: 0.24em;
+}
+
+.intro-card strong {
+  max-width: 800px;
+  color: var(--gold-bright);
+  font: 700 clamp(30px, 5vw, 62px) / 1.08 var(--display);
+  text-wrap: balance;
+}
+
+.intro-card > span:not(.intro-card__count) {
+  max-width: 720px;
+  color: var(--body);
+  font: 600 clamp(15px, 2vw, 21px) / 1.5 var(--copy);
+  text-wrap: balance;
+}
+
+.intro-card b {
+  margin-top: 18px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(231, 178, 60, 0.7);
+  color: var(--gold-soft);
+  font: 800 12px var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.intro-card__count {
+  position: absolute;
+  top: 28px;
+  left: 32px;
+  color: rgba(243, 210, 122, 0.58);
+  font: 700 11px var(--mono);
+  letter-spacing: 0.12em;
+}
+
 .intro-controls {
   position: absolute;
+  z-index: 1;
   right: 24px;
   bottom: 24px;
   display: flex;
@@ -5160,5 +5253,417 @@ input.compose-input::placeholder {
 
   .satire-card--featured h2 {
     font-size: 24px;
+  }
+}
+
+/* Meaningverse of Culture — youth-first creation path inside the 3D workshop. */
+.moc-path,
+.moc-path-tab {
+  position: fixed;
+  z-index: 20;
+  left: 18px;
+  bottom: 18px;
+  color: #f4f7ff;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+.moc-path {
+  width: min(370px, calc(100vw - 36px));
+  max-height: min(690px, calc(100vh - 112px));
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(98, 218, 255, 0.46);
+  border-radius: 18px;
+  background: linear-gradient(155deg, rgba(10, 12, 25, 0.96), rgba(20, 13, 35, 0.94));
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.52), inset 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.moc-path button,
+.moc-path input,
+.moc-path-tab {
+  font: inherit;
+}
+
+.moc-path button {
+  cursor: pointer;
+}
+
+.moc-path__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.moc-path__head h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.moc-path__head > button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 22px;
+}
+
+.moc-path__kicker {
+  color: #65dbff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.moc-objective {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(101, 219, 255, 0.7);
+  background: rgba(101, 219, 255, 0.06);
+}
+
+.moc-objective small {
+  color: #65dbff;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.moc-objective strong {
+  color: #e8ecf8;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.moc-raid {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(247, 176, 74, 0.22);
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(247, 176, 74, 0.08), rgba(101, 219, 255, 0.04));
+}
+
+.moc-raid--complete {
+  border-color: rgba(101, 219, 255, 0.32);
+  background: rgba(101, 219, 255, 0.08);
+}
+
+.moc-raid__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #f7b04a;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.moc-raid p,
+.moc-raid small {
+  margin: 0;
+  color: #aeb5cb;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.moc-raid > strong {
+  color: #ffe9c4;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.moc-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  margin: 15px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moc-steps li {
+  display: grid;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #8990a8;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.moc-steps li small {
+  overflow: hidden;
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+}
+
+/* Signal language of the whole panel: cyan = server-confirmed status, amber = your move now. */
+.moc-steps li.done {
+  background: rgba(92, 216, 255, 0.14);
+  color: #7fe0ff;
+}
+
+.moc-steps li.now {
+  padding-bottom: 4px;
+  border-bottom: 2px solid #f7b04a;
+  background: rgba(247, 176, 74, 0.14);
+  color: #f7b04a;
+}
+
+.moc-create {
+  display: grid;
+  gap: 9px;
+}
+
+.moc-create label,
+.moc-remixes > span {
+  color: #aeb5cb;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.moc-create input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  outline: 0;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+.moc-create input:focus {
+  border-color: #65dbff;
+  box-shadow: 0 0 0 3px rgba(101, 219, 255, 0.12);
+}
+
+.moc-role-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.moc-role-picker button,
+.moc-remixes button {
+  padding: 7px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #b4bbcf;
+  font-size: 11px;
+}
+
+.moc-role-picker button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* Same role → colour mapping as the berth lights on the assembly ring (shipBerths.ts). */
+.moc-role-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+}
+
+.moc-role-picker button.active {
+  border-color: #f7b04a;
+  background: rgba(247, 176, 74, 0.16);
+  color: #ffe9c4;
+}
+
+/* Maker action: the same copper/amber as the own-placement pulse on the ship. */
+.moc-primary {
+  min-height: 42px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(120deg, #f7b04a, #e8704f 85%);
+  box-shadow: inset 0 1px rgba(255, 240, 210, 0.55), inset 0 -2px rgba(90, 30, 8, 0.35);
+  color: #2a1508;
+  font-weight: 850;
+}
+
+.moc-primary:disabled {
+  filter: grayscale(0.8);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.moc-error {
+  margin: 0;
+  color: #ff879c;
+  font-size: 12px;
+}
+
+.moc-own-module {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border-radius: 12px;
+  background: rgba(92, 216, 255, 0.08);
+}
+
+.moc-own-module span {
+  color: #7fe0ff;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.moc-own-module p {
+  margin: 0;
+  color: #acb5c9;
+  font-size: 12px;
+}
+
+.moc-remixes {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.moc-remixes > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.moc-remixes p {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+}
+
+.moc-remixes p small {
+  overflow: hidden;
+  color: #8089a4;
+  text-overflow: ellipsis;
+}
+
+.moc-path footer {
+  margin-top: 12px;
+  color: #79829e;
+  font-size: 10px;
+  text-align: right;
+}
+
+.moc-path-tab {
+  padding: 10px 14px;
+  border: 1px solid rgba(98, 218, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(10, 12, 25, 0.9);
+}
+
+.moc-ship-label {
+  min-width: 150px;
+  padding: 8px 12px;
+  border: 1px solid rgba(99, 216, 255, 0.6);
+  border-radius: 9px;
+  background: rgba(8, 10, 24, 0.88);
+  color: white;
+  text-align: center;
+  pointer-events: none;
+}
+
+.moc-ship-label strong,
+.moc-ship-label span {
+  display: block;
+}
+
+.moc-ship-label span {
+  margin-top: 3px;
+  color: #65dbff;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+/* Your word on the ship: floats over the player's own berth beacon. Soot chassis, copper credit;
+   the border carries the module's role colour (set inline from shipBerths.ts). */
+.moc-berth-label {
+  max-width: 190px;
+  padding: 6px 10px;
+  border: 1px solid #e0824a;
+  border-radius: 9px;
+  background: rgba(28, 19, 11, 0.9);
+  color: #ffe9c4;
+  text-align: center;
+  pointer-events: none;
+}
+
+.moc-berth-label strong {
+  display: block;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moc-berth-label span {
+  display: block;
+  margin-top: 2px;
+  color: #f3c98a;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+/* Social proof under the counter: who placed the most recent human module. Amber = maker credit. */
+.moc-ship-label .moc-ship-latest {
+  display: block;
+  overflow: hidden;
+  max-width: 200px;
+  margin-top: 4px;
+  color: #f3c98a;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .moc-path {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-height: 54vh;
+    padding: 13px;
+  }
+
+  .moc-path-tab {
+    bottom: 10px;
+    left: 10px;
+  }
+
+  .moc-path__head h2 {
+    font-size: 18px;
   }
 }

@@ -559,9 +559,11 @@ type PalaceLocation = {
 The URL serializes durable/shareable fields. Panel open state and scroll position remain local UI
 state.
 
-### Finding 5: multiplayer deliberately knows only public HQ
+### Finding 5: multiplayer deliberately knows only one public world
 
-ADR 0006 and the current protocol correctly restrict unauthenticated realtime to `worldId = hq`.
+ADR 0009 and the current protocol restrict unauthenticated realtime to `worldId = street` for the
+Werkstattgasse workshop loop. Palace HQ was the original ADR 0006 target; private Home still never
+enters the unauthenticated room.
 Adding Session context directly to movement messages would widen the trusted input surface and mix
 social state with pose replication.
 

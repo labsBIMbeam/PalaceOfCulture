@@ -1,6 +1,7 @@
 # 09 - Intro Video Prompt
 
-Use this for the first Palace of Culture intro video.
+Historical long-form concept prompt. It is superseded for runtime by
+`docs/design/moc-intro-tutorial-story.md` and `docs/assets/intro-kerni-grok.md`.
 
 ```text
 Create a 45-60 second cinematic intro for the 600B Palace of Culture.

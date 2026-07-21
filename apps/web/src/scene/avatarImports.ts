@@ -73,7 +73,17 @@ const MEMBER_MODEL_IDS = [
   "tonichina",
 ] as const;
 
+// The neutral hooded Builder archetype (avatar-builder-pilot v1, locally authored, beam-free core;
+// sha256 592a6a9d…8fcd4). Self-contained: BuilderIdle is baked in, and the shared pose GLB is
+// authored on the member rig, so no clipUrls — foreign clips would misbind on this skeleton.
+const BUILDER_IMPORT: AvatarImport = {
+  id: "builder",
+  label: "Builder",
+  modelUrl: "/avatar/imported/builder.glb",
+};
+
 export const AVATAR_IMPORTS: ReadonlyArray<AvatarImport> = [
+  BUILDER_IMPORT,
   rig("placeholder", "Placeholder"),
   ...MEMBER_MODEL_IDS.map((id) => rig(id, id)),
 ];

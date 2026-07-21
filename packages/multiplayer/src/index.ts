@@ -1,12 +1,14 @@
 import { MapSchema, Schema, type } from "@colyseus/schema";
 
-export const MULTIPLAYER_PROTOCOL_VERSION = 2;
+export const MULTIPLAYER_PROTOCOL_VERSION = 3;
 export const PALACE_ROOM_NAME = "palace";
-export const PALACE_WORLD_ID = "hq";
-export const PALACE_SPAWN = Object.freeze({ x: 6, y: 4, z: 44 });
+export const PALACE_WORLD_ID = "street";
+export const PALACE_SPAWN = Object.freeze({ x: 0, y: 3, z: 30 });
 export const MOVE_MESSAGE = "move";
+export const PLACE_SHIP_MODULE_MESSAGE = "placeShipModule";
 export const POSITION_CORRECTION_MESSAGE = "positionCorrection";
 export const MAX_ROOM_CLIENTS = 64;
+export const MAX_SHIP_MODULES = 36;
 export const MAX_MOVE_MESSAGES_PER_SECOND = 20;
 export const MAX_LINEAR_SPEED = 12;
 export const MOVEMENT_TOLERANCE = 2;
@@ -14,6 +16,7 @@ export const MOVEMENT_TOLERANCE = 2;
 const JOIN_OPTION_FIELDS = ["avatarAssetId", "handle", "worldId"] as const;
 const MOVEMENT_FIELDS = ["rotationY", "sequence", "x", "y", "z"] as const;
 const POSITION_CORRECTION_FIELDS = ["reason", "rotationY", "sequence", "x", "y", "z"] as const;
+const SHIP_MODULE_FIELDS = ["label", "moduleId", "role"] as const;
 const UINT32_MAX = 0xffff_ffff;
 const MAX_HORIZONTAL_POSITION = 320;
 const MIN_VERTICAL_POSITION = -20;
@@ -31,6 +34,17 @@ export interface MovementMessage {
   z: number;
   rotationY: number;
   sequence: number;
+}
+
+export const SHIP_MODULE_ROLES = ["structure", "energy", "habitat", "signal"] as const;
+export type ShipModuleRole = (typeof SHIP_MODULE_ROLES)[number];
+
+export interface PlaceShipModuleMessage {
+  /** Client-generated idempotency key; the room assigns the physical slot. */
+  moduleId: string;
+  /** Human-authored module name or purpose. */
+  label: string;
+  role: ShipModuleRole;
 }
 
 export type PositionCorrectionReason = "invalid" | "speed" | "sync";
@@ -73,6 +87,30 @@ export class PlayerPresenceState extends Schema {
   connectedAt = 0;
 }
 
+/** One human-confirmed module in the live MoC workshop ship. */
+export class ShipModuleState extends Schema {
+  @type("string")
+  id = "";
+
+  @type("uint8")
+  slot = 0;
+
+  @type("string")
+  authorSessionId = "";
+
+  @type("string")
+  authorHandle = "";
+
+  @type("string")
+  label = "";
+
+  @type("string")
+  role: ShipModuleRole = "structure";
+
+  @type("float64")
+  createdAt = 0;
+}
+
 export class PalaceRoomState extends Schema {
   @type("uint16")
   protocolVersion = MULTIPLAYER_PROTOCOL_VERSION;
@@ -82,6 +120,9 @@ export class PalaceRoomState extends Schema {
 
   @type({ map: PlayerPresenceState })
   players = new MapSchema<PlayerPresenceState>();
+
+  @type({ map: ShipModuleState })
+  shipModules = new MapSchema<ShipModuleState>();
 }
 
 function asExactRecord(
@@ -146,7 +187,9 @@ export function parsePalaceJoinOptions(value: unknown): PalaceJoinOptions {
     throw new MultiplayerInputError("handle must be 1-24 safe display characters");
   }
   if (input.worldId !== PALACE_WORLD_ID) {
-    throw new MultiplayerInputError("only the public hq world is available without authentication");
+    throw new MultiplayerInputError(
+      "only the public street world is available without authentication",
+    );
   }
   return { avatarAssetId, handle, worldId: PALACE_WORLD_ID };
 }
@@ -180,6 +223,46 @@ export function parseMovementMessage(value: unknown): MovementMessage {
     throw new MultiplayerInputError("rotationY must be between -PI and PI");
   }
   return { x, y, z, rotationY, sequence };
+}
+
+function hasUnsafeDisplayCodePoint(value: string): boolean {
+  for (const character of value) {
+    const point = character.codePointAt(0);
+    if (point === undefined) return true;
+    if (
+      point <= 0x1f ||
+      (point >= 0x7f && point <= 0x9f) ||
+      (point >= 0x202a && point <= 0x202e) ||
+      (point >= 0x2066 && point <= 0x2069)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Validate one deliberate ship-module contribution before the room assigns authorship and slot. */
+export function parsePlaceShipModuleMessage(value: unknown): PlaceShipModuleMessage {
+  const input = asExactRecord(value, "ship module message", SHIP_MODULE_FIELDS);
+  const moduleId = input.moduleId;
+  if (typeof moduleId !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(moduleId)) {
+    throw new MultiplayerInputError("moduleId must be a safe 1-64 character id");
+  }
+  const label = input.label;
+  if (
+    typeof label !== "string" ||
+    label !== label.trim() ||
+    label.length < 1 ||
+    label.length > 64 ||
+    hasUnsafeDisplayCodePoint(label)
+  ) {
+    throw new MultiplayerInputError("label must be 1-64 trimmed display characters");
+  }
+  const role = input.role;
+  if (typeof role !== "string" || !SHIP_MODULE_ROLES.includes(role as ShipModuleRole)) {
+    throw new MultiplayerInputError("role is not supported");
+  }
+  return { moduleId, label, role: role as ShipModuleRole };
 }
 
 /** Validate a server-authoritative pose correction before the client applies it to local physics. */

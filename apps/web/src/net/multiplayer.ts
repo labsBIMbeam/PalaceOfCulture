@@ -3,11 +3,14 @@ import {
   MULTIPLAYER_PROTOCOL_VERSION,
   PALACE_ROOM_NAME,
   PALACE_WORLD_ID,
+  PLACE_SHIP_MODULE_MESSAGE,
   POSITION_CORRECTION_MESSAGE,
   PalaceRoomState,
+  type PlaceShipModuleMessage,
   type PositionCorrection,
   parseMovementMessage,
   parsePalaceJoinOptions,
+  parsePlaceShipModuleMessage,
   parsePositionCorrection,
 } from "@600b/multiplayer";
 import {
@@ -46,11 +49,30 @@ export type RemotePlayerSnapshot = {
   connected: boolean;
 };
 
+export type ShipModuleSnapshot = {
+  id: string;
+  slot: number;
+  authorSessionId: string;
+  authorHandle: string;
+  label: string;
+  role: PlaceShipModuleMessage["role"];
+  createdAt: number;
+};
+
 export type MultiplayerViewState = {
   status: MultiplayerStatus;
   players: RemotePlayerSnapshot[];
+  shipModules: ShipModuleSnapshot[];
+  localSessionId?: string;
   detail?: string;
 };
+
+/** Connected local session plus only remote snapshots explicitly marked connected. */
+export function connectedParticipantCount(
+  players: ReadonlyArray<Pick<RemotePlayerSnapshot, "connected">>,
+): number {
+  return 1 + players.filter((player) => player.connected).length;
+}
 
 export type LocalPlayerPose = {
   x: number;
@@ -79,6 +101,7 @@ type PendingJoinOperation = {
 export const OFFLINE_MULTIPLAYER_STATE: MultiplayerViewState = {
   status: "offline",
   players: [],
+  shipModules: [],
 };
 
 /** Resolve the HTTP matchmaking endpoint while rejecting non-web and credential-bearing URLs. */
@@ -240,6 +263,37 @@ export function snapshotRemotePlayers(
   return players.sort((a, b) => a.sessionId.localeCompare(b.sessionId));
 }
 
+/** Copy server-authored ship modules in physical slot order. */
+export function snapshotShipModules(
+  state: Pick<PalaceRoomState, "shipModules">,
+): ShipModuleSnapshot[] {
+  const modules: ShipModuleSnapshot[] = [];
+  for (const module of state.shipModules.values()) {
+    if (
+      !module.id ||
+      !Number.isInteger(module.slot) ||
+      module.slot < 1 ||
+      !module.authorSessionId ||
+      !module.authorHandle ||
+      !module.label ||
+      !["structure", "energy", "habitat", "signal"].includes(module.role) ||
+      !Number.isFinite(module.createdAt)
+    ) {
+      continue;
+    }
+    modules.push({
+      id: module.id,
+      slot: module.slot,
+      authorSessionId: module.authorSessionId,
+      authorHandle: module.authorHandle,
+      label: module.label,
+      role: module.role as ShipModuleSnapshot["role"],
+      createdAt: module.createdAt,
+    });
+  }
+  return modules.sort((a, b) => a.slot - b.slot || a.id.localeCompare(b.id));
+}
+
 /** Parse the latest authoritative local pose without trusting mutable schema values. */
 export function authoritativeSelfCorrection(
   state: Pick<PalaceRoomState, "players">,
@@ -359,7 +413,7 @@ export class PalaceMultiplayerTransport {
   connect(): void {
     if (this.started || this.disposed) return;
     this.started = true;
-    this.publish({ status: "connecting", players: [] });
+    this.publish({ status: "connecting", players: [], shipModules: [] });
     void this.open({ kind: "join" }, this.generation);
   }
 
@@ -383,6 +437,18 @@ export class PalaceMultiplayerTransport {
     this.sequence = nextSequence;
     this.lastMovementAt = now;
     room.send(MOVE_MESSAGE, movement);
+  }
+
+  /** Submit one human-confirmed module. The room assigns authorship and the next physical slot. */
+  placeShipModule(value: PlaceShipModuleMessage): boolean {
+    const room = this.room;
+    if (!room || this.viewState.status !== "connected") return false;
+    try {
+      room.send(PLACE_SHIP_MODULE_MESSAGE, parsePlaceShipModuleMessage(value));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Consume at most one authoritative snap request; ordinary state patches never populate it. */
@@ -588,7 +654,7 @@ export class PalaceMultiplayerTransport {
           void this.closeJoinedRoom(room);
           this.latestAuthoritativeSelf = null;
           this.pendingCorrection = null;
-          this.publish({ status: "offline", players: [], detail: protocolError });
+          this.publish({ status: "offline", players: [], shipModules: [], detail: protocolError });
           return;
         }
         this.attempts = 0;
@@ -605,6 +671,8 @@ export class PalaceMultiplayerTransport {
       this.publish({
         status: "connected",
         players: snapshotRemotePlayers(state, room.sessionId),
+        shipModules: snapshotShipModules(state),
+        localSessionId: room.sessionId,
       });
     };
     const onDrop = (_code: number, reason?: string) => {
@@ -614,13 +682,14 @@ export class PalaceMultiplayerTransport {
       const detach = this.detachRoomListeners;
       this.detachRoomListeners = null;
       detach?.();
-      this.publish({ status: "reconnecting", players: [], detail: reason });
+      this.publish({ status: "reconnecting", players: [], shipModules: [], detail: reason });
       if (token) {
         this.scheduleRetry({ kind: "reconnect", token }, reason, this.generation);
       } else {
         this.publish({
           status: "offline",
           players: [],
+          shipModules: [],
           detail: reason || "The multiplayer reconnect token is unavailable",
         });
       }
@@ -640,7 +709,7 @@ export class PalaceMultiplayerTransport {
         this.scheduleFreshJoin(reason || "The multiplayer server is restarting", this.generation);
         return;
       }
-      this.publish({ status: "offline", players: [], detail: reason });
+      this.publish({ status: "offline", players: [], shipModules: [], detail: reason });
     };
     const detachCorrection = room.onMessage<unknown>(POSITION_CORRECTION_MESSAGE, (payload) => {
       if (this.disposed || this.room !== room) return;
@@ -678,7 +747,7 @@ export class PalaceMultiplayerTransport {
     }
 
     const delay = jitteredRetryDelayMs(reconnectDelayMs(nextAttempt));
-    this.publish({ status: "reconnecting", players: [], detail });
+    this.publish({ status: "reconnecting", players: [], shipModules: [], detail });
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       void this.open(mode, generation);
@@ -691,7 +760,7 @@ export class PalaceMultiplayerTransport {
     const nextAttempt = this.freshJoinAttempts + 1;
     const delay = jitteredRetryDelayMs(freshJoinDelayMs(nextAttempt));
     this.freshJoinAttempts = nextAttempt;
-    this.publish({ status: "reconnecting", players: [], detail });
+    this.publish({ status: "reconnecting", players: [], shipModules: [], detail });
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       void this.open({ kind: "fresh" }, generation);

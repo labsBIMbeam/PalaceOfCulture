@@ -1,60 +1,83 @@
 import { useEffect, useRef, useState } from "react";
+import { INTRO_CARDS } from "../meaningverse/onboardingStory";
 import { Icon } from "./icons";
 
 /**
- * Full-screen intro video shown before character creation. Sound is ON by default — browsers block
- * unmuted autoplay until a gesture, so if it doesn't start on its own, the first click anywhere on
- * the video plays it with sound. Sound toggle + skip; advances when it ends, errors, or is skipped.
+ * Skippable intro video followed by three canonical story cards. A video error — and the Skip
+ * button itself — goes to the same cards, so the family-slapstick bite, Kerni reveal, and
+ * Locktard Street facts never depend on media and cannot be bypassed by the reflexive first tap.
  */
 export function IntroScreen({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [muted, setMuted] = useState(false);
+  const cardRef = useRef<HTMLButtonElement | null>(null);
+  const [showCards, setShowCards] = useState(false);
+  const [cardIndex, setCardIndex] = useState(0);
 
-  // Try to start with sound. If the browser blocks unmuted autoplay, the click-to-play below covers it.
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = muted;
-    video.play().catch(() => {});
-  }, [muted]);
+    if (showCards) cardRef.current?.focus();
+  }, [showCards]);
 
-  const toggleSound = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const next = !muted;
-    video.muted = next;
-    if (!next) video.play().catch(() => {});
-    setMuted(next);
+  // Fallback: if a browser blocks autoplay, clicking the silent video starts it.
+  const resume = () => videoRef.current?.play().catch(() => {});
+
+  const openCards = () => {
+    videoRef.current?.pause();
+    setShowCards(true);
+    setCardIndex(0);
   };
 
-  // Fallback: if a browser blocks autoplay, clicking the video starts it (with sound).
-  const resume = () => videoRef.current?.play().catch(() => {});
+  const advanceCard = () => {
+    if (cardIndex >= INTRO_CARDS.length - 1) {
+      onComplete();
+      return;
+    }
+    setCardIndex((index) => index + 1);
+  };
+
+  const card = INTRO_CARDS[cardIndex];
 
   return (
     <div className="intro-screen">
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Skip/Sound buttons are the keyboard path */}
-      <video
-        aria-label="Palace of Culture intro video. Use Skip to continue."
-        autoPlay
-        className="intro-video"
-        muted={muted}
-        onClick={resume}
-        onEnded={onComplete}
-        onError={onComplete}
-        playsInline
-        preload="metadata"
-        ref={videoRef}
-        src="/intro.mp4"
-      />
-      <div className="intro-controls">
-        <button className="intro-button" onClick={toggleSound} type="button">
-          {muted ? "Sound on" : "Mute"}
+      {showCards && card ? (
+        <button
+          aria-label={`${card.kicker}. ${card.caption} ${card.line}`}
+          className="intro-card"
+          onClick={advanceCard}
+          ref={cardRef}
+          type="button"
+        >
+          <span className="intro-card__count">
+            {cardIndex + 1} / {INTRO_CARDS.length}
+          </span>
+          <small>{card.kicker}</small>
+          <strong>{card.caption}</strong>
+          <span>{card.line}</span>
+          <b>{cardIndex === INTRO_CARDS.length - 1 ? "Walk in" : "Continue"}</b>
         </button>
-        <button className="intro-button" onClick={onComplete} type="button">
-          Skip
-          <Icon name="play" size={14} />
-        </button>
-      </div>
+      ) : (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: the Skip button is the keyboard path
+        <video
+          aria-label="Decorative Kerni intro. The canonical bite and reveal continue in the story cards. Skip to continue."
+          autoPlay
+          className="intro-video"
+          muted
+          onClick={resume}
+          onEnded={openCards}
+          onError={openCards}
+          playsInline
+          preload="metadata"
+          ref={videoRef}
+          src="/intro.mp4"
+        />
+      )}
+      {!showCards ? (
+        <div className="intro-controls">
+          <button className="intro-button" onClick={openCards} type="button">
+            Skip video
+            <Icon name="play" size={14} />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

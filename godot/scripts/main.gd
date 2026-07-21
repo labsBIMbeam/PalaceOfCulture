@@ -35,6 +35,22 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--smoke"):
 		_run_smoke()
 		return
+	if OS.get_cmdline_user_args().has("--moc-kerni-capture"):
+		_run_moc_kerni_capture()
+		return
+	if OS.get_cmdline_user_args().has("--moc-intro-capture"):
+		_run_moc_intro_capture()
+		return
+	if OS.get_cmdline_user_args().has("--moc-menu-capture"):
+		_run_moc_menu_capture()
+		return
+	if OS.get_cmdline_user_args().has("--moc-capture"):
+		_run_moc_capture()
+		return
+	if OS.has_feature("moc_release") or OS.get_cmdline_user_args().has("--moc-demo") \
+			or OS.get_cmdline_user_args().has("--moc-route-smoke"):
+		_run_moc_release()
+		return
 	# Responsive floor: layouts are audited down to 960x540. There is no project
 	# setting for a minimum window size — the docs say set it in code.
 	if DisplayServer.get_name() != "headless":
@@ -95,6 +111,140 @@ func _run_smoke() -> void:
 	get_tree().quit(code)
 
 
+## Desktop/Steam slice: one workshop, no legacy Home/Craft/Feed/Radio route.
+func _run_moc_release() -> void:
+	if DisplayServer.get_name() != "headless":
+		get_window().min_size = Vector2i(960, 540)
+		if not OS.get_cmdline_user_args().has("--moc-skip-intro"):
+			_intro = IntroScreenScript.new()
+			add_child(_intro)
+			_intro.open()
+			await _intro.intro_done
+			_intro.queue_free()
+			_intro = null
+	Game.goto_palace()
+	_world = PalaceWorldScript.new()
+	add_child(_world)
+	print("MOC_RELEASE_READY route=workshop legacy_ui=false")
+	if OS.get_cmdline_user_args().has("--moc-route-smoke"):
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var demo := _world.get("moc_demo") as MocDemo
+		var ready := demo != null and demo.kerni != null and demo.world_agent != null
+		print("MOC_ROUTE_SMOKE ready=%s kerni=%s authority=%s" % [
+			ready, demo != null and demo.kerni != null,
+			String(demo.world_agent.contract().authority) if ready else "missing",
+		])
+		get_tree().quit(0 if ready else 1)
+
+
+## Deterministic native-render QA for the embodied Kerni world-agent in the real workshop.
+func _run_moc_kerni_capture() -> void:
+	get_window().size = Vector2i(1200, 900)
+	var palace: Node3D = PalaceWorldScript.new()
+	add_child(palace)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var demo := palace.get("moc_demo") as MocDemo
+	if demo == null or demo.kerni == null:
+		push_error("Kerni capture could not find workshop companion")
+		get_tree().quit(1)
+		return
+	demo._ask_kerni()
+	var camera := Camera3D.new()
+	camera.name = "KERNI_QA_Camera"
+	camera.position = Vector3(20.5, 4.6, 84.5)
+	camera.fov = 44.0
+	camera.look_at_from_position(camera.position, Vector3(16.5, 2.65, 77.5), Vector3.UP)
+	add_child(camera)
+	camera.current = true
+	var capture_player := palace.get("_player") as Node3D
+	if capture_player != null:
+		capture_player.global_position = camera.position
+		capture_player.visible = false
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	var frame_start := Time.get_ticks_usec()
+	for _frame in 100:
+		await RenderingServer.frame_post_draw
+	var frame_seconds := float(Time.get_ticks_usec() - frame_start) / 1_000_000.0
+	var image := get_viewport().get_texture().get_image()
+	var output := ProjectSettings.globalize_path("user://kerni_world_agent_capture.png")
+	var error := image.save_png(output)
+	print("KERNI_CAPTURE path=%s size=%dx%d error=%d avg_fps=%.1f authority=%s" % [
+		output, image.get_width(), image.get_height(), error, 100.0 / maxf(frame_seconds, 0.001),
+		String(demo.world_agent.last_proposal.get("authority", "missing")),
+	])
+	get_tree().quit(0 if error == OK else 1)
+
+
+## Deterministic native-render QA for the longest canonical intro card.
+func _run_moc_intro_capture() -> void:
+	get_window().size = Vector2i(1280, 720)
+	_intro = IntroScreenScript.new()
+	add_child(_intro)
+	# Capture is intentionally headless, so bypass open(): open() correctly resolves immediately when
+	# there is no display and therefore does not build the card controls needed for this QA image.
+	_intro._build()
+	_intro.visible = true
+	_intro._show_cards()
+	_intro._card_index = _intro.STORY_CARDS.size() - 1
+	_intro._render_card()
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var output := ProjectSettings.globalize_path("user://moc_intro_story_capture.png")
+	var error := image.save_png(output)
+	print("MOC_INTRO_CAPTURE path=%s size=%dx%d error=%d card=%d" % [
+		output, image.get_width(), image.get_height(), error, _intro._card_index + 1,
+	])
+	get_tree().quit(0 if error == OK else 1)
+
+
+## Deterministic native-render QA for menu keyart, terminal typography and focus state.
+func _run_moc_menu_capture() -> void:
+	get_window().size = Vector2i(1280, 720)
+	_main_menu = MainMenuScript.new()
+	add_child(_main_menu)
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var output := ProjectSettings.globalize_path("user://moc_menu_keyart_capture.png")
+	var error := image.save_png(output)
+	print("MOC_MENU_CAPTURE path=%s size=%dx%d error=%d keyart=%s" % [
+		output, image.get_width(), image.get_height(), error,
+		str(_main_menu.find_child("TitleKeyart", true, false) != null),
+	])
+	get_tree().quit(0 if error == OK else 1)
+
+
+## Deterministic native-render QA: direct Palace boot, authored camera, PNG, clean exit.
+func _run_moc_capture() -> void:
+	get_window().size = Vector2i(1600, 900)
+	var palace: Node3D = PalaceWorldScript.new()
+	add_child(palace)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var camera := Camera3D.new()
+	camera.name = "MOC_QA_Camera"
+	camera.position = Vector3(57, 20, 97)
+	camera.fov = 48.0
+	camera.look_at_from_position(camera.position, Vector3(30, 7, 62), Vector3.UP)
+	add_child(camera)
+	camera.current = true
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	var frame_start := Time.get_ticks_usec()
+	for _frame in 120:
+		await RenderingServer.frame_post_draw
+	var frame_seconds := float(Time.get_ticks_usec() - frame_start) / 1_000_000.0
+	var image := get_viewport().get_texture().get_image()
+	var output := ProjectSettings.globalize_path("user://moc_godot_capture.png")
+	var error := image.save_png(output)
+	print("MOC_CAPTURE path=%s size=%dx%d error=%d avg_fps=%.1f" % [
+		output, image.get_width(), image.get_height(), error, 120.0 / maxf(frame_seconds, 0.001),
+	])
+	get_tree().quit(0 if error == OK else 1)
+
+
 ## Swaps the world child and matches UI layer visibility to the new space.
 func _on_space_changed(space: int) -> void:
 	if _world != null:
@@ -127,4 +277,4 @@ func _on_space_changed(space: int) -> void:
 	_media.layer = 15 if in_world else 31
 	_media.hide_panel()
 	if not in_world:
-		_craft_menu.visible = false
+		_craft_menu.close(false)

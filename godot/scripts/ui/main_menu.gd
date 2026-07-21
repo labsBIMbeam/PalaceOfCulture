@@ -1,15 +1,16 @@
 extends CanvasLayer
-## Title screen, cypherpunk-dark: near-black ink field under a calm "600"
-## matrix rain (port of the web MatrixField — column groups of 6-0-0 sweep on,
-## hold, then fade), a typography-led center column (massive Cinzel wordmark,
+## Title screen, cypherpunk-dark: approved Locktard Street keyart under a calm
+## "600" matrix rain (port of the web MatrixField — column groups of 6-0-0 sweep
+## on, hold, then fade), a typography-led center column (massive Cinzel wordmark,
 ## mono terminal home rows, gold hover, glow only on focus) and a
 ## mempool-style mono data strip along the bottom (approx block height, drip
 ## rates, home count, RADIO [M] hint). The text IS the button — no boxed
-## panels, no keyart. Coral marks ONLY the hosted-home star.
+## panels. Coral marks ONLY the hosted-home star.
 
 signal world_map_requested
 
 const UITheme := preload("res://scripts/ui/ui_theme.gd")
+const TITLE_KEYART := preload("res://assets/ui/title.webp")
 
 const CENTER_WIDTH := 560.0
 const STRIP_HEIGHT := 34.0
@@ -87,9 +88,9 @@ func _process(delta: float) -> void:
 # --- Backdrop layers ------------------------------------------------------------------------------
 
 
-## Near-black ink field, the ported 600-rain (static faint bed + sweeping
-## column groups on top) and a soft radial vignette. Keyart is gone — the rain
-## and the type carry the screen.
+## Near-black ink field, approved keyart, the ported 600-rain (static faint bed
+## + sweeping column groups on top) and a soft radial vignette. Keyart stays
+## subordinate to the terminal typography.
 func _build_backdrop() -> void:
 	var ink := ColorRect.new()
 	ink.name = "Ink"
@@ -97,6 +98,16 @@ func _build_backdrop() -> void:
 	ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(ink)
 	ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var keyart := TextureRect.new()
+	keyart.name = "TitleKeyart"
+	keyart.texture = TITLE_KEYART
+	keyart.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	keyart.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	keyart.modulate = Color(1.0, 1.0, 1.0, 0.34)
+	keyart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(keyart)
+	keyart.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var rain := Control.new()
 	rain.name = "MatrixRain"

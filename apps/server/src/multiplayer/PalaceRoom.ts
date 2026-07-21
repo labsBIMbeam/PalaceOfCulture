@@ -4,18 +4,23 @@ import {
   MAX_LINEAR_SPEED,
   MAX_MOVE_MESSAGES_PER_SECOND,
   MAX_ROOM_CLIENTS,
+  MAX_SHIP_MODULES,
   MOVEMENT_TOLERANCE,
   MOVE_MESSAGE,
   type MovementMessage,
   PALACE_SPAWN,
   PALACE_WORLD_ID,
+  PLACE_SHIP_MODULE_MESSAGE,
   POSITION_CORRECTION_MESSAGE,
   type PalaceJoinOptions,
   PalaceRoomState,
+  type PlaceShipModuleMessage,
   PlayerPresenceState,
   type PositionCorrection,
+  ShipModuleState,
   parseMovementMessage,
   parsePalaceJoinOptions,
+  parsePlaceShipModuleMessage,
 } from "@600b/multiplayer";
 
 const RECONNECT_WINDOW_SECONDS = 10;
@@ -38,6 +43,7 @@ interface MovementGuard {
   invalidWindowStartedAt: number;
   lastSequence: number;
   movementTimestamps: number[];
+  shipModuleId?: string;
   verticalDistanceBudget: DistanceBudget;
 }
 
@@ -54,7 +60,7 @@ interface PalaceClientContext {
 
 type PalaceClient = Client<PalaceClientContext>;
 
-/** Volatile public-HQ presence. Persistent world decisions never enter this room. */
+/** Volatile Street presence plus workshop ship assembly. Durable ownership never enters this room. */
 export class PalaceRoom extends Room<{
   state: PalaceRoomState;
   metadata: { worldId: typeof PALACE_WORLD_ID };
@@ -101,6 +107,9 @@ export class PalaceRoom extends Room<{
     this.metadata = { worldId: PALACE_WORLD_ID };
     this.onMessage<unknown>(MOVE_MESSAGE, (client, payload) => {
       this.#handleMovement(client, payload);
+    });
+    this.onMessage<unknown>(PLACE_SHIP_MODULE_MESSAGE, (client, payload) => {
+      this.#handleShipModule(client, payload);
     });
     PalaceRoom.#activeRoomId = this.roomId;
   }
@@ -172,7 +181,7 @@ export class PalaceRoom extends Room<{
     try {
       movement = parseMovementMessage(payload);
     } catch {
-      this.#recordInvalidMovement(client, guard, now);
+      this.#recordInvalidMessage(client, guard, now);
       return;
     }
 
@@ -185,7 +194,7 @@ export class PalaceRoom extends Room<{
     const isRespawn = isExactSpawn(movement) && !isExactSpawn(player);
     if (!isRespawn && !consumeMovementBudget(guard, horizontalDistance, verticalDistance, now)) {
       this.#sendPositionCorrection(client, player);
-      this.#recordInvalidMovement(client, guard, now);
+      this.#recordInvalidMessage(client, guard, now);
       return;
     }
     if (isRespawn) resetDistanceBudget(guard, now);
@@ -198,14 +207,43 @@ export class PalaceRoom extends Room<{
     guard.lastSequence = movement.sequence;
   }
 
-  #recordInvalidMovement(client: PalaceClient, guard: MovementGuard, now: number): void {
+  #handleShipModule(client: PalaceClient, payload: unknown): void {
+    const guard = client.userData;
+    const player = this.state.players.get(client.sessionId);
+    if (!guard || !player || guard.closing) return;
+
+    let input: PlaceShipModuleMessage;
+    try {
+      input = parsePlaceShipModuleMessage(payload);
+    } catch {
+      this.#recordInvalidMessage(client, guard, performance.now());
+      return;
+    }
+
+    if (guard.shipModuleId || this.state.shipModules.size >= MAX_SHIP_MODULES) return;
+    const stateId = `${client.sessionId}:${input.moduleId}`;
+    if (this.state.shipModules.has(stateId)) return;
+
+    const module = new ShipModuleState();
+    module.id = stateId;
+    module.slot = this.state.shipModules.size + 1;
+    module.authorSessionId = client.sessionId;
+    module.authorHandle = player.handle;
+    module.label = input.label;
+    module.role = input.role;
+    module.createdAt = Date.now();
+    this.state.shipModules.set(stateId, module);
+    guard.shipModuleId = stateId;
+  }
+
+  #recordInvalidMessage(client: PalaceClient, guard: MovementGuard, now: number): void {
     if (now - guard.invalidWindowStartedAt >= INVALID_MOVEMENT_WINDOW_MS) {
       guard.invalidCount = 0;
       guard.invalidWindowStartedAt = now;
     }
     guard.invalidCount += 1;
     if (guard.invalidCount >= INVALID_MOVEMENT_LIMIT) {
-      this.#closeForPolicy(client, "invalid movement");
+      this.#closeForPolicy(client, "invalid public message");
     }
   }
 

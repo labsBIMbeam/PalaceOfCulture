@@ -37,10 +37,12 @@ import {
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
 import { DecorPicker } from "../ui/DecorPicker";
+import { MeaningPath } from "../ui/MeaningPath";
 import { MediaPlayer } from "../ui/MediaPlayer";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { GrowableObject } from "./GrowableObject";
+import { MeaningShip } from "./MeaningShip";
 import { PalaceTeaser } from "./PalaceTeaser";
 import { streetPoseTargets } from "./Plaza";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
@@ -53,6 +55,7 @@ import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
 import { BuilderWorld } from "./homebuilder/BuilderWorld";
 import { MagnetRig } from "./homebuilder/MagnetRig";
 import { INTERACTABLES, type Interactable } from "./interactables";
+import { scanBeamsActive } from "./scanBeams";
 import {
   TRAVEL_LABEL,
   TRAVEL_PENDING_TITLE,
@@ -615,14 +618,13 @@ function useMultiplayerView(
 
 function MultiplayerLayer({
   bodyRef,
-  session,
+  view,
   transportRef,
 }: {
   bodyRef: RefObject<RapierRigidBody>;
-  session: MultiplayerSession;
+  view: MultiplayerViewState;
   transportRef: RefObject<PalaceMultiplayerTransport | null>;
 }) {
-  const view = useMultiplayerView(session.transport, session.detail);
   return (
     <>
       <MultiplayerMovementSync bodyRef={bodyRef} transportRef={transportRef} />
@@ -631,8 +633,7 @@ function MultiplayerLayer({
   );
 }
 
-function MultiplayerStatus({ session }: { session: MultiplayerSession }) {
-  const view = useMultiplayerView(session.transport, session.detail);
+function MultiplayerStatus({ view }: { view: MultiplayerViewState }) {
   const label =
     view.status === "connected"
       ? `connected · ${view.players.filter((player) => player.connected).length + 1} online`
@@ -656,6 +657,19 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const accent = character.avatar.aura;
   const handle = character.handle;
   const avatarAssetId = findImport(character.avatar.modelUrl)?.id ?? "placeholder";
+  // Builder scan-beams: player toggle (L / the pill); the context gate lives in `scanBeamsActive`.
+  const [beamsEnabled, setBeamsEnabled] = useState(true);
+  const scanning = scanBeamsActive({
+    modelUrl: character.avatar.modelUrl,
+    mode,
+    enabled: beamsEnabled,
+  });
+  // Show the toggle only where it does something visible: the Builder rig in decorate mode.
+  const beamsAvailable = scanBeamsActive({
+    modelUrl: character.avatar.modelUrl,
+    mode: "decorate",
+    enabled: true,
+  });
   const playerBody = useRef<RapierRigidBody>(null);
 
   // Decoration: placed pieces are DATA, persisted per room (decorStore). `pendingDefId` = a catalog
@@ -669,12 +683,16 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession>({
     transport: null,
   });
+  const multiplayerView = useMultiplayerView(
+    multiplayerSession.transport,
+    multiplayerSession.detail,
+  );
   const [builderSelected, setBuilderSelected] = useState("");
   const [builderBrush, setBuilderBrush] = useState<BrushSize>(1);
   const builderTargets = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
-    if (world !== "hq") {
+    if (world !== "street") {
       multiplayerTransportRef.current = null;
       setMultiplayerSession({ transport: null });
       return;
@@ -774,6 +792,22 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
 
+  // The MoC creation panel is scene state (not panel-internal) so mode switches never reset it, and
+  // the ship dock can open it. `mocFocusNonce` bumps land focus in the panel's "Name your part"
+  // field — E at the dock drops you straight into naming, the world object as the loop's entry.
+  const [mocOpen, setMocOpen] = useState(true);
+  const [mocFocusNonce, setMocFocusNonce] = useState(0);
+  // Uses only stable setters, so the once-bound interact key handler may close over it safely.
+  const activateInteract = (item: Interactable) => {
+    if (item.action === "open-ship-panel") {
+      setDialog(null);
+      setMocOpen(true);
+      setMocFocusNonce((nonce) => nonce + 1);
+    } else {
+      setDialog(item.message);
+    }
+  };
+
   // Cozy poses: walk up to a chair/bed and sit/sleep. The pose clip plays if present on the rig, else
   // idle (placeholder). The mechanic — snap to the piece, park the controller, posed camera — is real.
   const [posed, setPosed] = useState<Posed | null>(null);
@@ -853,7 +887,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
       if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
-      else if (activeRef.current) setDialog(activeRef.current.message);
+      else if (activeRef.current) activateInteract(activeRef.current);
     };
     window.addEventListener("keydown", onInteractKey);
     return () => {
@@ -879,6 +913,19 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     window.addEventListener("keydown", onDecorateKey);
     return () => window.removeEventListener("keydown", onDecorateKey);
   }, [mode]);
+
+  // "L" toggles the Builder pilot's scan beams — a tool light, so the player always has the off
+  // switch. The gate (`scanBeamsActive`) still limits them to build/scan context + the Builder rig.
+  useEffect(() => {
+    const onBeamKey = (event: KeyboardEvent) => {
+      if (event.code !== "KeyL") return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      setBeamsEnabled((value) => !value);
+    };
+    window.addEventListener("keydown", onBeamKey);
+    return () => window.removeEventListener("keydown", onBeamKey);
+  }, []);
 
   // "B" toggles Decorate from anywhere in the engine. Ignored while typing in chat. Not D —
   // that's WASD right-strafe. Leaving a chair first preserves its position across the mode switch.
@@ -1115,7 +1162,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   turnVelMultiplier={0.8}
                 >
                   <group position={[0, -0.9, 0]}>
-                    <AvatarView bodyRef={playerBody} config={character.avatar} />
+                    <AvatarView
+                      bodyRef={playerBody}
+                      config={character.avatar}
+                      scanning={scanning}
+                    />
                   </group>
                 </Ecctrl>
               ) : null}
@@ -1145,12 +1196,21 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             {/* The street is pure scenery (no colliders) — rendered OUTSIDE <Physics> so its many
                 lazy GLB loads don't churn the physics tree on mount (kept the world walkable via the
                 street ground collider inside Physics above). */}
-            {world === "street" ? <StreetWorld /> : null}
-            {world === "hq" ? (
+            {world === "street" ? (
+              <>
+                <StreetWorld />
+                <MeaningShip
+                  localSessionId={multiplayerView.localSessionId}
+                  modules={multiplayerView.shipModules}
+                  status={multiplayerView.status}
+                />
+              </>
+            ) : null}
+            {world === "street" ? (
               <MultiplayerLayer
                 bodyRef={playerBody}
-                session={multiplayerSession}
                 transportRef={multiplayerTransportRef}
+                view={multiplayerView}
               />
             ) : null}
             {/* Posed: a static avatar at the chair/bed. Holds the sit/sleep clip if present on the rig,
@@ -1226,7 +1286,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span>{title}</span>
           <small>{subtitle}</small>
         </div>
-        {world === "hq" ? <MultiplayerStatus session={multiplayerSession} /> : null}
+        {world === "street" ? <MultiplayerStatus view={multiplayerView} /> : null}
         <div className="engine-actions">
           {mode !== "decorate" && mode !== "build" ? (
             <button className="nav-pill nav-pill--engine" onClick={toggleOverview} type="button">
@@ -1238,6 +1298,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             <button className="nav-pill nav-pill--engine" onClick={toggleDecorate} type="button">
               <Icon name="brush" size={16} />
               <span>{mode === "decorate" ? "Done (B)" : "Decorate (B)"}</span>
+            </button>
+          ) : null}
+          {mode === "decorate" && beamsAvailable ? (
+            <button
+              aria-pressed={beamsEnabled}
+              className="nav-pill nav-pill--engine"
+              onClick={() => setBeamsEnabled((value) => !value)}
+              type="button"
+            >
+              <Icon name="zap" size={16} />
+              <span>{beamsEnabled ? "Beams on (L)" : "Beams off (L)"}</span>
             </button>
           ) : null}
           {canBuild && mode !== "decorate" ? (
@@ -1254,6 +1325,18 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           ) : null}
         </div>
       </div>
+      {world === "street" ? (
+        // Kept mounted (only hidden) through Decorate so typed labels and invite progress survive.
+        <div hidden={mode === "decorate"}>
+          <MeaningPath
+            focusNonce={mocFocusNonce}
+            multiplayer={multiplayerView}
+            onOpenChange={setMocOpen}
+            open={mocOpen}
+            transport={multiplayerSession.transport}
+          />
+        </div>
+      ) : null}
       {mode === "walk" ? (
         <div className="fp-hint">
           <strong>
@@ -1283,7 +1366,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : mode === "walk" && activeInteract ? (
         <button
           className="interact-prompt"
-          onClick={() => setDialog(activeInteract.message)}
+          onClick={() => activateInteract(activeInteract)}
           type="button"
         >
           <span className="interact-key">E</span>

@@ -14,6 +14,7 @@ import {
   PALACE_ROOM_NAME,
   PALACE_SPAWN,
   PALACE_WORLD_ID,
+  PLACE_SHIP_MODULE_MESSAGE,
   POSITION_CORRECTION_MESSAGE,
   PalaceRoomState,
   type PositionCorrection,
@@ -125,7 +126,7 @@ test("distance budget permits 12m/s with bounded jitter tolerance and no idle ba
   assert.equal(fallingBudget.distanceTokens, 0);
 });
 
-test("real clients share one authoritative public HQ room", async (context) => {
+test("real clients share one authoritative public Street room", async (context) => {
   const runtime = new MultiplayerServer({
     host: "127.0.0.1",
     port: 0,
@@ -266,6 +267,43 @@ test("real clients share one authoritative public HQ room", async (context) => {
 
   assertPresenceAtSpawn(aliceRoom, aliceRoom.sessionId, "alice");
   assertPresenceAtSpawn(aliceRoom, bobRoom.sessionId, "bob");
+
+  aliceRoom.send(PLACE_SHIP_MODULE_MESSAGE, {
+    moduleId: "alice-keel",
+    label: "A dancefloor needs a keel",
+    role: "structure",
+  });
+  await waitFor(
+    () => aliceRoom.state.shipModules.size === 1 && bobRoom.state.shipModules.size === 1,
+  );
+  const aliceModule = bobRoom.state.shipModules.get(`${aliceRoom.sessionId}:alice-keel`);
+  assert.ok(aliceModule);
+  assert.equal(aliceModule.slot, 1);
+  assert.equal(aliceModule.authorHandle, "alice");
+  assert.equal(aliceModule.label, "A dancefloor needs a keel");
+  assert.equal(aliceModule.role, "structure");
+
+  aliceRoom.send(PLACE_SHIP_MODULE_MESSAGE, {
+    moduleId: "alice-second",
+    label: "A second claim",
+    role: "energy",
+  });
+  await delay(100);
+  assert.equal(bobRoom.state.shipModules.size, 1, "one person receives one live workshop module");
+
+  bobRoom.send(PLACE_SHIP_MODULE_MESSAGE, {
+    moduleId: "bob-signal",
+    label: "Music for the long crossing",
+    role: "signal",
+  });
+  await waitFor(
+    () => aliceRoom.state.shipModules.size === 2 && bobRoom.state.shipModules.size === 2,
+  );
+  const bobModule = aliceRoom.state.shipModules.get(`${bobRoom.sessionId}:bob-signal`);
+  assert.ok(bobModule);
+  assert.equal(bobModule.slot, 2);
+  assert.equal(bobModule.authorHandle, "bob");
+  assert.equal(bobModule.role, "signal");
 
   // Presence is intentionally non-colliding: both players may occupy the exact same point.
   const sharedPoint = { x: PALACE_SPAWN.x + 1, y: PALACE_SPAWN.y, z: PALACE_SPAWN.z };

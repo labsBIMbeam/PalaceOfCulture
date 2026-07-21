@@ -15,5 +15,6 @@ decision).
 | [0006](0006-colyseus-authoritative-realtime-boundary.md) | Colyseus authoritative realtime boundary | Accepted |
 | [0007](0007-desktop-web-and-separate-mobile-apps.md) | Desktop web and separate mobile apps | Accepted |
 | [0008](0008-guild-lenses-and-palace-core.md) | Guild lenses and one Palace Core across surfaces | Accepted |
+| [0009](0009-public-realtime-street.md) | Public realtime moves from HQ to Werkstattgasse | Accepted |
 
 Naming: `NNNN-kebab-title.md`, four-digit zero-padded, incrementing.

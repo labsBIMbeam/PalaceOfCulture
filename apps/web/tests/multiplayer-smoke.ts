@@ -4,6 +4,7 @@ import {
   POSITION_CORRECTION_MESSAGE,
   PalaceRoomState,
   PlayerPresenceState,
+  ShipModuleState,
 } from "@600b/multiplayer";
 import { type Client, CloseCode, ErrorCode, MatchMakeError, type Room } from "@colyseus/sdk";
 import {
@@ -20,6 +21,7 @@ import {
   resolveMultiplayerUrl,
   shouldSendMovement,
   snapshotRemotePlayers,
+  snapshotShipModules,
 } from "../src/net/multiplayer";
 
 assert.equal(resolveMultiplayerUrl(undefined, true), "http://127.0.0.1:2567");
@@ -98,13 +100,13 @@ assert.equal(
   false,
 );
 assert.equal(
-  authoritativeStateError({ protocolVersion: MULTIPLAYER_PROTOCOL_VERSION, worldId: "hq" }),
+  authoritativeStateError({ protocolVersion: MULTIPLAYER_PROTOCOL_VERSION, worldId: "street" }),
   null,
 );
 assert.match(
   authoritativeStateError({
     protocolVersion: MULTIPLAYER_PROTOCOL_VERSION - 1,
-    worldId: "hq",
+    worldId: "street",
   }) ?? "",
   /does not match/,
 );
@@ -166,6 +168,44 @@ assert.deepEqual(
   ],
 );
 assert.equal(snapshots[0]?.x, snapshots[1]?.x, "identical remote positions remain valid");
+
+const shipState = new PalaceRoomState();
+const secondModule = Object.assign(new ShipModuleState(), {
+  id: "session-b:module-b",
+  slot: 2,
+  authorSessionId: "session-b",
+  authorHandle: "bob",
+  label: "Music for the crossing",
+  role: "signal",
+  createdAt: 2,
+});
+const firstModule = Object.assign(new ShipModuleState(), {
+  id: "session-a:module-a",
+  slot: 1,
+  authorSessionId: "session-a",
+  authorHandle: "alice",
+  label: "Common keel",
+  role: "structure",
+  createdAt: 1,
+});
+shipState.shipModules.set(secondModule.id, secondModule);
+shipState.shipModules.set(firstModule.id, firstModule);
+shipState.shipModules.set(
+  "invalid",
+  Object.assign(new ShipModuleState(), { id: "invalid", slot: 0 }),
+);
+assert.deepEqual(
+  snapshotShipModules(shipState).map(({ slot, authorHandle, label, role }) => ({
+    slot,
+    authorHandle,
+    label,
+    role,
+  })),
+  [
+    { slot: 1, authorHandle: "alice", label: "Common keel", role: "structure" },
+    { slot: 2, authorHandle: "bob", label: "Music for the crossing", role: "signal" },
+  ],
+);
 
 assert.deepEqual(
   authoritativeSelfCorrection(
@@ -276,7 +316,7 @@ const authoritativeStates: string[] = [];
 authoritativeTransport.subscribe((state) => authoritativeStates.push(state.status));
 authoritativeTransport.connect();
 await flushMicrotasks();
-assert.deepEqual(observedJoinOptions, { avatarAssetId: "flx", handle: "alice", worldId: "hq" });
+assert.deepEqual(observedJoinOptions, { avatarAssetId: "flx", handle: "alice", worldId: "street" });
 assert.equal(
   authoritativeStates.at(-1),
   "connecting",

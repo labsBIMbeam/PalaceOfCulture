@@ -9,7 +9,8 @@
 > ⚠️ **This is the raw stone — the statue still has to be carved.**
 > Playable pre-alpha. Three walkable worlds (Palace HQ, the Werkstattgasse street, your private
 > Home), multiplayer presence, growable timelock assets, a signed ownership verifier and an
-> append-only audit core run today; the end-to-end timelock flow and world-agent integration remain
+> append-only audit core, the Godot Kerni companion and its bounded localhost template sidecar run
+> today; the end-to-end timelock flow and broader Bitcoin/Nostr world-signal engine remain
 > scaffolding. Contributions welcome — see [Contributing](#contributing).
 
 This repository is the **application** — a web-first, stylized 3D social MMO. The product vision,
@@ -81,12 +82,16 @@ pnpm install             # install the TS workspace
 pnpm dev:web             # run the client (Vite)
 pnpm dev:server          # run the server (tsx watch)
 
+# Two-machine playtest (Windows browser client -> this Linux server, preferably over Tailscale)
+PALACE_LAN_HOST="$(tailscale ip -4)" pnpm dev:lan
+
 # Python service (world-agent)
 cd services/world-agent
 uv sync && uv run pytest
 ```
 
-Requires Node ≥ 20 and pnpm (`corepack enable`); the world-agent needs Python ≥ 3.12 + `uv`.
+Requires Node ≥ 22 and pnpm (`corepack enable`); the world-agent needs Python ≥ 3.12 + `uv`.
+See [`infra/LAN-PLAYTEST.md`](infra/LAN-PLAYTEST.md) for the verified Windows/Linux multiplayer path.
 
 ## Status
 
@@ -111,8 +116,10 @@ Playable pre-alpha — one engine, three walkable worlds, in-engine **Travel** b
   Politics ("Clown News" — the factual Citadel Wire feed, satire only via a future world agent),
   Workshop and Pleb Market.
 - ✅ BIP340 signed ownership-chain verifier and SQLite append-only audit core (not yet wired to UI).
-- ⏳ Timelock adapters (Boltz/LNbits), authenticated commands, identity/seal UI, and world-agent
-  integration.
+- ✅ Godot Kerni world-agent embodiment: static GLB, player-initiated phase context, fail-closed
+  external-proposal seam and no cultural write authority.
+- ⏳ Timelock adapters (Boltz/LNbits), authenticated commands, identity/seal UI, and external
+  Python world-agent signals.
 
 The first milestone is "tree first" — the playable MVP slice in `BUILD-BRIEF.md` §4/§6.
 

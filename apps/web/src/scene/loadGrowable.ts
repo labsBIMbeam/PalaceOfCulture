@@ -38,8 +38,10 @@ export interface Growable {
   /** Add this to your scene. */
   root: Group;
   manifest: GrowthManifest;
-  /** Drive the build/growth. `progress` is clamped to 0..1. */
+  /** Drive the original time-based growth. `progress` is clamped to 0..1. */
   setGrowth: (progress: number) => void;
+  /** Show exactly the first N manifest nodes for contributor-driven assembly. */
+  setVisibleParts: (count: number) => void;
   /** Current phase label for a given progress (UI helper). */
   phaseAt: (progress: number) => string;
   dispose: () => void;
@@ -94,6 +96,15 @@ export async function loadGrowable(
     }
   };
 
+  const setVisibleParts = (count: number): void => {
+    const visibleCount = MathUtils.clamp(Math.floor(count), 0, tracked.length);
+    tracked.forEach((item, index) => {
+      const visible = index < visibleCount;
+      item.node.scale.copy(item.base).multiplyScalar(visible ? 1 : 0);
+      item.node.visible = visible;
+    });
+  };
+
   const phaseAt = (progress: number): string => {
     const p = MathUtils.clamp(progress, 0, 1);
     for (const ph of manifest.phases) {
@@ -110,5 +121,5 @@ export async function loadGrowable(
   };
 
   setGrowth(0);
-  return { root, manifest, setGrowth, phaseAt, dispose };
+  return { root, manifest, setGrowth, setVisibleParts, phaseAt, dispose };
 }

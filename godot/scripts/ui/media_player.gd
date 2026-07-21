@@ -334,6 +334,7 @@ func _open_panel() -> void:
 	_prev_mouse = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_panel.visible = true
+	Game.set_world_input_blocked(&"media_player", true)
 	_fade_panel(1.0)
 
 
@@ -349,6 +350,11 @@ func hide_panel() -> void:
 		_panel_tween.kill()
 	_panel.visible = false
 	_panel.modulate.a = 0.0
+	Game.set_world_input_blocked(&"media_player", false)
+
+
+func _exit_tree() -> void:
+	Game.set_world_input_blocked(&"media_player", false)
 
 
 func _fade_panel(target: float) -> void:
@@ -357,7 +363,10 @@ func _fade_panel(target: float) -> void:
 	_panel_tween = create_tween()
 	_panel_tween.tween_property(_panel, "modulate:a", target, 0.18)
 	if target == 0.0:
-		_panel_tween.tween_callback(func() -> void: _panel.visible = false)
+		_panel_tween.tween_callback(func() -> void:
+			_panel.visible = false
+			Game.set_world_input_blocked(&"media_player", false)
+		)
 
 
 # --- Playback -------------------------------------------------------------------------------------

@@ -330,6 +330,7 @@ func _on_input_focus_entered() -> void:
 	# Integrator adds `var typing := false` to game.gd so movement ignores keys while
 	# chatting; Node.set() stays a safe no-op until that flag lands.
 	Game.set("typing", true)
+	Game.set_world_input_blocked(&"chat_input", true)
 	_prev_mouse = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_wake()
@@ -337,8 +338,14 @@ func _on_input_focus_entered() -> void:
 
 func _on_input_focus_exited() -> void:
 	Game.set("typing", false)
+	Game.set_world_input_blocked(&"chat_input", false)
 	Input.mouse_mode = _prev_mouse
 	_wake()
+
+
+func _exit_tree() -> void:
+	Game.set("typing", false)
+	Game.set_world_input_blocked(&"chat_input", false)
 
 
 func _on_input_gui(event: InputEvent) -> void:
