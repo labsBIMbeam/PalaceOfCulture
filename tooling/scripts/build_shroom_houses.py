@@ -13,7 +13,6 @@ import math
 from pathlib import Path
 
 import bpy
-from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "apps/web/public/buildings"
@@ -132,7 +131,7 @@ def add_base(body_mat, cap_mat, *, cap_scale=(2.8, 2.55, 0.78), body_scale=(1.55
         r = 1.48 + 0.08 * math.sin(i * 2.1)
         cylinder(f"foundation_stone_{i}", (math.cos(a) * r, math.sin(a) * r, 0.11), 0.28, 0.22, STONE, vertices=7, scale=(1.3, 0.8, 1))
     # Round door facing -Y, plus radial-ish timber slats.
-    door = cylinder("round_door", (0, -1.47, 1.42), 0.84, 0.16, WOOD, vertices=24, rotation=(math.pi / 2, 0, 0), scale=(0.9, 1.18, 1))
+    cylinder("round_door", (0, -1.47, 1.42), 0.84, 0.16, WOOD, vertices=24, rotation=(math.pi / 2, 0, 0), scale=(0.9, 1.18, 1))
     torus("door_copper_frame", (0, -1.57, 1.42), 0.83, 0.07, COPPER, rotation=(math.pi / 2, 0, 0))
     for x in (-0.42, -0.14, 0.14, 0.42):
         cube("door_plank", (x, -1.57, 1.42), (0.025, 0.04, 0.72), WOOD_LIGHT, bevel=0.015)
@@ -140,7 +139,7 @@ def add_base(body_mat, cap_mat, *, cap_scale=(2.8, 2.55, 0.78), body_scale=(1.55
     # Two warm porthole windows.
     for side in (-1, 1):
         x = side * 1.17
-        win = cylinder("round_window", (x, -0.96, 2.18), 0.36, 0.10, GLOW, vertices=20, rotation=(math.pi / 2, 0, 0))
+        cylinder("round_window", (x, -0.96, 2.18), 0.36, 0.10, GLOW, vertices=20, rotation=(math.pi / 2, 0, 0))
         torus("window_frame", (x, -1.03, 2.18), 0.37, 0.055, COPPER, rotation=(math.pi / 2, 0, 0))
         cube("window_mullion", (x, -1.09, 2.18), (0.025, 0.025, 0.31), COPPER)
     return stem, cap
