@@ -53,6 +53,13 @@ import { CATALOG, type DecorDef, defById } from "./furnitureCatalog";
 import { BuilderWorld } from "./homebuilder/BuilderWorld";
 import { MagnetRig } from "./homebuilder/MagnetRig";
 import { INTERACTABLES, type Interactable } from "./interactables";
+import {
+  TRAVEL_LABEL,
+  TRAVEL_PENDING_TITLE,
+  WORLD_IDLE_SUBTITLE,
+  WORLD_TITLE,
+  WORLD_WALK_SUBTITLE,
+} from "./worldLabels";
 
 // The street's built-in seats/beds, computed once (deterministic layout data).
 const STREET_POSES: PosePoint[] = streetPoseTargets();
@@ -120,11 +127,6 @@ const SPAWN_FOR: Record<EngineTarget, [number, number, number]> = {
   home: HOME_SPAWN,
   street: STREET_SPAWN,
 };
-const WORLD_TITLE: Record<EngineTarget, string> = {
-  hq: "Palace of Culture · TBA",
-  home: "Home — your map",
-  street: "Locktard Street",
-};
 // The Palace map ("hq") is switched OFF for launch: the game ships with Locktard Street + Home.
 // Re-adding "hq" here is the single switch that brings the Palace world back.
 const WORLD_ORDER: EngineTarget[] = ["street", "home"];
@@ -136,21 +138,6 @@ const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number
   home: { color: HOME_CREAM, near: 30, far: 120 },
   // the compact camp: haze starts just past the plaza and swallows the forest edge
   street: { color: "#6a5a70", near: 26, far: 200 },
-};
-const TRAVEL_LABEL: Record<EngineTarget, string> = {
-  hq: "Travel: Palace TBA",
-  home: "Travel: Home",
-  street: "Travel: Street",
-};
-const WORLD_WALK_SUBTITLE: Record<EngineTarget, string> = {
-  hq: "teaser only — not released yet",
-  home: "private — your plot",
-  street: "public — first playable district",
-};
-const WORLD_IDLE_SUBTITLE: Record<EngineTarget, string> = {
-  hq: "3D engine — Palace released soon · date TBA",
-  home: "3D engine — private plot",
-  street: "3D engine — Locktard Street",
 };
 /** How long the travel curtain stays down (world swap happens under it). */
 const TRAVEL_SWAP_MS = 300;
@@ -1220,13 +1207,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       {traveling ? (
         <div className="travel-screen">
           <Icon name={traveling === "home" ? "home" : "globe"} size={44} />
-          <strong>
-            {traveling === "home"
-              ? "Coming home…"
-              : traveling === "street"
-                ? "Heading to Locktard Street…"
-                : "Palace of Culture — released soon…"}
-          </strong>
+          <strong>{TRAVEL_PENDING_TITLE[traveling]}</strong>
           <small>
             {traveling === "home"
               ? "your own empty map — build slowly"
