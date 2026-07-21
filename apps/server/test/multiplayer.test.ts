@@ -126,7 +126,7 @@ test("distance budget permits 12m/s with bounded jitter tolerance and no idle ba
   assert.equal(fallingBudget.distanceTokens, 0);
 });
 
-test("real clients share one authoritative public HQ room", async (context) => {
+test("real clients share one authoritative public Street room", async (context) => {
   const runtime = new MultiplayerServer({
     host: "127.0.0.1",
     port: 0,

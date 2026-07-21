@@ -187,7 +187,9 @@ export function parsePalaceJoinOptions(value: unknown): PalaceJoinOptions {
     throw new MultiplayerInputError("handle must be 1-24 safe display characters");
   }
   if (input.worldId !== PALACE_WORLD_ID) {
-    throw new MultiplayerInputError("only the public hq world is available without authentication");
+    throw new MultiplayerInputError(
+      "only the public street world is available without authentication",
+    );
   }
   return { avatarAssetId, handle, worldId: PALACE_WORLD_ID };
 }

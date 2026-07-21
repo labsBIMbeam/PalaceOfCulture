@@ -82,12 +82,16 @@ pnpm install             # install the TS workspace
 pnpm dev:web             # run the client (Vite)
 pnpm dev:server          # run the server (tsx watch)
 
+# Two-machine playtest (Windows browser client -> this Linux server, preferably over Tailscale)
+PALACE_LAN_HOST="$(tailscale ip -4)" pnpm dev:lan
+
 # Python service (world-agent)
 cd services/world-agent
 uv sync && uv run pytest
 ```
 
-Requires Node ≥ 20 and pnpm (`corepack enable`); the world-agent needs Python ≥ 3.12 + `uv`.
+Requires Node ≥ 22 and pnpm (`corepack enable`); the world-agent needs Python ≥ 3.12 + `uv`.
+See [`infra/LAN-PLAYTEST.md`](infra/LAN-PLAYTEST.md) for the verified Windows/Linux multiplayer path.
 
 ## Status
 

@@ -4,11 +4,11 @@ Deployment-Plan: **was wird wo aufgesetzt**, um das Spiel zu hosten. Begleitdoku
 [`infra/README.md`](README.md) (Ziel-Topologie) und [`docs/adr/0001`](../docs/adr/0001-stack-and-runtime-topology.md)
 (wo rennt was). Gewählte Variante: **öffentlich im Internet, self-hosted auf eigenem VPS.**
 
-> **Wichtigste Erkenntnis:** Vom in ADR 0001 beschriebenen 5-Tier-System ist heute real
-> **nur Tier 0 (Browser-Client) + ein winziges Stück Tier 2 (API-Proxy)**. Der „tragende"
-> Backend-Teil (Colyseus/Yjs-Realtime, SQLite-Eventlog, Ownership-Chain, Timelock-Flow,
-> world-agent) ist laut README/CLAUDE.md **Gerüst, noch nicht implementiert**. Es gibt also
-> (noch) keinen Multiplayer-Server, keine DB und keine Auth zum Hosten.
+> **Aktueller Stand:** Tier 0 (Browser-Client) und der Single-Process-Teil von Tier 2 laufen:
+> HTTP/API-Proxy, SQLite-Audit-Store und ein gehärteter Colyseus-Raum für volatile Präsenz plus
+> Werkstatt-Module. Timelock-Flow, signierte Identitätsaufnahme, persistente kollaborative Welt und
+> externe Signalquellen bleiben spätere Integrationen. Der genaue Zwei-Rechner-Test steht in
+> [`LAN-PLAYTEST.md`](LAN-PLAYTEST.md).
 
 ---
 
@@ -17,16 +17,15 @@ Deployment-Plan: **was wird wo aufgesetzt**, um das Spiel zu hosten. Begleitdoku
 | Teil | Pfad | Zustand | Hosting-Relevanz |
 |---|---|---|---|
 | **Web-Client** | `apps/web` | ✅ Läuft: Intro → Start → begehbares 3D-Palace-HQ (Vite + React + Three.js/r3f + ecctrl) | Statisches Bundle (`pnpm build` → `dist/`) |
-| **Server / API-Proxy** | `apps/server/src/index.ts` | ✅ Läuft, aber minimal: nur `node:http` mit `/api/health`, `/api/podcasts/search`, `/api/podcasts/feed` (CORS-Proxy für Podcasts, ADR 0004) | Node-Prozess (Port 8787) |
-| Colyseus/Fastify/better-sqlite3 | `apps/server` deps | ⏳ Als Dependency deklariert, **nicht verdrahtet** | Noch nichts zu hosten |
-| **world-agent** | `services/world-agent` | ⏳ Python-Stub, `dependencies = []` | Noch nichts zu hosten |
+| **Server / API-Proxy** | `apps/server/src/index.ts` | ✅ `/api/health`, Podcast-Proxy, SQLite-Audit-Store und gemeinsamer Prozess-Lifecycle | Node-Prozess (HTTP 8787, default loopback) |
+| **Colyseus-Realtime** | `apps/server/src/multiplayer/` | ✅ Autoritative Street-Bewegung/Präsenz + ein volatiles Schiff-Modul pro Live-Session | Eigener Listener (2567), exakte Origin-Allowlist |
+| **world-agent** | `services/world-agent` | ✅ Bounded Kerni-Template-Sidecar für lokale Tests; breitere BTC/Nostr-Signalquellen bleiben offen | Optionaler Python-Prozess, suggestion-only |
 | **Nostr-Anbindung** | `apps/web/src/net/nostr.ts` | Browser verbindet direkt zu öffentlichen Relays (`wss://relay.damus.io` u.a.) | **Extern, hosten wir nicht** |
 | Boltz / LNbits / Bitcoin-Timelock | — | Nicht implementiert | Nichts zu hosten |
 
-**Client → Backend-Kopplung:** Der Client ruft das Backend **ausschließlich** für
-`/api/podcasts/*` auf (Media-Player). Vite proxyt im Dev `/api` → `localhost:8787`.
-Die 3D-Welt selbst läuft **rein im Browser** und funktioniert auch ohne den Proxy —
-nur die Podcast-Suche im Media-Player bleibt dann tot.
+**Client → Backend-Kopplung:** Vite proxyt `/api` → `localhost:8787`; der Browser verbindet sich
+zusätzlich über `VITE_MULTIPLAYER_URL` mit Colyseus. Multiplayer ist nur in der öffentlichen
+Werkstattgasse aktiv. Home und Palace HQ bleiben in diesem Slice lokale Flächen.
 
 ---
 
@@ -46,7 +45,7 @@ nur die Podcast-Suche im Media-Player bleibt dann tot.
 
 ## 3. Minimal-Setup für die spielbare Demo (heutiger Stand)
 
-1. **Build-Maschine (einmalig / CI)** — Node ≥ 20, `corepack enable` (pnpm 9):
+1. **Build-Maschine (einmalig / CI)** — Node ≥ 22, `corepack enable` (pnpm 9):
    `pnpm install` → `pnpm --filter @600b/web build` → statisches `dist/`.
    Voraussetzung: Avatar-/Feed-Assets liegen unter `apps/web/public/`.
 2. **Statisches Hosting (Tier 0/1)** — `dist/` ausliefern. Wegen 1 GB Assets idealerweise mit CDN.
@@ -72,8 +71,8 @@ Build + OS-Reserve). Firewall: nur 80/443 offen; der Node-Server lauscht nur auf
 
 **Komponenten, die aufgesetzt werden:**
 
-1. **Runtime:** Node ≥ 20 (NodeSource/nvm), `corepack enable` → pnpm 9. (Python für
-   den world-agent erst nötig, wenn er gebaut ist — heute überspringen.)
+1. **Runtime:** Node ≥ 22 (NodeSource/nvm), `corepack enable` → pnpm 9. Python + `uv` sind nur für
+   den optionalen suggestion-only Kerni-Sidecar nötig.
 2. **Code + Assets:** Repo klonen (`github.com/600-000-000-000/PalaceOfCulture`). Die
    ge-gitignore-ten Assets **separat** auf den VPS bringen (z. B. `rsync` von deiner Box) nach
    `apps/web/public/avatar/` und `apps/web/public/feeds/` — sie sind **nicht** im Git.
@@ -93,32 +92,31 @@ Build + OS-Reserve). Firewall: nur 80/443 offen; der Node-Server lauscht nur auf
 tatsächlich von `apps/web/src/scene/avatarImports.ts` referenzierten GLB/VRM ausliefern; das
 drückt den Transfer und die `dist/`-Größe erheblich.
 
-**Bewusst (noch) NICHT gehostet, weil im Code nicht real:** Multiplayer/Realtime (Colyseus/Yjs),
-DB/Eventlog (SQLite→Postgres), Ownership-Chain, Timelock/Boltz/LNbits, world-agent. Sobald
-diese aus dem Gerüst-Status kommen, kommen DB + Reconcile-Worker + Python-Service als weitere
-systemd-Units auf dieselbe Box (Tier 2/3 aus ADR 0001) — der VPS ist dafür schon der richtige Ort.
+**Bewusst noch nicht Teil dieses Demo-Hostings:** persistente Yjs-Weltprojektion, authentifizierte
+private Räume, Timelock/Boltz/LNbits, Nostr-basierte Modul-Provenienz und externe world-agent
+Signale. SQLite-Audit und der volatile Colyseus-Raum existieren bereits; Schiff-Module sind bewusst
+keine dauerhafte Wahrheit und verschwinden beim Serverneustart.
 
 ---
 
-## 4. Vollständiges Multiplayer-Hosting nach Architektur (Ziel-Topologie)
+## 4. Verbleibende Ziel-Topologie nach der ersten Multiplayer-Scheibe
 
-> **Realitäts-Check:** Der Code für Realtime, DB, Ownership-Chain, Timelock und world-agent
-> existiert noch nicht (README: „not built yet"). Diese Liste ist die **Provisionierungs-Spec**
-> nach ADR 0001 / BUILD-BRIEF §2 — was bereitstehen muss, damit der volle Loop läuft. Infra
-> ohne implementierten Code = leere Server; das hier wächst **parallel** zum Feature-Bau
-> (Reihenfolge = BUILD-BRIEF §6-Backlog).
+> **Realitäts-Check:** Realtime-Präsenz, volatile Werkstatt-Module und SQLite-Audit laufen. Diese
+> Liste beschreibt, was für dauerhafte kollaborative Welt, signierte Identität und Bitcoin-Locks
+> zusätzlich bereitstehen muss. Grüne Demo-Präsenz ist noch kein Beweis für diesen vollen Loop.
 
 ### A · Multiplayer-Realtime-Kern (das eigentliche „mehrere Spieler in einer Welt")
-Auf dem Truth-VPS (Tier 2, Node ≥ 20):
-- **Colyseus** WS-Server (autoritative Bewegung/Presence) — Deps `@colyseus/core` + `colyseus`
+Auf dem Truth-VPS (Tier 2, Node ≥ 22):
+- **Colyseus** WS-Server (autoritative Bewegung/Presence) — Deps `@colyseus/core` +
+  `@colyseus/ws-transport`
   sind da. Braucht **WebSocket-Upgrade** im Proxy (Caddy macht das automatisch). Bei >1 Prozess:
   Sticky Sessions + `@colyseus/redis-presence`/`-driver`. **PoC = 1 Prozess, kein Redis nötig.**
-- **Yjs** CRDT persistent shared state (`yjs` ist Dep). **Persistenz** nötig (y-leveldb auf Disk
-  oder in Postgres) — sonst ist Welt-State nach Reboot weg.
-- **Fastify** REST-API + **State Machine** + **append-only Eventlog**.
+- **Yjs** CRDT persistent shared state ist noch zu integrieren. **Persistenz** wäre dann nötig
+  (y-leveldb auf Disk oder Postgres) — sonst ist Welt-State nach Reboot weg.
+- **Express/Node HTTP** API + **State Machine** + **append-only Eventlog**.
 - **DB:** für echte Multiplayer-Persistenz **Postgres** (SQLite reicht für Single-Box-PoC, aber
   concurrent writes/Realtime → Postgres; Eventlog append-only).
-- **Proxy:** Caddy — `/` → static `dist/`, `/api/*` → Fastify, WS-Route → Colyseus-Port.
+- **Proxy:** Caddy — `/` → static `dist/`, `/api/*` → Express/Node HTTP, WS-Route → Colyseus-Port.
 
 → Das ist „Multiplayer läuft" **ohne Bitcoin**: VPS + Node + Postgres + Caddy.
 
@@ -173,10 +171,13 @@ Jede Phase ist für sich hostbar und testbar.
 ## 5. Verifikation
 
 **Heutiger Stand (PoC):**
-- `pnpm install && pnpm --filter @600b/web build` läuft fehlerfrei, `dist/` entsteht.
-- `pnpm dev:server` → `curl http://localhost:8787/api/health` gibt `ok`.
-- Im Browser: Intro-Video lädt, Start-Flow, begehbares 3D-Palace; Avatare laden ohne 404.
-- Media-Player: Podcast-Suche liefert Ergebnisse (nur mit laufendem Proxy + `/api`-Routing).
+- `pnpm check` lintet, typprüft, testet und baut das gesamte TS-Workspace.
+- `pnpm dev:server` startet HTTP, SQLite und Colyseus in einem gemeinsamen Lifecycle.
+- `pnpm dev:lan` bindet Vite/Colyseus an genau eine Tailscale-/LAN-Schnittstelle und setzt die
+  exakte Browser-Origin; `/api/health` bleibt über den Vite-Proxy erreichbar.
+- Zwei Browser-Sessions sehen sich in Werkstattgasse bewegen und replizieren je ein volatiles
+  Schiff-Modul. Details und manuelle Abnahme: [`LAN-PLAYTEST.md`](LAN-PLAYTEST.md).
+- Der Godot-Windows-Export ist ein separater Standalone-Vertical-Slice, kein Colyseus-Client.
 
 **Für die volle Multiplayer-Topologie (sobald gebaut):**
 - WS-Handshake gegen die Colyseus-Route erfolgreich (Caddy-Upgrade); zwei Browser sehen sich bewegen.

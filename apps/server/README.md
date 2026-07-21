@@ -11,7 +11,7 @@ SQLite-first, append-only event log, reconcile jobs mandatory.
 | `eventlog/` | the audit log; every world-changing decision reproducible from logged inputs + rules |
 | `statemachine/` | defined states + transitions for asset / lock / ownership / palace |
 | `api/` | Node HTTP endpoints; currently the hardened podcast-feed proxy |
-| `multiplayer/` | Colyseus authoritative movement + volatile public-HQ presence |
+| `multiplayer/` | Colyseus authoritative movement + volatile public-Street presence/modules |
 | `worker/` | reconcile jobs against chain / LN / relay; provider webhooks stored **raw** |
 | `adapters/` | Boltz · LNbits · Nostr behind one swappable interface — never the source of truth |
 
@@ -43,11 +43,12 @@ Set `HOST=0.0.0.0` only when the process must be exposed by a container or rever
 | `PODCAST_FEED_MAX_CONCURRENT_PER_IP` | `2` | Simultaneous feed fetches per client IP |
 | `PODCAST_FEED_MAX_CONCURRENT_GLOBAL` | `32` | Simultaneous feed fetches for the process |
 
-## Public HQ multiplayer
+## Public Street multiplayer
 
 The process also owns a separate Colyseus listener. It exposes exactly one unauthenticated room
-type, `palace`, filtered to the public `hq` world and capped at 64 clients. There are no public home
-rooms. Room state is volatile presence only and is never written to SQLite.
+type, `palace`, filtered to the public `street` world and capped at 64 clients. There are no public
+home rooms. Presence and one bounded workshop module per live session are volatile and are never
+written to SQLite; a session/handle is not durable identity or authorship.
 
 | Variable | Default | Purpose |
 |---|---:|---|
@@ -75,7 +76,7 @@ By default, rate limiting uses only the TCP peer and ignores `X-Forwarded-For`. 
 many trusted proxies and the outer proxy strips or overwrites incoming forwarding headers. A wrong
 value lets clients forge identities or makes all users share the proxy's bucket.
 
-New players spawn at the shared HQ spawn `(6, 4, 44)`. Movement is server-authoritative: payload
+New players spawn at the shared Street spawn `(0, 3, 30)`. Movement is server-authoritative: payload
 shape, finite values, world bounds, monotone sequence, and a strict rolling 20-message/second limit
 are checked before replication. Bounded distance budgets refill at 12 m/s horizontally and 24 m/s
 vertically. Their 500 ms jitter allowance caps at 8 m and 14 m respectively, so packet batching is
