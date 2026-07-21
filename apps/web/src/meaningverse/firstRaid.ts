@@ -88,6 +88,10 @@ export const RAID_SPECIALTIES: Readonly<Record<string, string>> = {
   morgs: "Story Mapper",
   proton: "Energy Systems",
   tonichina: "Sonic Alchemist",
+  tal: "Node Cartographer",
+  bk: "Utility Tinkerer",
+  mtoshi: "Crew Gardener",
+  cuddy: "Boundary Mapper",
 } as const;
 
 export function raidSpecialtyFor(name: string): string {

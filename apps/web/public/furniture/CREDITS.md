@@ -1,26 +1,28 @@
-# Furniture — CC0 asset credits
+# Furniture asset credits
 
-All models here are **CC0 / public domain** (no attribution required). Listed anyway as good
-practice. Source: [Poly Pizza](https://poly.pizza) (filtered to CC0), authored by Kenney and
-Quaternius — the cohesive low-poly toon libraries from the FOSS foundation research (07-research).
+## KayKit — Furniture Bits 1.0
 
-| File | Creator | License | Source |
-|------|---------|---------|--------|
-| chair-1.glb | Kenney | CC0 | https://poly.pizza/m/CKSz6PB1vO |
-| chair-2.glb | Kenney | CC0 | https://poly.pizza/m/RY93lbAIFg |
-| chair-3.glb | Quaternius | CC0 | https://poly.pizza/m/9kIjuRFMFw |
-| table-1.glb | Kenney | CC0 | https://poly.pizza/m/41R2HTYj1O |
-| lamp-1.glb | Kenney | CC0 | https://poly.pizza/m/8LiDIfXVLi |
-| bed_single_A.glb | Kenney | CC0 | Kenney Furniture Kit |
+- Creator: Kay Lousberg / KayKit
+- Source: https://github.com/KayKit-Game-Assets/KayKit-Furniture-Bits-1.0
+- Imported source commit: `96d5930`
+- License: Creative Commons Zero 1.0 Universal (CC0)
+- License URL: https://creativecommons.org/publicdomain/zero/1.0/
+- Attribution is not required; credit is included here with thanks to the creator.
 
-## Adding more
+The Palace of Culture repository contains a curated subset converted from the source glTF files to self-contained GLB files. Their shared low-poly atlas was resized from 1024×1024 to 256×256 to reduce browser/GPU memory while retaining the intended stylized appearance.
 
-Whole CC0 kits to expand the catalog (drop a `.glb` here, add an entry to
-`apps/web/src/scene/furnitureCatalog.ts`):
+Included models:
 
-- **Kenney Furniture Kit** — https://kenney.nl/assets/furniture-kit (CC0, ~50 pieces)
-- **Quaternius Interior / Furniture** — https://quaternius.com (CC0)
-- **Poly Pizza** — https://poly.pizza, filter to CC0; resolve a model's GLB with
-  `curl https://poly.pizza/m/<id> | grep -oE 'https://static.poly.pizza/[a-z0-9-]+\.glb'`
+- armchair with pillows
+- single bed
+- book set
+- decorated cabinet
+- cactus
+- wooden chair and stool
+- couch with pillows
+- standing and table lamps
+- striped rug
+- decorated shelf
+- four table variants
 
-This folder is gitignored (binary assets), same as `public/avatar`.
+No paid or Meshy-generated assets are included in this furniture batch.

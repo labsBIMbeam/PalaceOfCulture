@@ -11,6 +11,7 @@ import { useGLTF } from "@react-three/drei";
 import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Enclosure, GATE_ARCH } from "./Enclosure";
+import { KerniFamiliar } from "./KerniFamiliar";
 import { LampPost } from "./LampPost";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza, type SolidSpec, YOUNG_TREE } from "./Plaza";
 import { Signpost } from "./Signpost";
@@ -467,6 +468,13 @@ export function StreetWorld() {
       {/* the workshop yard (forge, chimney smoke, stations) — the second focal point */}
       <PropBoundary>
         <Workshop />
+      </PropBoundary>
+
+      {/* Kerni, the floating workshop familiar — hovers at the yard edge, no collider by canon */}
+      <PropBoundary>
+        <Suspense fallback={null}>
+          <KerniFamiliar position={[-27.5, 0, 93]} rotationY={-2.16} />
+        </Suspense>
       </PropBoundary>
 
       {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}

@@ -90,13 +90,21 @@ const SEEDS: ReadonlyArray<MemberSeed> = [
   { name: "bam", role: "CMO", nostr: "bam@600.wtf" },
   { name: "mhb", role: "CRO", nostr: "mhb@600.wtf" },
   { name: "snick", role: "CWO", nostr: "snick@600.wtf" },
-  // Model-only members now in the game — roles/nostr are placeholders until the real 600.wtf entries land.
-  { name: "gadaj", role: "Council", nostr: "gadaj@600.wtf" },
-  { name: "leon", role: "Council", nostr: "leon@600.wtf" },
-  { name: "madmunkey", role: "Council", nostr: "madmunkey@600.wtf" },
-  { name: "morgs", role: "Council", nostr: "morgs@600.wtf" },
+  // Roles below follow the live 600.wtf members.json (site slugs gdj/madmunky map to our model ids).
+  { name: "gadaj", role: "CKO", nostr: "gdj@600.wtf" },
+  { name: "leon", role: "CHO", nostr: "leon@600.wtf" },
+  { name: "madmunkey", role: "CDJ", nostr: "madmunky@600.wtf" },
+  { name: "morgs", role: "CFR", nostr: "morgs@600.wtf" },
   { name: "proton", role: "Council", nostr: "proton@600.wtf" },
-  { name: "tonichina", role: "Council", nostr: "tonichina@600.wtf" },
+  { name: "tonichina", role: "CCN", nostr: "tonychina@600.wtf" },
+  // The newest join.600.wtf characters — they wear the shared placeholder until their rigged
+  // models come out of the Meshy → rig → retarget pipeline (raw meshes exist on the site).
+  { name: "tal", role: "CNO", nostr: "tal@600.wtf" },
+  { name: "bk", role: "CUO", nostr: "bk@600.wtf" },
+  { name: "mtoshi", role: "CHR", nostr: "mtoshi@600.wtf" },
+  { name: "cuddy", role: "CLO", nostr: "cuddy@600.wtf" },
+  // Kerni (CIVO) is deliberately NOT in the pickable roster: the workshop familiar lives in the
+  // street as an NPC (scene/KerniFamiliar.tsx), not as a wearable member model.
 ];
 
 export const MEMBERS: ReadonlyArray<Member> = SEEDS.map((seed) => ({
