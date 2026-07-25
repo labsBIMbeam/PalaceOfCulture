@@ -1,0 +1,13 @@
+# A napplet is published by the sha256 of its built artifact, so the build has to
+# be byte-identical everywhere. Line endings are the usual way that quietly stops
+# being true: check the same commit out on Windows with CRLF and every source file
+# differs, the bundle differs, the hash differs, and the signed manifest no longer
+# matches the blob. Normalise to LF in the repo and in the working tree.
+* text=auto eol=lf
+
+# Binary assets get inlined as data URIs, so they must never be touched.
+*.webp binary
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.mp4  binary
