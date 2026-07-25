@@ -1,5 +1,5 @@
 {
-  "name": "@palace/napplet-map",
+  "name": "@600b/napplet-map",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@napplet/sdk": "^0.24.4",
-    "@palace/kit": "workspace:*"
+    "@600b/napplet-kit": "workspace:*"
   },
   "devDependencies": {
     "@napplet/conformance-cli": "^0.2.15",

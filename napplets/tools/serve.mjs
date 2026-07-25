@@ -2,13 +2,15 @@
 // signs share one origin (no CORS in the way), and because crypto.subtle needs
 // a secure context — 127.0.0.1 counts, file:// does not.
 //
-//   node tools/serve.mjs [port]
+//   node napplets/tools/serve.mjs [port]
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = normalize(join(fileURLToPath(new URL(".", import.meta.url)), ".."));
+// Two levels up from napplets/tools/ — the repo root, so a napplet is reachable
+// at its real workspace path (/napplets/map/dist/index.html).
+const ROOT = normalize(join(fileURLToPath(new URL(".", import.meta.url)), "..", ".."));
 
 /*
  * Browsers refuse a fixed list of ports outright ("blocked for security
@@ -63,5 +65,5 @@ createServer(async (req, res) => {
   }
 }).listen(PORT, "127.0.0.1", () => {
   process.stdout.write(`workspace on http://127.0.0.1:${PORT}/\n`);
-  process.stdout.write(`publisher    http://127.0.0.1:${PORT}/tools/publish/\n`);
+  process.stdout.write(`publisher    http://127.0.0.1:${PORT}/napplets/tools/publish/\n`);
 });

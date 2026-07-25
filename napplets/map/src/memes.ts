@@ -5,7 +5,7 @@
  * network authority of its own, so both the index and every image come through
  * NAP-RESOURCE — without it the button simply never appears.
  */
-import { bytes, el, has } from "@palace/kit";
+import { bytes, el, has } from "@600b/napplet-kit";
 
 const ORIGIN = "https://memes.600.wtf";
 const INDEX = `${ORIGIN}/api/memes`;

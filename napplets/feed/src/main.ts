@@ -9,7 +9,7 @@
  * Portable: shipped NAPs only (`outbox` required; `common`, `resource`, `link`
  * optional), so it runs unchanged in any NIP-5D shell.
  */
-import "@palace/kit/styles.css";
+import "@600b/napplet-kit/styles.css";
 import {
   boot,
   bytes,
@@ -23,7 +23,7 @@ import {
   relative,
   subscribe,
   truncate,
-} from "@palace/kit";
+} from "@600b/napplet-kit";
 import type { NostrEvent, RelayEventResult } from "@napplet/sdk";
 
 const PAGE = 40;

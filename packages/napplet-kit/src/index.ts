@@ -1,5 +1,5 @@
 /**
- * @palace/kit — the small shared surface every Palace napplet stands on.
+ * @600b/napplet-kit — the small shared surface every Palace napplet stands on.
  *
  * A napplet is one self-contained `index.html` the runtime loads into
  * `iframe sandbox="allow-scripts"` with no `allow-same-origin`: opaque origin,

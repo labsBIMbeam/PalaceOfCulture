@@ -8,8 +8,8 @@
  * shell offers one, the bundled dark palette when it does not — so it runs in
  * any NIP-5D shell, including one that injects no domains at all.
  */
-import "@palace/kit/styles.css";
-import { boot, clear, el, has, openLink } from "@palace/kit";
+import "@600b/napplet-kit/styles.css";
+import { boot, clear, el, has, openLink } from "@600b/napplet-kit";
 import { mountMemes } from "./memes.js";
 import stoneUrl from "./sacred-stone.webp";
 import secLogoUrl from "./sec-logo.svg";
