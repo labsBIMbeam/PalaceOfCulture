@@ -1,0 +1,335 @@
+/* Map styling. Palette tokens come from @600b/napplet-kit. */
+
+/* ── intro ───────────────────────────────────────────────────────────────── */
+
+.intro {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  background: var(--p-bg);
+  cursor: pointer;
+  animation: intro-in 700ms ease-out both;
+}
+
+.intro[data-leaving="true"] {
+  animation: intro-out 600ms ease-in forwards;
+  pointer-events: none;
+}
+
+.stone {
+  max-width: min(46vw, 320px);
+  max-height: 46vh;
+  object-fit: contain;
+  filter: drop-shadow(0 0 26px rgb(247 147 26 / 28%));
+  /* Turns slowly the whole time it is up — about a third of a revolution in the
+     2.2s the intro holds, so it reads as motion rather than a spin. */
+  animation: turn 9s linear infinite;
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.intro-line {
+  margin: 0;
+  font-size: clamp(14px, 2.6vw, 21px);
+  letter-spacing: 0.02em;
+}
+
+.intro-skip {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+@keyframes intro-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .intro[data-leaving="true"] {
+    animation-duration: 1ms;
+  }
+  .stone {
+    animation: none;
+  }
+}
+
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The rain sits behind the world; the map's fill is translucent so it shows through. */
+.rain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/*
+ * Land is orange — fixed, not themed. It is the brand statement, so it does not
+ * follow the shell palette the way the rest of the surface does. Slightly
+ * translucent so the rain reads faintly through the continents while staying
+ * unmistakably orange; the full rain shows in the oceans.
+ */
+.country {
+  fill: rgba(247, 147, 26, 0.92);
+  stroke: #ffb454;
+  stroke-width: 0.11;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The one marker, and its pulse. */
+.here {
+  fill: #efe6d2;
+  stroke: #e8735a;
+  stroke-width: 0.5;
+}
+
+.pulse {
+  fill: none;
+  stroke: #e8735a;
+  stroke-width: 0.5;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: ping 3.6s ease-out infinite;
+}
+
+@keyframes ping {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(5);
+    opacity: 0;
+  }
+}
+
+/*
+ * The ship circumnavigates. The route runs the Southern Ocean (lat ~ -40 to
+ * -50, i.e. y 130-140) because that is the only latitude band that is water the
+ * whole way round — so the ship never crosses land. It enters at x=0 and leaves
+ * at x=360 at the same latitude, so the loop is seamless.
+ */
+.ship {
+  offset-path: path("M0,132 Q45,127 90,133 T180,131 T270,134 T360,132");
+  /* A brandmark should stay upright, not bank into the turns like a hull would. */
+  offset-rotate: 0deg;
+  animation: sail 48s linear infinite;
+}
+
+/* The ship is a control: give it a real hit area and say so on hover/focus. */
+.ship {
+  cursor: pointer;
+}
+
+.ship-hit {
+  fill: transparent;
+}
+
+.ship:hover .mark,
+.ship:focus-visible .mark {
+  filter: drop-shadow(0 0 1px #ffb454) drop-shadow(0 0 2px #ffb454);
+}
+
+.ship:focus-visible {
+  outline: none;
+}
+
+.ship:focus-visible .ship-hit {
+  stroke: #efe6d2;
+  stroke-width: 0.3;
+}
+
+/* Madeira is a link. */
+.madeira {
+  cursor: pointer;
+}
+
+.here-hit {
+  fill: transparent;
+}
+
+.madeira:hover .here,
+.madeira:focus-visible .here {
+  fill: #ffb454;
+}
+
+.madeira:focus-visible {
+  outline: none;
+}
+
+.madeira:focus-visible .here-hit {
+  stroke: #efe6d2;
+  stroke-width: 0.3;
+}
+
+/* Only ever filled when the shell will not open a link, so it takes no room otherwise. */
+.note {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 16px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--p-muted);
+  overflow-wrap: anywhere;
+}
+
+.note:empty {
+  display: none;
+}
+
+/* The SEC mark rides upright rather than turning with the course. */
+.mark {
+  pointer-events: none;
+}
+
+.wake {
+  fill: none;
+  stroke: #efe6d2;
+  stroke-width: 0.18;
+  opacity: 0.35;
+}
+
+/* No fade: the route wraps, so the ship simply keeps going. */
+@keyframes sail {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+
+/* ── meme viewer ─────────────────────────────────────────────────────────── */
+
+/* One big meme, centred over the map. */
+.meme-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 72%);
+  backdrop-filter: blur(2px);
+}
+
+.meme-panel[hidden] {
+  display: none;
+}
+
+.meme-stack {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  max-width: 92%;
+  max-height: 92%;
+}
+
+.meme-big {
+  display: block;
+  max-width: min(900px, 88vw);
+  max-height: 74vh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 70%);
+  cursor: pointer;
+  background: #000;
+}
+
+.meme-who {
+  margin: 0;
+  font-size: 12px;
+  color: var(--p-fg);
+  opacity: 0.75;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.meme-who:active {
+  cursor: grabbing;
+}
+
+.meme-status {
+  margin: 0;
+  max-width: 44ch;
+  text-align: center;
+  font-size: 13px;
+  color: var(--p-muted);
+}
+
+.meme-x {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 1;
+  min-height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .ship {
+    animation: none;
+  }
+  .pulse {
+    opacity: 0.3;
+  }
+  .ship {
+    offset-distance: 70%;
+  }
+}
+
+.line {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 14px 16px;
+  text-align: center;
+  font-size: clamp(13px, 2.4vw, 19px);
+  letter-spacing: 0.02em;
+  color: var(--p-fg);
+  border-top: 1px solid var(--p-line);
+}
