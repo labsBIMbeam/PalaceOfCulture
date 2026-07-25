@@ -1,6 +1,10 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # Each napplet is published on its own as a single hashed artifact, so they are
+  # siblings rather than one app. napplets/tools holds their dev harness and is
+  # not a package.
+  - "napplets/*"
 allowBuilds:
   "@biomejs/biome": true
   better-sqlite3: true

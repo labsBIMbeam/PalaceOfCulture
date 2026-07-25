@@ -163,6 +163,7 @@ function render(root: HTMLElement): void {
 
 boot({
   requires: ["outbox"],
-  unavailable: "This feed reads notes through the shell's outbox service, which this runtime did not provide.",
+  unavailable:
+    "This feed reads notes through the shell's outbox service, which this runtime did not provide.",
   render,
 });
