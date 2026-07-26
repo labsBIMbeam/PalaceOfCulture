@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "sourceDir": ".",
+  "relays": [
+    "wss://nos.lol",
+    "wss://relay.primal.net",
+    "wss://nostr.mom",
+    "wss://relay.nostr.band",
+    "wss://relay.damus.io"
+  ],
+  "blossomServers": [
+    "https://blossom.bimcvp.com"
+  ],
+  "defaultTarget": "named",
+  "_comment_named": "With --all, `named` is a FILTER over discovered folders, not a name: each napplet deploys under its own folder name as the d tag. Keep it empty to deploy all of them. Note that `metadata.name` OVERRIDES this list entirely (config.ts resolves `named` as `metadata.name ? [metadata.name] : named`), so metadata.name must stay unset here or it silently filters every folder out and the deploy plan comes back empty.",
+  "named": [],
+  "discover": {
+    "enabled": true,
+    "roots": [
+      "napplets"
+    ]
+  },
+  "signing": {
+    "mode": "interactive"
+  },
+  "conformance": {
+    "command": "napplet-conformance"
+  },
+  "paja": {
+    "command": "kehto"
+  },
+  "_comment_metadata": "title and description are deliberately absent. Config metadata REPLACES the per-napplet values, so setting them here would stamp one shared title onto every napplet. Each napplet's real title/description live in its vite.config.ts nip5aManifest({...}); the plugin writes them into the built index.html and deploy reads them back out from there. Edit the vite config, not the HTML. metadata.name must also stay unset — see _comment_named.",
+  "metadata": {
+    "archetypes": []
+  }
+}
