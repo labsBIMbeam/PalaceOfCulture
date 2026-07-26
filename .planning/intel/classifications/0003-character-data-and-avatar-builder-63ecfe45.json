@@ -1,0 +1,25 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/adr/0003-character-data-and-avatar-builder.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR 0003 — Character data model & our own VRM slot-builder",
+  "summary": "Chooses an in-stack, data-driven VRM slot-builder and a shared character schema persisted through an IndexedDB-backed adapter before later server migration.",
+  "scope": [
+    "AvatarConfig",
+    "VRM slot-builder",
+    "Character",
+    "CharacterStore",
+    "IndexedDB",
+    "AvatarComposer",
+    "trait catalog"
+  ],
+  "cross_refs": [
+    "BUILD-BRIEF",
+    "DESIGN-BRIEF",
+    "ADR 0002"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

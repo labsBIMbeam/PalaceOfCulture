@@ -1,0 +1,24 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/design/private-world-builder-loop.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Private World Builder Loop",
+  "summary": "Documents the deferred private-world loop, centralized resources, capability progression, grid placement, production assets, timelocks, timers, implementation tasks, and success conditions.",
+  "scope": [
+    "private world",
+    "Resource Core",
+    "capability progression",
+    "builder grid",
+    "production assets",
+    "timelock assets",
+    "production timers"
+  ],
+  "cross_refs": [
+    "docs/design/private-to-palace-asset-concept.md",
+    "docs/design/habitat-capability-system.md"
+  ],
+  "locked": false,
+  "precedence": 50,
+  "notes": ""
+}

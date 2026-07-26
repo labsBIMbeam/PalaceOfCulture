@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/adr/0007-desktop-web-and-separate-mobile-apps.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR 0007 — Desktop web and separate mobile apps",
+  "summary": "Separates the desktop browser world from future mobile apps while sharing platform-neutral domain packages, multiplayer protocols, and durable-state APIs.",
+  "scope": [
+    "desktop web client",
+    "mobile apps",
+    "packages/multiplayer",
+    "packages/shared",
+    "packages/ownership",
+    "Colyseus protocols",
+    "SQLite APIs"
+  ],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

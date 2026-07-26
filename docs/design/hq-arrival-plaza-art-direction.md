@@ -1,6 +1,7 @@
-# HQ Arrival Plaza — Art Direction & Delivery Constraints
+# HQ Arrival Plaza — Future Palace Art Direction & Delivery Constraints
 
-Status: first authored vertical-slice direction. This is a product/design source, not runtime truth.
+Status: future Palace art direction. This is not the current first playable runtime; Locktard Street
+remains the entry world and Palace HQ remains teaser-only until a later release decision.
 
 ## Platform decision
 
@@ -9,9 +10,11 @@ Status: first authored vertical-slice direction. This is a product/design source
 
 This is a quality decision, not a temporary performance workaround.
 
-## First playable place
+## Future Palace arrival place
 
-The first density pass is the **HQ Arrival Plaza**: the moment a builder enters, sees the Palace, notices a repair bench and warm lights, and meets Kerni only if they choose to approach.
+The first future Palace density pass is the **HQ Arrival Plaza**: the moment a builder eventually
+enters the Palace district, sees the Palace, notices a repair bench and warm lights, and meets Kerni
+only if they choose to approach.
 
 ```text
 arrival / spawn

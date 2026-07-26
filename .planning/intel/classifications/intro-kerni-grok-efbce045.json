@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/assets/intro-kerni-grok.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Kerni intro video provenance",
+  "summary": "Documents the approved Kerni intro video's generation lineage, integrity hashes, runtime encodings, and licensing provenance.",
+  "scope": [
+    "Kerni intro video",
+    "OpenAI keyframes",
+    "xAI video generation",
+    "H.264",
+    "Theora",
+    "runtime assets",
+    "SHA-256 hashes"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

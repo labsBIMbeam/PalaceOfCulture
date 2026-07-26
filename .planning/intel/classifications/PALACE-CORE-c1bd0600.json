@@ -1,0 +1,24 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/PALACE-CORE.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Palace Core — guild-filtered activities across web, world and arcade",
+  "summary": "Specifies Palace Core domains, guild lenses, activities, sessions, curation, audited state, surface parity, handoff contracts, arcade security, and the initial slice.",
+  "scope": [
+    "guilds",
+    "Activities",
+    "curation entries",
+    "lenses",
+    "Sessions",
+    "Places",
+    "audit streams",
+    "arcade adapter"
+  ],
+  "cross_refs": [
+    "CITADEL-INTEGRATION.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

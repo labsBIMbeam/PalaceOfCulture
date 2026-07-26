@@ -1,0 +1,25 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/AVATAR-PIPELINE.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Avatar pipeline — identity → simplified toon humanoid → rigged VRM (Linux, headless, agent-callable)",
+  "summary": "Specifies a headless Linux pipeline that stylizes identity references, generates and rigs meshes, exports validated VRM avatars, and publishes content-hashed assets.",
+  "scope": [
+    "avatar pipeline",
+    "VRM 1.0",
+    "Hunyuan3D",
+    "TRELLIS.2",
+    "auto-rigging",
+    "MToon",
+    "asset validation",
+    "Blossom"
+  ],
+  "cross_refs": [
+    "HANDOFF.md",
+    "08-tools/600-billion-viewer.html"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

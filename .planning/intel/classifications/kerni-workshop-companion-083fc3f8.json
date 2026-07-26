@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/design/kerni-workshop-companion.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Kerni — Palace Workshop Companion",
+  "summary": "Specifies Kerni's role, temperament, visual identity, runtime boundaries, player-initiated interaction, optional live selector, and replacement-asset constraints.",
+  "scope": [
+    "Kerni",
+    "workshop companion",
+    "runtime embodiment",
+    "world-agent policy",
+    "dialogue templates",
+    "live selector",
+    "GLB asset"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

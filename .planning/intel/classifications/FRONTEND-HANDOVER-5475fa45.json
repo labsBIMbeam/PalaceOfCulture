@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/FRONTEND-HANDOVER.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Frontend Handover",
+  "summary": "Handover for the frontend-only game shell, implemented screens, deferred integrations, verification commands, files, and next steps.",
+  "scope": [
+    "frontend shell",
+    "HUD",
+    "game screens",
+    "React state",
+    "3D engine handoff"
+  ],
+  "cross_refs": [
+    "docs/REVIT-EXPORT.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

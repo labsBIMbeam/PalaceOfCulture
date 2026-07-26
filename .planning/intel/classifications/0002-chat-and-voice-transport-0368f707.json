@@ -1,0 +1,24 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/adr/0002-chat-and-voice-transport.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR 0002 — Chat & voice transport (\"plug-and-play first, Nostr-native later\")",
+  "summary": "Places chat and room-scoped voice behind adapter interfaces, progressing from mocks through LiveKit to Nostr-native NIP and MoQ transports.",
+  "scope": [
+    "chat transport",
+    "voice transport",
+    "LiveKit",
+    "MoQ",
+    "Nostr",
+    "NIP-29",
+    "NIP-17"
+  ],
+  "cross_refs": [
+    "07-research",
+    "BUILD-BRIEF"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

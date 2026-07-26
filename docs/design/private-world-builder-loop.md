@@ -1,10 +1,13 @@
 # Private World Builder Loop
 
-Status: deferred design note. The immediate implementation priority is the social-world asset system in `docs/design/private-to-palace-asset-concept.md`.
+Status: deferred supporting note. The immediate implementation priority is the social-world asset
+system in `docs/design/private-to-palace-asset-concept.md`. The physical commissioning rules in
+`docs/design/habitat-capability-system.md` supersede every score-based unlock rule below.
 
 ## Purpose
 
-The private world is the player's home and progression space. It produces milestones, levels, and unlocks that later become visible in the Palace of Culture social world.
+The private world is the player's home and progression space. It produces physical milestones and
+commissioned capabilities that later become visible in the Palace of Culture social world.
 
 This document captures the future private-world builder loop without making it the first implementation target.
 
@@ -20,14 +23,19 @@ Sources and machines produce
 
 ## Private-world progression
 
-The player improves habitat grids. Completed needs produce points and unlock new build tiers.
+The player improves habitat grids. Visible components and one successful commissioning job unlock
+the next build possibility; abstract points never gate progress.
 
 ```text
-Need satisfied
-→ habitat score rises
-→ build tier unlocks
+physical bundle stands
+→ commissioning job succeeds
+→ capability is learned
+→ next build possibility unlocks
 → new real-world capability
 ```
+
+Any habitat score shown by the UI is a derived, non-authoritative summary of what physically exists.
+It is never XP, currency, or an unlock threshold.
 
 ## Builder grid
 
@@ -47,22 +55,23 @@ Visible resources only:
 soil, wood, scrap, water, energy, bricks, parts, food, blueprints, inspiration, trust
 ```
 
-## MVP score categories
+## Optional habitat indicators
 
 ```text
 shelter, water, food, energy, fabrication, culture
 ```
 
-Objects add habitat points. Example:
+Objects may contribute descriptive coverage indicators. These values help summarize a place but do
+not accumulate XP or unlock tiers. Example:
 
 ```ts
-basic_wall: { shelter: 1 }
-water_collector: { water: 2 }
-garden_bed: { food: 2 }
-workbench: { fabrication: 2 }
-music_corner: { culture: 2 }
-solar_panel: { energy: 2 }
-mini_ceb_press: { fabrication: 3 }
+basic_wall: { indicates: ["shelter"] }
+water_collector: { indicates: ["water"] }
+garden_bed: { indicates: ["food"] }
+workbench: { indicates: ["fabrication"] }
+music_corner: { indicates: ["culture"] }
+solar_panel: { indicates: ["energy"] }
+mini_ceb_press: { indicates: ["fabrication"] }
 ```
 
 ## Progression ladder
@@ -84,9 +93,9 @@ Theme: water, food, shelter, warmth/light.
 
 Requirements:
 
-- shelter score ≥ 3
-- water score ≥ 2
-- food score ≥ 2
+- Hearth Camp has been commissioned
+- the water collector has produced usable water
+- the garden bed has produced its first food
 
 Unlocks:
 
@@ -100,9 +109,9 @@ Theme: durable shelter and local material production.
 
 Requirements:
 
-- fabrication score ≥ 2
-- water score ≥ 2
-- energy score ≥ 2
+- the repaired workbench has completed its first job
+- water collection has been commissioned
+- local energy has been commissioned
 
 Unlocks:
 
@@ -117,10 +126,10 @@ Theme: moving parts, engines, stronger production.
 
 Requirements:
 
-- bricks produced ≥ 8
-- fabrication score ≥ 5
-- energy score ≥ 4
-- blueprint ≥ 1
+- the mini CEB press has produced its first accepted brick batch
+- forge components physically stand as a valid bundle
+- the first hinge or motor part has been commissioned
+- one blueprint has been physically acquired
 
 Unlocks:
 
@@ -225,7 +234,7 @@ These tasks are intentionally deferred until the social-world asset concept is p
 
 1. Create `apps/web/src/builder/types.ts`.
 2. Create `apps/web/src/builder/data.ts` with resources, build assets, tiers, and initial inventory.
-3. Create `apps/web/src/builder/progression.ts` for score calculation and unlock checks.
+3. Create `apps/web/src/builder/progression.ts` for capability commissioning and read-only habitat indicators.
 4. Create `apps/web/src/builder/BuilderMode.tsx`.
 5. Wire `Home → Build` to the private builder when the social placement loop is ready.
 6. Add CSS in `apps/web/src/builder/builder.css`.
@@ -247,7 +256,7 @@ A player can:
 1. open the private builder,
 2. see central Resource Core,
 3. place objects on a 0.7m grid,
-4. satisfy basic needs and unlock the brick tier,
+4. satisfy basic needs and commission the brick capability,
 5. start a timed production cycle,
 6. enter culture mode while waiting,
 7. return and collect output,

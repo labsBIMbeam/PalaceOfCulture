@@ -1,0 +1,26 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/adr/0004-media-value-live-open-standards.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR 0004 — Media, value & live as the core: Podcasting 2.0 + V4V + Nostr (Fountain as an endpoint)",
+  "summary": "Makes media, value, and live events core mechanics using Podcasting 2.0, Lightning V4V, Nostr, and swappable adapters rather than Fountain APIs.",
+  "scope": [
+    "Podcasting 2.0",
+    "V4V",
+    "Nostr",
+    "live broadcasts",
+    "media player",
+    "Fountain",
+    "Lightning"
+  ],
+  "cross_refs": [
+    "DESIGN-BRIEF",
+    "ADR 0002",
+    "BUILD-BRIEF",
+    "ADR 0003"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}
