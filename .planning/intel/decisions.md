@@ -30,7 +30,7 @@
 
 ## ADR-0006: Colyseus authoritative realtime boundary
 - source: docs/adr/0006-colyseus-authoritative-realtime-boundary.md
-- status: proposed
+- status: partially superseded; retained through ADR-0009 except for the original hq target
 - decision: Retain Colyseus as authority only for bounded ephemeral movement, presence, reconnection leases, and session-local visuals; durable ownership, construction, economy, and world changes remain SQLite commands. ADR-0009 supersedes only the original hq world target.
 - scope: Colyseus, movement, presence, room security, ephemeral state, durable-state boundary
 

@@ -52,7 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 
 Full decisions are logged in `PROJECT.md`.
 
-- Eight ADRs are locked; ADR-0006 remains proposed and only its original HQ target is superseded by ADR-0009.
+- Eight ADRs are locked; ADR-0006 is partially superseded only at its original HQ target by ADR-0009.
 - `apps/web` is desktop gameplay; mobile web is companion-only.
 - Public realtime begins in `worldId: street`; durable truth remains in audited application commands.
 

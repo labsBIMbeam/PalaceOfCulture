@@ -25,7 +25,7 @@ The classification schema, source paths, manifest type/precedence overrides, has
 - docs/adr/0008-guild-lenses-and-palace-core.md
 - docs/adr/0009-public-realtime-street.md
 
-ADR 0006 remains proposed/partially superseded: only its hq target is replaced by ADR 0009; all other authoritative realtime boundaries are retained.
+ADR 0006 is partially superseded: only its hq target is replaced by ADR 0009; all other authoritative realtime boundaries are retained.
 
 ## Requirements extracted
 
