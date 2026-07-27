@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import {
   buildMeaningverseInvite,
   createPhase1InviteAttempt,
+  decodePhase1ActivationCapability,
+  encodePhase1ActivationCapability,
   isPhase1SignerCapability,
   type Phase1InviteState,
 } from "../src/meaningverse/model";
@@ -120,15 +122,38 @@ assert.deepEqual(activationTemplate.tags, [
   ["creator", creatorPubkey],
 ]);
 const activationEvent = finalizeEvent(activationTemplate, creatorSecret);
+const encodedActivation = encodePhase1ActivationCapability(activationEvent);
+if (!encodedActivation) throw new Error("activation encoding failed");
+assert.deepEqual(
+  JSON.parse(JSON.stringify(decodePhase1ActivationCapability(encodedActivation))),
+  JSON.parse(JSON.stringify(activationEvent)),
+);
+assert.equal(decodePhase1ActivationCapability(`${encodedActivation}!`), null);
+assert.equal(encodePhase1ActivationCapability({ oversized: "x".repeat(PHASE1_MAX_EVENT_BYTES) }), null);
 const activation = verifyPhase1ActivationCapability(activationEvent, now);
-assert.ok(activation);
-assert.equal(activation?.activationId, activationEvent.id);
-assert.equal(activation?.creatorPubkey, creatorPubkey);
+if (!activation) throw new Error("activation verification failed");
+assert.equal(activation.activationId, activationEvent.id);
+assert.equal(activation.creatorPubkey, creatorPubkey);
 assert.equal(verifyPhase1ActivationCapability({ ...activationEvent, content: "published" }, now), null);
 assert.equal(verifyPhase1ActivationCapability(activationEvent, now + 901), null);
 assert.equal(verifyPhase1ActivationCapability(activationEvent, now - 61), null);
 
-const signedState = importVerifiedActivationCapability(routeOnly, activation);
+const signedState = reducePhase1Relay(routeOnly, {
+  type: "activation_imported",
+  activationId: activation.activationId,
+  creatorPubkey: activation.creatorPubkey,
+  createdAt: activation.createdAt,
+  origin: "verified-invite-capability",
+});
+assert.equal(signedState.activation?.source, "verified-invite-capability");
+const localSignedState = reducePhase1Relay(assembled, {
+  type: "activation_signed",
+  activationId: activation.activationId,
+  creatorPubkey: activation.creatorPubkey,
+  createdAt: activation.createdAt,
+  origin: "verified-local-signature",
+});
+assert.equal(localSignedState.activation?.source, "local-signed-activation");
 assert.equal(signedState.relayId, PHASE1_RELAY_ID);
 const witnessTemplate = createPhase1WitnessTemplate(signedState, witnessPubkey, now);
 assert.deepEqual(witnessTemplate.tags, [

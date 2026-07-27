@@ -59,6 +59,33 @@ export function buildMeaningverseInvite(currentHref: string, activation?: string
   return url.toString();
 }
 
+export function decodePhase1ActivationCapability(encoded: string): unknown | null {
+  if (!encoded || !/^[A-Za-z0-9_-]+$/.test(encoded) || encoded.length % 4 === 1) return null;
+  try {
+    const padded = encoded.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (encoded.length % 4)) % 4);
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    if (bytes.byteLength > PHASE1_INVITE_MAX_BYTES) return null;
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+export function encodePhase1ActivationCapability(rawEvent: unknown): string | null {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(rawEvent);
+  } catch {
+    return null;
+  }
+  const bytes = new TextEncoder().encode(serialized);
+  if (bytes.byteLength > PHASE1_INVITE_MAX_BYTES) return null;
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
+}
+
 export type ShipPlacementEvent = {
   module: ShipModuleSnapshot;
   byLocalPlayer: boolean;

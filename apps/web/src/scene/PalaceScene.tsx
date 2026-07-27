@@ -23,6 +23,13 @@ import {
 } from "react";
 import * as THREE from "three";
 import { type BrushSize, homeBuild } from "../builder/buildState";
+import {
+  buildMeaningverseInvite,
+  decodePhase1ActivationCapability,
+  encodePhase1ActivationCapability,
+  isPhase1SignerCapability,
+  type Phase1InviteState,
+} from "../meaningverse/model";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
@@ -48,6 +55,9 @@ import {
 } from "../net/multiplayer";
 import {
   createPhase1RelayLifecycleGate,
+  createPhase1ActivationTemplate,
+  signPhase1Event,
+  verifyPhase1ActivationCapability,
   type Phase1RelayTransport,
 } from "../net/phase1RelayTransport";
 import { BuilderHud } from "../ui/BuilderHud";
@@ -725,6 +735,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     undefined,
     createPhase1RelayState,
   );
+  const [inviteState, setInviteState] = useState<Phase1InviteState>("idle");
+  const [activationInviteUrl, setActivationInviteUrl] = useState<string | null>(null);
+  const inviteAttemptTokenRef = useRef<string | null>(null);
   const [wireOpen, setWireOpen] = useState(false);
   const [attentivePresence, dispatchAttentivePresence] = useReducer(
     reduceAttentivePresence,
@@ -782,6 +795,69 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     if (phase1RelayState.placement.status === "failed") placeRelay();
   };
   const keepHoldingRelay = () => undefined;
+  useEffect(() => {
+    if (world !== "street" || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const keys = [...url.searchParams.keys()];
+    const encoded = url.searchParams.get("activation");
+    if (url.searchParams.get("join") !== "street" || !encoded || url.hash || keys.some((key) => key !== "join" && key !== "activation")) return;
+    const candidate = decodePhase1ActivationCapability(encoded);
+    const activation = verifyPhase1ActivationCapability(candidate);
+    if (!activation) return;
+    dispatchPhase1Relay({
+      type: "activation_imported",
+      activationId: activation.activationId,
+      creatorPubkey: activation.creatorPubkey,
+      createdAt: activation.createdAt,
+      origin: "verified-invite-capability",
+    });
+  }, [world]);
+  const cancelInvite = () => {
+    inviteAttemptTokenRef.current = null;
+    setInviteState("cancelled");
+  };
+  const consentInvite = async () => {
+    if (typeof window === "undefined") return;
+    const candidate = (window as Window & { nostr?: unknown }).nostr;
+    if (!isPhase1SignerCapability(candidate)) {
+      setInviteState("failed");
+      return;
+    }
+    const token = `phase1-invite-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    inviteAttemptTokenRef.current = token;
+    setInviteState("signer_pending");
+    try {
+      const creatorPubkey = await candidate.getPublicKey();
+      if (inviteAttemptTokenRef.current !== token || typeof creatorPubkey !== "string") return;
+      const template = createPhase1ActivationTemplate(phase1RelayState, creatorPubkey);
+      const signed = await signPhase1Event(template, {
+        isCurrent: () => inviteAttemptTokenRef.current === token,
+      });
+      if (!signed || inviteAttemptTokenRef.current !== token) return;
+      const activation = verifyPhase1ActivationCapability(signed.raw);
+      if (!activation) {
+        setInviteState("failed");
+        return;
+      }
+      dispatchPhase1Relay({
+        type: "activation_signed",
+        activationId: activation.activationId,
+        creatorPubkey: activation.creatorPubkey,
+        createdAt: activation.createdAt,
+        origin: "verified-local-signature",
+      });
+      const { action: _action, ...rawEvent } = signed.raw;
+      const encoded = encodePhase1ActivationCapability(rawEvent);
+      if (!encoded) {
+        setInviteState("failed");
+        return;
+      }
+      setActivationInviteUrl(buildMeaningverseInvite(window.location.href, encoded));
+      setInviteState("manual");
+    } catch {
+      if (inviteAttemptTokenRef.current === token) setInviteState("failed");
+    }
+  };
   useEffect(() => {
     if (world !== "street") {
       setWireOpen(false);
@@ -1527,6 +1603,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           handoffState={relayHandoff}
           kerniDialogueOpen={kerniDialogueOpen}
           kerniInRange={kerniInRange}
+          activationInviteUrl={activationInviteUrl}
+          inviteState={inviteState}
+          onInviteCancel={cancelInvite}
+          onInviteConsent={consentInvite}
           onBeginRelay={beginRelay}
           onKeepHolding={keepHoldingRelay}
           onPlaceRelay={placeRelay}

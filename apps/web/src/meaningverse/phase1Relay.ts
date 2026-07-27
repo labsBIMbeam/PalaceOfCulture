@@ -106,7 +106,23 @@ export type LegacyDirectActivationAction = {
   readonly attemptId: string;
 };
 
-export type Phase1RelayAction = PhysicalRelayAction | PlacementAction;
+type ActivationAction =
+  | {
+      readonly type: "activation_signed";
+      readonly activationId: string;
+      readonly creatorPubkey: string;
+      readonly createdAt: number;
+      readonly origin: "verified-local-signature";
+    }
+  | {
+      readonly type: "activation_imported";
+      readonly activationId: string;
+      readonly creatorPubkey: string;
+      readonly createdAt: number;
+      readonly origin: "verified-invite-capability";
+    };
+
+export type Phase1RelayAction = ActivationAction | PhysicalRelayAction | PlacementAction;
 
 const isAttemptId = (attemptId: unknown): attemptId is string =>
   typeof attemptId === "string" && attemptId.length > 0;
@@ -175,6 +191,24 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   switch (candidate.type) {
+    case "activation_signed":
+      return (
+        exactKeys(candidate, ["type", "activationId", "creatorPubkey", "createdAt", "origin"]) &&
+        isHex(candidate.activationId, 64) &&
+        isHex(candidate.creatorPubkey, 64) &&
+        Number.isSafeInteger(candidate.createdAt) &&
+        (candidate.createdAt as number) >= 0 &&
+        candidate.origin === "verified-local-signature"
+      );
+    case "activation_imported":
+      return (
+        exactKeys(candidate, ["type", "activationId", "creatorPubkey", "createdAt", "origin"]) &&
+        isHex(candidate.activationId, 64) &&
+        isHex(candidate.creatorPubkey, 64) &&
+        Number.isSafeInteger(candidate.createdAt) &&
+        (candidate.createdAt as number) >= 0 &&
+        candidate.origin === "verified-invite-capability"
+      );
     case "pickup_part":
       return exactKeys(candidate, ["type", "part", "origin"]) && isRelayPart(candidate.part) && isPhysicalOrigin(candidate.origin);
     case "seat_part":
@@ -218,7 +252,24 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
  * are intentionally not action authorities; accepted truth is created only by these fail-closed guards.
  */
 export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAction): Phase1RelayState {
-  if (!isPhase1RelayAction(action) || !hasAssemblyGate(state)) return state;
+  if (!isPhase1RelayAction(action)) return state;
+  if (action.type === "activation_signed") {
+    return acceptLocalActivation(state, {
+      activationId: action.activationId,
+      creatorPubkey: action.creatorPubkey,
+      createdAt: action.createdAt,
+    });
+  }
+  if (action.type === "activation_imported") {
+    return importVerifiedActivationCapability(state, {
+      relayId: PHASE1_RELAY_ID,
+      activationId: action.activationId,
+      creatorPubkey: action.creatorPubkey,
+      createdAt: action.createdAt,
+      source: "verified-invite-capability",
+    });
+  }
+  if (!hasAssemblyGate(state)) return state;
 
   if (action.type === "pickup_part") {
     if (state.assembly.carriedPart !== null || state.assembly.status === "parts_3" || state.assembly.status === "carrying") return state;
