@@ -244,17 +244,24 @@ export function Phase1RelayOverlay({
         : state.status === "failed"
           ? "The relay did not secure. Try the socket again."
           : "Relay closed.";
+  const placement = state.placement ?? {
+    status: state.status === "pending" ? "pending" : state.status === "accepted" ? "accepted" : state.status === "failed" ? "failed" : "idle",
+    socketId: null,
+    attemptId: null,
+    acceptedSocketId: null,
+  };
+  const assembly = state.assembly ?? { status: "parts_0" as const, seatedParts: [], carriedPart: null };
   const placementCopy =
-    state.placement.status === "valid"
+    placement.status === "valid"
       ? "VALID"
-      : state.placement.status === "invalid"
+      : placement.status === "invalid"
         ? "This relay fits the workbench socket."
-        : state.placement.status === "pending"
+        : placement.status === "pending"
           ? "Securing relay…"
-          : state.placement.status === "failed"
+          : placement.status === "failed"
             ? "The relay did not secure. Try the socket again."
-            : state.placement.status;
-  const nextPart = RELAY_PART_ORDER[state.assembly.seatedParts.length];
+            : placement.status;
+  const nextPart = RELAY_PART_ORDER[assembly.seatedParts.length];
 
   return (
     <>
@@ -274,31 +281,31 @@ export function Phase1RelayOverlay({
           </button>
         ) : null}
       </section>
-      <section aria-label="Relay assembly" data-relay-assembly={state.assembly.status}>
-        <p>Relay parts: {state.assembly.seatedParts.length}/3</p>
+      <section aria-label="Relay assembly" data-relay-assembly={assembly.status}>
+        <p>Relay parts: {assembly.seatedParts.length}/3</p>
         <ul>
           {RELAY_PART_ORDER.map((part) => (
             <li data-relay-part={part} key={part}>
-              {part}: {state.assembly.seatedParts.includes(part) ? "seated" : state.assembly.carriedPart === part ? "carried" : "ready"}
+              {part}: {assembly.seatedParts.includes(part) ? "seated" : assembly.carriedPart === part ? "carried" : "ready"}
             </li>
           ))}
         </ul>
-        {nextPart && state.assembly.carriedPart === null ? (
+        {nextPart && assembly.carriedPart === null ? (
           <button onClick={() => onPickupPart(nextPart)} type="button">Pick up {nextPart}</button>
         ) : null}
-        {nextPart && state.assembly.carriedPart === nextPart ? (
+        {nextPart && assembly.carriedPart === nextPart ? (
           <button onClick={() => onSeatPart(nextPart)} type="button">Seat {nextPart}</button>
         ) : null}
-        {state.assembly.carriedPart === "completed-relay" ? (
+        {assembly.carriedPart === "completed-relay" ? (
           <button onClick={onPreviewPlacement} type="button">Preview fixed Z1 socket</button>
         ) : null}
-        <div aria-live="polite" data-placement-state={state.placement.status} role="status">
+        <div aria-live="polite" data-placement-state={placement.status} role="status">
           {placementCopy}
         </div>
-        {state.placement.status === "valid" ? (
+        {placement.status === "valid" ? (
           <button onClick={onPlaceRelay} type="button">E · Place relay</button>
         ) : null}
-        {state.placement.status === "failed" ? (
+        {placement.status === "failed" ? (
           <>
             <button onClick={onRetryPlacement} type="button">Try again</button>
             <button onClick={onKeepHolding} type="button">Keep holding</button>
