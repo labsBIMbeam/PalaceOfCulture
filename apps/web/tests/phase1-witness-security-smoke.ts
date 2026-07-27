@@ -139,13 +139,14 @@ assert.deepEqual(witnessTemplate.tags, [
   ["p", creatorPubkey],
 ]);
 const witnessEvent = finalizeEvent(witnessTemplate, witnessSecret);
+const witnessGuard = new Phase1RelayEvidenceGuard();
 const witnessEvidence = verifyAndAuthorizePhase1Event(witnessEvent, {
   state: signedState,
   now,
-  guard: new Phase1RelayEvidenceGuard(),
+  guard: witnessGuard,
 });
 assert.equal(witnessEvidence?.action, "touch-relay-witness");
-assert.equal(verifyAndAuthorizePhase1Event(witnessEvent, { state: signedState, now }), null);
+assert.equal(verifyAndAuthorizePhase1Event(witnessEvent, { state: signedState, now, guard: witnessGuard }), null);
 const lensTemplate = createPhase1LensTemplate(
   { ...signedState, acceptedWitness: { eventId: witnessEvent.id, pubkey: witnessPubkey, createdAt: now } },
   witnessPubkey,
