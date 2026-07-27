@@ -1,4 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   RELAY_PART_ORDER,
   RELAY_SOCKET_ID,
@@ -9,6 +14,7 @@ import {
   reducePhase1Relay,
   relayAssemblyEligible,
 } from "../src/meaningverse/phase1Relay";
+import { Phase1RelayOverlay } from "../src/ui/Phase1RelayOverlay";
 
 const memory: RelayMemoryFragment = {
   source: "kerni-orientation",
@@ -306,5 +312,37 @@ for (const legacy of [
     "Plan-01 direct activation compatibility shape is a permanent no-op",
   );
 }
+
+const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const overlaySource = readFileSync(resolve(webRoot, "src/ui/Phase1RelayOverlay.tsx"), "utf8");
+const palaceSceneSource = readFileSync(resolve(webRoot, "src/scene/PalaceScene.tsx"), "utf8");
+const streetWorldSource = readFileSync(resolve(webRoot, "src/scene/StreetWorld.tsx"), "utf8");
+const kerniSource = readFileSync(resolve(webRoot, "src/scene/KerniFamiliar.tsx"), "utf8");
+const acceptedMarkup = renderToStaticMarkup(
+  React.createElement(Phase1RelayOverlay, { state: acceptedA }),
+);
+assert.match(acceptedMarkup, /z1-relay-socket/);
+assert.match(acceptedMarkup, /foot/);
+assert.match(acceptedMarkup, /coil/);
+assert.match(acceptedMarkup, /aperture/);
+assert.match(acceptedMarkup, /OPEN/);
+assert.match(acceptedMarkup, /aria-live="polite"/);
+assert.match(overlaySource, /This relay fits the workbench socket\./);
+assert.match(overlaySource, /Securing relay…/);
+assert.match(overlaySource, /The relay did not secure\. Try the socket again\./);
+assert.match(overlaySource, /Try again/);
+assert.match(overlaySource, /Keep holding/);
+assert.ok(!overlaySource.includes("BuilderHud"));
+assert.ok(!overlaySource.includes("inventory"));
+assert.ok(!palaceSceneSource.includes('type: "activation_requested"'));
+assert.ok(!palaceSceneSource.includes('type: "activation_accepted"'));
+assert.match(palaceSceneSource, /pickup_part|seat_part|place_requested/);
+assert.match(streetWorldSource, /RelayWorkbench/);
+assert.equal((streetWorldSource.match(/z1-relay-socket/g) ?? []).length, 1);
+assert.match(streetWorldSource, /foot/);
+assert.match(streetWorldSource, /coil/);
+assert.match(streetWorldSource, /aperture/);
+assert.match(kerniSource, /acceptedPlacement/);
+assert.match(kerniSource, /castShadow=\{false\}/);
 
 console.log("\nPHASE 1 PLACEMENT ASSEMBLY RED/GREEN CONTRACT");
