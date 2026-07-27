@@ -17,7 +17,10 @@ import {
   type AttentivePresenceAction,
   type AttentivePresenceState,
   createAttentivePresenceState,
+  createRelayHandoffState,
+  deriveRelayAssemblyEligible,
   reduceAttentivePresence,
+  reduceRelayHandoff,
 } from "../src/meaningverse/phase1Relay";
 import { Phase1RelayOverlay } from "../src/ui/Phase1RelayOverlay";
 
@@ -174,13 +177,101 @@ assert.equal(
   true,
 );
 
+const orientationLine =
+  "Welcome. No rush — the Palace gets better when people leave something useful behind. Start with one small thing.";
+let handoff = createRelayHandoffState();
+assert.equal(deriveRelayAssemblyEligible(handoff), false);
+assert.equal(
+  reduceRelayHandoff(handoff, {
+    type: "workbench_choice_requested",
+    intent: "connect-with-others",
+    origin: "player",
+  }),
+  handoff,
+  "the workbench choice cannot precede the memory fragment",
+);
+const sceneOnly = reduceRelayHandoff(handoff, {
+  type: "kerni_interaction_requested",
+  origin: "scene",
+  proximity: true,
+  worldFocusOwned: true,
+} as never);
+assert.equal(sceneOnly, handoff, "scene callbacks cannot open an authoritative Kerni interaction");
+handoff = reduceRelayHandoff(handoff, {
+  type: "kerni_interaction_requested",
+  origin: "player",
+  proximity: true,
+  worldFocusOwned: true,
+});
+assert.equal(handoff.orientationInteractionAccepted, true);
+assert.equal(handoff.memoryFragment, null);
+const syntheticMemory = reduceRelayHandoff(handoff, {
+  type: "kerni_orientation_acknowledged",
+  origin: "scene",
+} as never);
+assert.equal(syntheticMemory, handoff, "synthetic origins cannot create the memory fragment");
+handoff = reduceRelayHandoff(handoff, {
+  type: "kerni_orientation_acknowledged",
+  origin: "player",
+});
+assert.deepEqual(handoff.memoryFragment, {
+  source: "kerni-orientation",
+  meaning: "leave-one-small-useful-thing",
+});
+const memoryAgain = reduceRelayHandoff(handoff, {
+  type: "kerni_orientation_acknowledged",
+  origin: "player",
+});
+assert.deepEqual(memoryAgain, handoff, "memory fragment creation is idempotent");
+assert.equal(deriveRelayAssemblyEligible(handoff), false);
+handoff = reduceRelayHandoff(handoff, {
+  type: "workbench_choice_requested",
+  intent: "connect-with-others",
+  origin: "player",
+});
+assert.deepEqual(handoff.inspirationChoice, { intent: "connect-with-others" });
+assert.equal(deriveRelayAssemblyEligible(handoff), true);
+const choiceAgain = reduceRelayHandoff(handoff, {
+  type: "workbench_choice_requested",
+  intent: "connect-with-others",
+  origin: "player",
+});
+assert.deepEqual(choiceAgain, handoff, "inspiration choice creation is idempotent");
+const presentationOnly = reduceRelayHandoff(handoff, {
+  type: "presentation_completed",
+  origin: "animation",
+} as never);
+assert.deepEqual(presentationOnly, handoff, "presentation cannot alter the accepted handoff facts");
+
 const overlaySource = readFileSync(resolve(webRoot, "src/ui/Phase1RelayOverlay.tsx"), "utf8");
 const palaceSceneSource = readFileSync(resolve(webRoot, "src/scene/PalaceScene.tsx"), "utf8");
+const kerniSource = readFileSync(resolve(webRoot, "src/scene/KerniFamiliar.tsx"), "utf8");
 const onboardingSource = readFileSync(
   resolve(webRoot, "src/meaningverse/onboardingStory.ts"),
   "utf8",
 );
 const frontendCss = readFileSync(resolve(webRoot, "src/frontend/frontend.css"), "utf8");
+
+const kerniMarkup = renderToStaticMarkup(
+  React.createElement(Phase1RelayOverlay, {
+    handoffState: {
+      ...createRelayHandoffState(),
+      orientationInteractionAccepted: true,
+    },
+    kerniDialogueOpen: true,
+    kerniInRange: true,
+    onBeginRelay: () => {},
+    onKerniAcknowledge: () => {},
+    onKerniClose: () => {},
+    onKerniInteract: () => {},
+    state: inactive,
+  }),
+);
+assert.match(kerniMarkup, /KERNI · WORLD AGENT · SUGGESTION ONLY/);
+assert.match(kerniMarkup, /Listen to Kerni/);
+assert.equal((kerniMarkup.match(new RegExp(orientationLine, "g")) ?? []).length, 1);
+assert.match(kerniMarkup, /role="dialog"/);
+assert.match(kerniMarkup, /aria-modal="true"/);
 
 assert.ok(onboardingSource.includes("INTRO_SEQUENCE"));
 assert.ok(onboardingSource.includes("INTRO_CARDS"));
