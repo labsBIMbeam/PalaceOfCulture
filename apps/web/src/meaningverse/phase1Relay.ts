@@ -222,11 +222,13 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
     if (state.placement.status === "pending") {
       return state.placement.attemptId === action.attemptId ? state : state;
     }
-    if (state.assembly.carriedPart !== COMPLETED_RELAY || action.socketId !== RELAY_SOCKET_ID) return withPlacement(state, {
-      ...state.placement,
-      status: "invalid",
-      socketId: action.socketId,
-    });
+    if (state.assembly.carriedPart !== COMPLETED_RELAY || action.socketId !== RELAY_SOCKET_ID) {
+      return withPlacement(state, {
+        ...state.placement,
+        status: "invalid",
+        socketId: action.socketId,
+      });
+    }
     if (!["idle", "valid", "failed"].includes(state.placement.status)) return state;
     return withPlacement(state, {
       status: "pending",
