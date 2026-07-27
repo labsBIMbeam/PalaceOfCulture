@@ -291,5 +291,16 @@ assert.ok(frontendCss.includes(".phase1-wire"));
 assert.ok(frontendCss.includes("overflow: auto"));
 assert.ok(frontendCss.includes("prefers-reduced-motion"));
 assert.ok(frontendCss.includes("overflow-x: hidden"));
+assert.ok(kerniSource.includes("acceptedPlacement"));
+assert.ok(kerniSource.includes("reactionWindow"));
+assert.ok(kerniSource.includes("Math.PI / 18"));
+assert.ok(kerniSource.includes("0.6"));
+assert.ok(kerniSource.includes("1.2"));
+assert.ok(palaceSceneSource.includes("reduceRelayHandoff"));
+assert.ok(palaceSceneSource.includes("acknowledgeKerniOrientation"));
+assert.ok(palaceSceneSource.includes("beginRelay"));
+assert.ok(palaceSceneSource.includes("onKerniProximity"));
+assert.ok(overlaySource.includes("KERNI · WORLD AGENT · SUGGESTION ONLY"));
+assert.ok(overlaySource.includes("connect-with-others"));
 
-console.log("\nPHASE 1 PRESENCE SMOKE TASK 1 GREEN");
+console.log("\nPHASE 1 PRESENCE SMOKE TASK 3 GREEN");

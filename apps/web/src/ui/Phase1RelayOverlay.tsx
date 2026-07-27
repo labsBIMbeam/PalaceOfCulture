@@ -2,16 +2,24 @@ import { useEffect, useRef } from "react";
 import type {
   AttentivePresenceState,
   Phase1RelayState,
+  RelayHandoffState,
 } from "../meaningverse/phase1Relay";
 import { FICTIONAL_WIRE_CARDS } from "../meaningverse/onboardingStory";
 
 type Phase1RelayOverlayProps = {
   state: Phase1RelayState;
   attentivePresence?: AttentivePresenceState;
+  handoffState?: RelayHandoffState;
+  kerniInRange?: boolean;
+  kerniDialogueOpen?: boolean;
   onActivate?: () => void;
   wireOpen?: boolean;
   onWireDismiss?: () => void;
   onWireReopen?: () => void;
+  onKerniInteract?: () => void;
+  onKerniAcknowledge?: () => void;
+  onKerniClose?: () => void;
+  onBeginRelay?: () => void;
 };
 
 type FictionalWireProps = {
@@ -109,14 +117,111 @@ function FictionalWire({ open, onDismiss, onReopen }: FictionalWireProps) {
   );
 }
 
+function KerniDialogue({
+  open,
+  orientationInteractionAccepted,
+  acknowledged,
+  onAcknowledge,
+  onClose,
+}: {
+  open: boolean;
+  orientationInteractionAccepted: boolean;
+  acknowledged: boolean;
+  onAcknowledge: () => void;
+  onClose: () => void;
+}) {
+  const closeAndReturnFocus = () => {
+    onClose();
+    window.setTimeout(() => {
+      document
+        .querySelector<HTMLElement>("[data-kerni-interaction], [data-phase1-safe-control]")
+        ?.focus();
+    }, 0);
+  };
+  const panelRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    headingRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" || event.code === "KeyE") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeAndReturnFocus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+        "button, [tabindex]:not([tabindex='-1'])",
+      );
+      if (!focusable || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [onClose, open]);
+
+  if (!open || !orientationInteractionAccepted) return null;
+  return (
+    <section
+      aria-label="Kerni dialogue"
+      aria-modal="true"
+      className="phase1-kerni-dialogue"
+      data-kerni-dialogue="open"
+      ref={panelRef}
+      role="dialog"
+    >
+      <p className="phase1-kerni-dialogue__label">KERNI · WORLD AGENT · SUGGESTION ONLY</p>
+      <span className="visually-hidden">Listen to Kerni</span>
+      <h2 ref={headingRef} tabIndex={-1}>
+        Suggestion only
+      </h2>
+      <p className="phase1-kerni-dialogue__line">
+        Welcome. No rush — the Palace gets better when people leave something useful behind. Start with
+        one small thing.
+      </p>
+      <div className="phase1-kerni-dialogue__actions">
+        {!acknowledged ? (
+          <button onClick={onAcknowledge} type="button">
+            Acknowledge
+          </button>
+        ) : null}
+        <button onClick={onClose} type="button">
+          Close Kerni dialogue
+        </button>
+      </div>
+    </section>
+  );
+}
+
 /** Bounded relay status surface; every visible state is derived from application truth. */
 export function Phase1RelayOverlay({
   state,
   attentivePresence,
+  handoffState = {
+    orientationInteractionAccepted: false,
+    memoryFragment: null,
+    inspirationChoice: null,
+  },
+  kerniInRange = false,
+  kerniDialogueOpen = false,
   onActivate,
   wireOpen = false,
   onWireDismiss = () => {},
   onWireReopen = () => {},
+  onKerniInteract = () => {},
+  onKerniAcknowledge = () => {},
+  onKerniClose = () => {},
+  onBeginRelay = () => {},
 }: Phase1RelayOverlayProps) {
   const status =
     state.status === "accepted"
@@ -155,6 +260,37 @@ export function Phase1RelayOverlay({
           <span>[The workbench is easier to notice now.]</span>
         </div>
       ) : null}
+      {kerniInRange && !handoffState.memoryFragment && !kerniDialogueOpen ? (
+        <div className="phase1-kerni-proximity" data-kerni-proximity="2.6m">
+          <button
+            className="phase1-kerni-interact"
+            data-kerni-interaction="true"
+            onClick={onKerniInteract}
+            type="button"
+          >
+            <span className="phase1-kerni-key">E</span>
+            <span>Listen to Kerni</span>
+          </button>
+          <span className="phase1-kerni-label">KERNI · WORLD AGENT · SUGGESTION ONLY</span>
+        </div>
+      ) : null}
+      {handoffState.memoryFragment && !handoffState.inspirationChoice ? (
+        <section className="phase1-workbench-choice" data-workbench-choice="connect-with-others">
+          <button data-phase1-safe-control="true" onClick={onBeginRelay} type="button">
+            Begin relay
+          </button>
+        </section>
+      ) : null}
+      <KerniDialogue
+        acknowledged={Boolean(handoffState.memoryFragment)}
+        onAcknowledge={() => {
+          onKerniAcknowledge();
+          onKerniClose();
+        }}
+        onClose={onKerniClose}
+        open={kerniDialogueOpen}
+        orientationInteractionAccepted={handoffState.orientationInteractionAccepted}
+      />
       <FictionalWire
         onDismiss={onWireDismiss}
         onReopen={onWireReopen}

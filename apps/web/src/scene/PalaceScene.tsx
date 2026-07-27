@@ -29,10 +29,13 @@ import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import {
   createAttentivePresenceState,
+  createRelayHandoffState,
   reduceAttentivePresence,
   reducePhase1Relay,
+  reduceRelayHandoff,
   type AttentivePresenceState,
   type Phase1RelayState,
+  type RelayHandoffState,
 } from "../meaningverse/phase1Relay";
 import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
 import {
@@ -727,6 +730,12 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     undefined,
     createAttentivePresenceState,
   );
+  const [relayHandoff, dispatchRelayHandoff] = useReducer(
+    reduceRelayHandoff,
+    undefined,
+    createRelayHandoffState,
+  );
+  const [kerniDialogueOpen, setKerniDialogueOpen] = useState(false);
   const [reducedEffects, setReducedEffects] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -764,6 +773,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   useEffect(() => {
     if (world !== "street") {
       setWireOpen(false);
+      setKerniInRange(false);
+      setKerniDialogueOpen(false);
       return;
     }
     setWireOpen(false);
@@ -924,6 +935,27 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
 
+  const openKerniDialogue = () => {
+    if (!kerniInRange || relayHandoff.memoryFragment) return;
+    dispatchRelayHandoff({
+      type: "kerni_interaction_requested",
+      origin: "player",
+      proximity: true,
+      worldFocusOwned: true,
+    });
+    setKerniDialogueOpen(true);
+  };
+  const acknowledgeKerniOrientation = () => {
+    dispatchRelayHandoff({ type: "kerni_orientation_acknowledged", origin: "player" });
+  };
+  const beginRelay = () => {
+    dispatchRelayHandoff({
+      type: "workbench_choice_requested",
+      intent: "connect-with-others",
+      origin: "player",
+    });
+  };
+
   // The MoC creation panel is scene state (not panel-internal) so mode switches never reset it, and
   // the ship dock can open it. `mocFocusNonce` bumps land focus in the panel's "Name your part"
   // field — E at the dock drops you straight into naming, the world object as the loop's entry.
@@ -1010,12 +1042,16 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
 
   // Interact (E key, or the on-screen button): get up if posed, else sit/sleep if near a piece, else
   // fire the nearest interactable's action.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: listener is bound once per mode; enterPose/getUp read live state via refs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: enterPose/getUp/activateInteract read live state via refs
   useEffect(() => {
     if (mode !== "walk") return;
     const onInteractKey = (event: KeyboardEvent) => {
       if (event.code !== "KeyE") return;
       if (domOwnsWorldFocus()) return;
+      if (kerniInRange && !relayHandoff.memoryFragment) {
+        openKerniDialogue();
+        return;
+      }
       if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
       else if (activeRef.current) activateInteract(activeRef.current);
@@ -1027,7 +1063,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setDialog(null);
       setNearPose(null);
     };
-  }, [mode]);
+  }, [kerniInRange, mode, relayHandoff.memoryFragment]);
 
   // Decorate mode: F places the pending piece at the ghost; Q/E rotate it before dropping. (Buttons
   // in the picker do the same.)
@@ -1321,7 +1357,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   activeWorld={world}
                   bodyRef={playerBody}
                   onActive={setActiveInteract}
-                  onKerniProximity={setKerniInRange}
+                  onKerniProximity={(inRange) => {
+                    setKerniInRange(inRange);
+                    if (!inRange) setKerniDialogueOpen(false);
+                  }}
                   onNearPose={setNearPose}
                   poseables={poseables}
                   spawn={SPAWN_FOR[world]}
@@ -1333,7 +1372,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 street ground collider inside Physics above). */}
             {world === "street" ? (
               <>
-                <StreetWorld />
+                <StreetWorld
+                  acceptedPlacement={phase1RelayState.status === "accepted"}
+                  presenceAccepted={attentivePresence.presenceAccepted}
+                  reducedEffects={reducedEffects}
+                />
                 {phase1RelayState.status === "accepted" ? (
                   <MeaningShip
                     localSessionId={multiplayerView.localSessionId}
@@ -1467,7 +1510,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       {world === "street" ? (
         <Phase1RelayOverlay
           attentivePresence={attentivePresence}
+          handoffState={relayHandoff}
+          kerniDialogueOpen={kerniDialogueOpen}
+          kerniInRange={kerniInRange}
           onActivate={activatePhase1Relay}
+          onBeginRelay={beginRelay}
+          onKerniAcknowledge={acknowledgeKerniOrientation}
+          onKerniClose={() => setKerniDialogueOpen(false)}
+          onKerniInteract={openKerniDialogue}
           onWireDismiss={() => {
             releaseMovementKeys();
             setWireOpen(false);

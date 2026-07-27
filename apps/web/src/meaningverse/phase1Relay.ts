@@ -160,3 +160,134 @@ export function reduceAttentivePresence(
     presenceAccepted: state.presenceAccepted || accumulatedMs >= ATTENTIVE_PRESENCE_THRESHOLD_MS,
   };
 }
+
+export type RelayMemoryFragment = {
+  readonly source: "kerni-orientation";
+  readonly meaning: "leave-one-small-useful-thing";
+};
+
+export type RelayInspirationChoice = {
+  readonly intent: "connect-with-others";
+};
+
+export type RelayHandoffState = {
+  readonly orientationInteractionAccepted: boolean;
+  readonly memoryFragment: RelayMemoryFragment | null;
+  readonly inspirationChoice: RelayInspirationChoice | null;
+};
+
+export type RelayHandoffAction =
+  | {
+      readonly type: "kerni_interaction_requested";
+      readonly origin: "player";
+      readonly proximity: true;
+      readonly worldFocusOwned: true;
+    }
+  | {
+      readonly type: "kerni_orientation_acknowledged";
+      readonly origin: "player";
+    }
+  | {
+      readonly type: "workbench_choice_requested";
+      readonly intent: "connect-with-others";
+      readonly origin: "player";
+    };
+
+const RELAY_MEMORY_FRAGMENT: RelayMemoryFragment = {
+  source: "kerni-orientation",
+  meaning: "leave-one-small-useful-thing",
+};
+const RELAY_INSPIRATION_CHOICE: RelayInspirationChoice = { intent: "connect-with-others" };
+
+export function createRelayHandoffState(): RelayHandoffState {
+  return {
+    orientationInteractionAccepted: false,
+    memoryFragment: null,
+    inspirationChoice: null,
+  };
+}
+
+const isRelayMemoryFragment = (value: unknown): value is RelayMemoryFragment => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    hasExactKeys(candidate, ["source", "meaning"]) &&
+    candidate.source === "kerni-orientation" &&
+    candidate.meaning === "leave-one-small-useful-thing"
+  );
+};
+
+const isRelayInspirationChoice = (value: unknown): value is RelayInspirationChoice => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return hasExactKeys(candidate, ["intent"]) && candidate.intent === "connect-with-others";
+};
+
+const isRelayHandoffState = (value: unknown): value is RelayHandoffState => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    hasExactKeys(candidate, ["orientationInteractionAccepted", "memoryFragment", "inspirationChoice"]) &&
+    typeof candidate.orientationInteractionAccepted === "boolean" &&
+    (candidate.memoryFragment === null || isRelayMemoryFragment(candidate.memoryFragment)) &&
+    (candidate.inspirationChoice === null || isRelayInspirationChoice(candidate.inspirationChoice))
+  );
+};
+
+const isRelayHandoffAction = (value: unknown): value is RelayHandoffAction => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.type === "kerni_interaction_requested") {
+    return (
+      hasExactKeys(candidate, ["type", "origin", "proximity", "worldFocusOwned"]) &&
+      candidate.origin === "player" &&
+      candidate.proximity === true &&
+      candidate.worldFocusOwned === true
+    );
+  }
+  if (candidate.type === "kerni_orientation_acknowledged") {
+    return hasExactKeys(candidate, ["type", "origin"]) && candidate.origin === "player";
+  }
+  if (candidate.type === "workbench_choice_requested") {
+    return (
+      hasExactKeys(candidate, ["type", "intent", "origin"]) &&
+      candidate.intent === "connect-with-others" &&
+      candidate.origin === "player"
+    );
+  }
+  return false;
+};
+
+/**
+ * Reduce the explicit Kerni-to-workbench handoff. Scene, presentation, animation, and world-agent
+ * callbacks are intentionally not part of the action vocabulary; only ordered player intents can
+ * create the two bounded application-owned facts.
+ */
+export function reduceRelayHandoff(
+  state: RelayHandoffState,
+  action: RelayHandoffAction,
+): RelayHandoffState {
+  if (!isRelayHandoffState(state) || !isRelayHandoffAction(action)) return state;
+
+  switch (action.type) {
+    case "kerni_interaction_requested":
+      return state.orientationInteractionAccepted
+        ? state
+        : { ...state, orientationInteractionAccepted: true };
+    case "kerni_orientation_acknowledged":
+      if (!state.orientationInteractionAccepted || state.memoryFragment) return state;
+      return { ...state, memoryFragment: RELAY_MEMORY_FRAGMENT };
+    case "workbench_choice_requested":
+      if (!state.memoryFragment || state.inspirationChoice) return state;
+      return { ...state, inspirationChoice: RELAY_INSPIRATION_CHOICE };
+    default:
+      return state;
+  }
+}
+
+/** The Plan-03 handoff is eligible only after both explicit application-owned facts exist. */
+export function relayAssemblyEligible(state: RelayHandoffState): boolean {
+  return Boolean(state.memoryFragment && state.inspirationChoice);
+}
+
+export const deriveRelayAssemblyEligible = relayAssemblyEligible;
