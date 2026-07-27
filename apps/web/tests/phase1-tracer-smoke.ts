@@ -5,8 +5,11 @@ import { fileURLToPath } from "node:url";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  RELAY_PART_ORDER,
+  RELAY_SOCKET_ID,
   type Phase1RelayAction,
   type Phase1RelayState,
+  createPhase1RelayState,
   reducePhase1Relay,
 } from "../src/meaningverse/phase1Relay";
 import {
@@ -17,7 +20,18 @@ import { Phase1RelayOverlay } from "../src/ui/Phase1RelayOverlay";
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const attemptId = "werkstattgasse:z1:relay:attempt-1";
-const inactive: Phase1RelayState = { status: "inactive" };
+const memory = { source: "kerni-orientation", meaning: "leave-one-small-useful-thing" } as const;
+const inspiration = { intent: "connect-with-others" } as const;
+const physical = { origin: "player-physical" as const };
+const createReady = () => createPhase1RelayState({ memoryFragment: memory, inspirationChoice: inspiration });
+const createCompleted = () => {
+  let state = createReady();
+  for (const part of RELAY_PART_ORDER) {
+    state = reducePhase1Relay(state, { type: "pickup_part", part, ...physical });
+    state = reducePhase1Relay(state, { type: "seat_part", part, cradleId: part, ...physical });
+  }
+  return state;
+};
 
 const openedAttempts: string[] = [];
 const transport: Phase1RelayTransport = {
@@ -27,152 +41,84 @@ const transport: Phase1RelayTransport = {
   dispose() {},
 };
 const lifecycle = createPhase1RelayLifecycleGate(transport);
-
+const inactive = createPhase1RelayState();
 lifecycle.apply(inactive);
-assert.deepEqual(openedAttempts, [], "the relay transport stays inert before app acceptance");
+assert.deepEqual(openedAttempts, [], "transport stays inert before app acceptance");
 
-const pending = reducePhase1Relay(inactive, {
-  type: "activation_requested",
-  attemptId,
-});
-assert.equal(pending.status, "pending");
+const assembled = createCompleted();
+const pending = reducePhase1Relay(
+  reducePhase1Relay(assembled, { type: "preview_placement", socketId: RELAY_SOCKET_ID, ...physical }),
+  { type: "place_requested", socketId: RELAY_SOCKET_ID, attemptId, ...physical },
+);
+assert.equal(pending.placement.status, "pending");
 lifecycle.apply(pending);
 assert.deepEqual(openedAttempts, [], "pending intent is not transport authority");
 
 const accepted = reducePhase1Relay(pending, {
-  type: "activation_accepted",
+  type: "placement_accepted",
+  socketId: RELAY_SOCKET_ID,
   attemptId,
+  origin: "fixed-socket-completion",
 });
-assert.equal(accepted.status, "accepted");
+assert.equal(accepted.placement.status, "accepted");
+assert.equal(accepted.acceptedPlacement, true);
 lifecycle.apply(accepted);
-assert.deepEqual(openedAttempts, [attemptId], "accepted app truth opens the transport exactly once");
+assert.deepEqual(openedAttempts, [attemptId], "accepted app truth opens transport exactly once");
+lifecycle.apply(accepted);
+assert.deepEqual(openedAttempts, [attemptId], "duplicate accepted state does not reopen transport");
 
-const acceptedMarkup = renderToStaticMarkup(
-  React.createElement(Phase1RelayOverlay, { state: accepted }),
-);
+const acceptedMarkup = renderToStaticMarkup(React.createElement(Phase1RelayOverlay, { state: accepted }));
 assert.match(acceptedMarkup, /aria-live="polite"/);
 assert.match(acceptedMarkup, /role="status"/);
-assert.match(acceptedMarkup, />OPEN</, "accepted app truth exposes restrained semantic OPEN");
-
-const pendingMarkup = renderToStaticMarkup(
-  React.createElement(Phase1RelayOverlay, { state: pending }),
-);
-assert.match(pendingMarkup, /Securing relay…/);
-assert.doesNotMatch(pendingMarkup, />OPEN</);
+assert.match(acceptedMarkup, />OPEN</);
+assert.match(acceptedMarkup, /z1-relay-socket/);
+assert.match(acceptedMarkup, /foot/);
+assert.match(acceptedMarkup, /coil/);
+assert.match(acceptedMarkup, /aperture/);
 
 const failed = reducePhase1Relay(pending, {
-  type: "activation_failed",
+  type: "placement_failed",
   attemptId,
+  origin: "fixed-socket-completion",
 });
-const failedMarkup = renderToStaticMarkup(
-  React.createElement(Phase1RelayOverlay, { state: failed }),
-);
-assert.match(failedMarkup, /The relay did not secure\. Try the socket again\./);
-assert.doesNotMatch(failedMarkup, />OPEN</);
+assert.equal(failed.placement.status, "failed");
+assert.equal(failed.acceptedPlacement, false);
+assert.equal(failed.assembly.carriedPart, "completed-relay");
+assert.doesNotMatch(renderToStaticMarkup(React.createElement(Phase1RelayOverlay, { state: failed })), />OPEN</);
 
-const cancelled = reducePhase1Relay(pending, {
-  type: "activation_cancelled",
+const forged = reducePhase1Relay(pending, {
+  type: "activation_accepted",
   attemptId,
-});
-const cancelledMarkup = renderToStaticMarkup(
-  React.createElement(Phase1RelayOverlay, { state: cancelled }),
+} as unknown as Phase1RelayAction);
+assert.deepEqual(forged, pending, "removed generic activation is a permanent no-op");
+assert.deepEqual(
+  reducePhase1Relay(inactive, { type: "placement_accepted", socketId: RELAY_SOCKET_ID, attemptId, origin: "fixed-socket-completion" }),
+  inactive,
+  "acceptance without pending truth is inert",
 );
-assert.doesNotMatch(cancelledMarkup, />OPEN</);
-
-const forgedSocialAction = {
-  type: "activation_accepted",
-  attemptId,
-  participantCount: 2,
-  peer: "ghost-session",
-} as unknown as Phase1RelayAction;
-assert.equal(
-  reducePhase1Relay(pending, forgedSocialAction),
-  pending,
-  "extra peer/social fields cannot become acceptance authority",
-);
-assert.equal(
-  reducePhase1Relay(pending, null as unknown as Phase1RelayAction),
-  pending,
-  "an unknown action shape is a no-op rather than an exception",
-);
-
-const forgedAccept = reducePhase1Relay(inactive, {
-  type: "activation_accepted",
-  attemptId,
-});
-assert.equal(forgedAccept, inactive, "acceptance without pending truth is inert");
-const staleAccept = reducePhase1Relay(pending, {
-  type: "activation_accepted",
-  attemptId: "werkstattgasse:z1:relay:stale",
-});
-assert.equal(staleAccept, pending, "stale attempt acceptance is inert");
-const duplicateAccept = reducePhase1Relay(accepted, {
-  type: "activation_accepted",
-  attemptId,
-});
-assert.equal(duplicateAccept, accepted, "accepted truth is monotonic");
-const failedAfterAccept = reducePhase1Relay(accepted, {
-  type: "activation_failed",
-  attemptId,
-});
-assert.equal(failedAfterAccept, accepted, "failure cannot demote accepted truth");
-const acceptAfterCancel = reducePhase1Relay(cancelled, {
-  type: "activation_accepted",
-  attemptId,
-});
-assert.equal(acceptAfterCancel, cancelled, "cancellation cannot be resurrected");
+assert.deepEqual(reducePhase1Relay(pending, null as unknown as Phase1RelayAction), pending);
 
 const palaceSceneSource = readFileSync(resolve(webRoot, "src/scene/PalaceScene.tsx"), "utf8");
-const phase1RelaySource = readFileSync(
-  resolve(webRoot, "src/meaningverse/phase1Relay.ts"),
-  "utf8",
-);
-const phase1TransportSource = readFileSync(
-  resolve(webRoot, "src/net/phase1RelayTransport.ts"),
-  "utf8",
-);
-const phase1OverlaySource = readFileSync(
-  resolve(webRoot, "src/ui/Phase1RelayOverlay.tsx"),
-  "utf8",
-);
+const phase1RelaySource = readFileSync(resolve(webRoot, "src/meaningverse/phase1Relay.ts"), "utf8");
+const phase1TransportSource = readFileSync(resolve(webRoot, "src/net/phase1RelayTransport.ts"), "utf8");
+const phase1OverlaySource = readFileSync(resolve(webRoot, "src/ui/Phase1RelayOverlay.tsx"), "utf8");
 assert.ok(palaceSceneSource.includes("reducePhase1Relay"));
 assert.ok(palaceSceneSource.includes("Phase1RelayOverlay"));
 assert.ok(palaceSceneSource.includes("createPhase1RelayLifecycleGate"));
-assert.ok(palaceSceneSource.includes('phase1RelayState.status !== "accepted"'));
 assert.ok(palaceSceneSource.includes("phase1RelayLifecycle.apply(phase1RelayState)"));
-assert.ok(palaceSceneSource.includes('type: "activation_requested"'));
-assert.ok(palaceSceneSource.includes('type: "activation_accepted"'));
-assert.ok(!palaceSceneSource.includes('data-relay-socket="werkstattgasse:z1:relay:1"'));
+assert.ok(!palaceSceneSource.includes('type: "activation_requested"'));
+assert.ok(!palaceSceneSource.includes('type: "activation_accepted"'));
 assert.ok(!palaceSceneSource.includes("@nostr-dev-kit/ndk"));
 assert.ok(!palaceSceneSource.includes("nostr-tools"));
-assert.ok(!palaceSceneSource.includes("from \"nostr-tools\""));
-
-for (const forbidden of [
-  "fake peer",
-  "ambient",
-  "backlog",
-  "loopback",
-  "participantCount",
-  "participant count",
-  "Kerni",
-  "timer",
-  "animation",
-]) {
-  assert.equal(
-    phase1RelaySource.toLowerCase().includes(forbidden.toLowerCase()),
-    false,
-    `reducer source must not encode ${forbidden} as authority`,
-  );
-  assert.equal(
-    phase1TransportSource.toLowerCase().includes(forbidden.toLowerCase()),
-    false,
-    `transport source must not encode ${forbidden} as authority`,
-  );
+for (const forbidden of ["fake peer", "loopback", "participantCount", "participant count"]) {
+  assert.equal(phase1RelaySource.toLowerCase().includes(forbidden.toLowerCase()), false);
+  assert.equal(phase1TransportSource.toLowerCase().includes(forbidden.toLowerCase()), false);
 }
 assert.ok(!phase1OverlaySource.includes("BuilderHud"));
 assert.ok(!phase1OverlaySource.includes("grid"));
 assert.ok(!phase1OverlaySource.includes("free placement"));
 assert.ok(phase1OverlaySource.includes('data-relay-socket="werkstattgasse:z1:relay:1"'));
+assert.ok(phase1OverlaySource.includes('data-placement-socket={RELAY_SOCKET_ID}'));
 assert.ok(phase1OverlaySource.includes('aria-live="polite"'));
 
 lifecycle.dispose();

@@ -1,4 +1,4 @@
-import type { Phase1RelayState } from "../meaningverse/phase1Relay";
+import { createPhase1RelayState, type Phase1RelayState } from "../meaningverse/phase1Relay";
 
 export interface Phase1RelayTransport {
   openRelay(attemptId: string): void;
@@ -17,7 +17,7 @@ export interface Phase1RelayLifecycleGate {
 export function createPhase1RelayLifecycleGate(
   transport: Phase1RelayTransport,
 ): Phase1RelayLifecycleGate {
-  let previous: Phase1RelayState = { status: "inactive" };
+  let previous: Phase1RelayState = createPhase1RelayState();
   let disposed = false;
   let openedAttemptId: string | null = null;
 
@@ -26,13 +26,14 @@ export function createPhase1RelayLifecycleGate(
       if (disposed) return;
 
       if (
-        previous.status === "pending" &&
-        next.status === "accepted" &&
-        previous.attemptId === next.attemptId &&
-        openedAttemptId !== next.attemptId
+        previous.placement.status === "pending" &&
+        next.placement.status === "accepted" &&
+        previous.placement.attemptId === next.placement.attemptId &&
+        next.placement.attemptId !== null &&
+        openedAttemptId !== next.placement.attemptId
       ) {
-        openedAttemptId = next.attemptId;
-        transport.openRelay(next.attemptId);
+        openedAttemptId = next.placement.attemptId;
+        transport.openRelay(next.placement.attemptId);
       }
       previous = next;
     },

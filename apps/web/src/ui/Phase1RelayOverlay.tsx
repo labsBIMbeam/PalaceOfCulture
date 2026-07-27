@@ -4,6 +4,7 @@ import type {
   Phase1RelayState,
   RelayHandoffState,
 } from "../meaningverse/phase1Relay";
+import { RELAY_PART_ORDER, RELAY_SOCKET_ID } from "../meaningverse/phase1Relay";
 import { FICTIONAL_WIRE_CARDS } from "../meaningverse/onboardingStory";
 
 type Phase1RelayOverlayProps = {
@@ -13,6 +14,12 @@ type Phase1RelayOverlayProps = {
   kerniInRange?: boolean;
   kerniDialogueOpen?: boolean;
   onActivate?: () => void;
+  onPickupPart?: (part: (typeof RELAY_PART_ORDER)[number]) => void;
+  onSeatPart?: (part: (typeof RELAY_PART_ORDER)[number]) => void;
+  onPreviewPlacement?: () => void;
+  onPlaceRelay?: () => void;
+  onRetryPlacement?: () => void;
+  onKeepHolding?: () => void;
   wireOpen?: boolean;
   onWireDismiss?: () => void;
   onWireReopen?: () => void;
@@ -215,6 +222,12 @@ export function Phase1RelayOverlay({
   kerniInRange = false,
   kerniDialogueOpen = false,
   onActivate,
+  onPickupPart = () => {},
+  onSeatPart = () => {},
+  onPreviewPlacement = () => {},
+  onPlaceRelay = () => {},
+  onRetryPlacement = () => {},
+  onKeepHolding = () => {},
   wireOpen = false,
   onWireDismiss = () => {},
   onWireReopen = () => {},
@@ -231,11 +244,23 @@ export function Phase1RelayOverlay({
         : state.status === "failed"
           ? "The relay did not secure. Try the socket again."
           : "Relay closed.";
+  const placementCopy =
+    state.placement.status === "valid"
+      ? "VALID"
+      : state.placement.status === "invalid"
+        ? "This relay fits the workbench socket."
+        : state.placement.status === "pending"
+          ? "Securing relay…"
+          : state.placement.status === "failed"
+            ? "The relay did not secure. Try the socket again."
+            : state.placement.status;
+  const nextPart = RELAY_PART_ORDER[state.assembly.seatedParts.length];
 
   return (
     <>
       <section
         aria-label="Phase-1 relay"
+        data-placement-socket={RELAY_SOCKET_ID}
         data-relay-socket="werkstattgasse:z1:relay:1"
         data-relay-status={state.status}
       >
@@ -247,6 +272,37 @@ export function Phase1RelayOverlay({
           <button onClick={onActivate} type="button">
             Secure relay at fixed socket
           </button>
+        ) : null}
+      </section>
+      <section aria-label="Relay assembly" data-relay-assembly={state.assembly.status}>
+        <p>Relay parts: {state.assembly.seatedParts.length}/3</p>
+        <ul>
+          {RELAY_PART_ORDER.map((part) => (
+            <li data-relay-part={part} key={part}>
+              {part}: {state.assembly.seatedParts.includes(part) ? "seated" : state.assembly.carriedPart === part ? "carried" : "ready"}
+            </li>
+          ))}
+        </ul>
+        {nextPart && state.assembly.carriedPart === null ? (
+          <button onClick={() => onPickupPart(nextPart)} type="button">Pick up {nextPart}</button>
+        ) : null}
+        {nextPart && state.assembly.carriedPart === nextPart ? (
+          <button onClick={() => onSeatPart(nextPart)} type="button">Seat {nextPart}</button>
+        ) : null}
+        {state.assembly.carriedPart === "completed-relay" ? (
+          <button onClick={onPreviewPlacement} type="button">Preview fixed Z1 socket</button>
+        ) : null}
+        <div aria-live="polite" data-placement-state={state.placement.status} role="status">
+          {placementCopy}
+        </div>
+        {state.placement.status === "valid" ? (
+          <button onClick={onPlaceRelay} type="button">E · Place relay</button>
+        ) : null}
+        {state.placement.status === "failed" ? (
+          <>
+            <button onClick={onRetryPlacement} type="button">Try again</button>
+            <button onClick={onKeepHolding} type="button">Keep holding</button>
+          </>
         ) : null}
       </section>
       {attentivePresence?.presenceAccepted ? (

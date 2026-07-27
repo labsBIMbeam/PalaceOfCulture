@@ -29,12 +29,12 @@ import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import {
   createAttentivePresenceState,
+  createPhase1RelayState,
   createRelayHandoffState,
   reduceAttentivePresence,
   reducePhase1Relay,
   reduceRelayHandoff,
   type AttentivePresenceState,
-  type Phase1RelayState,
   type RelayHandoffState,
 } from "../meaningverse/phase1Relay";
 import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
@@ -722,7 +722,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const canBuild = world === "home";
   const [phase1RelayState, dispatchPhase1Relay] = useReducer(
     reducePhase1Relay,
-    { status: "inactive" } satisfies Phase1RelayState,
+    undefined,
+    createPhase1RelayState,
   );
   const [wireOpen, setWireOpen] = useState(false);
   const [attentivePresence, dispatchAttentivePresence] = useReducer(
@@ -760,16 +761,27 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   useEffect(() => {
     phase1RelayLifecycle.apply(phase1RelayState);
   }, [phase1RelayLifecycle, phase1RelayState]);
-  const activatePhase1Relay = () => {
+  const pickupRelayPart = (part: "foot" | "coil" | "aperture") => {
+    dispatchPhase1Relay({ type: "pickup_part", part, origin: "player-physical" });
+  };
+  const seatRelayPart = (part: "foot" | "coil" | "aperture") => {
+    dispatchPhase1Relay({ type: "seat_part", part, cradleId: part, origin: "player-physical" });
+  };
+  const previewRelayPlacement = () => {
+    dispatchPhase1Relay({ type: "preview_placement", socketId: "z1-relay-socket", origin: "player-physical" });
+  };
+  const placeRelay = () => {
     dispatchPhase1Relay({
-      type: "activation_requested",
+      type: "place_requested",
+      socketId: "z1-relay-socket",
       attemptId: PHASE1_RELAY_ATTEMPT_ID,
-    });
-    dispatchPhase1Relay({
-      type: "activation_accepted",
-      attemptId: PHASE1_RELAY_ATTEMPT_ID,
+      origin: "player-physical",
     });
   };
+  const retryRelayPlacement = () => {
+    if (phase1RelayState.placement.status === "failed") placeRelay();
+  };
+  const keepHoldingRelay = () => undefined;
   useEffect(() => {
     if (world !== "street") {
       setWireOpen(false);
@@ -1374,6 +1386,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
               <>
                 <StreetWorld
                   acceptedPlacement={phase1RelayState.status === "accepted"}
+                  assembly={phase1RelayState.assembly}
+                  placement={phase1RelayState.placement}
                   presenceAccepted={attentivePresence.presenceAccepted}
                   reducedEffects={reducedEffects}
                 />
@@ -1513,8 +1527,13 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           handoffState={relayHandoff}
           kerniDialogueOpen={kerniDialogueOpen}
           kerniInRange={kerniInRange}
-          onActivate={activatePhase1Relay}
           onBeginRelay={beginRelay}
+          onKeepHolding={keepHoldingRelay}
+          onPlaceRelay={placeRelay}
+          onPickupPart={pickupRelayPart}
+          onPreviewPlacement={previewRelayPlacement}
+          onRetryPlacement={retryRelayPlacement}
+          onSeatPart={seatRelayPart}
           onKerniAcknowledge={acknowledgeKerniOrientation}
           onKerniClose={() => setKerniDialogueOpen(false)}
           onKerniInteract={openKerniDialogue}

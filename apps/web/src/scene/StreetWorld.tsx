@@ -18,6 +18,7 @@ import { Signpost } from "./Signpost";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
 import { mulberry32 } from "./rand";
+import type { AssemblyState, PlacementState } from "../meaningverse/phase1Relay";
 
 /** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
  *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
@@ -410,15 +411,70 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
   );
 }
 
+function RelayWorkbench({
+  acceptedPlacement,
+  assembly,
+  placement,
+}: {
+  acceptedPlacement: boolean;
+  assembly: AssemblyState;
+  placement: PlacementState;
+}) {
+  const seated = new Set(assembly.seatedParts);
+  const carried = assembly.carriedPart;
+  const parts = [
+    { id: "foot", color: "#b56d3d", position: [-1.2, 0.52, 0] as [number, number, number] },
+    { id: "coil", color: "#d9d0c2", position: [0, 0.68, 0] as [number, number, number] },
+    { id: "aperture", color: "#f3b64d", position: [1.2, 0.58, 0] as [number, number, number] },
+  ] as const;
+  return (
+    <group name="RelayWorkbench" position={[-27.5, 0, 91.2]}>
+      <mesh castShadow receiveShadow position={[0, 0.42, 0]}>
+        <boxGeometry args={[4.6, 0.22, 1.6]} />
+        <meshStandardMaterial color="#4e3427" roughness={0.92} />
+      </mesh>
+      {parts.map((part) => (
+        <group key={part.id} name={`relay-${part.id}`} position={part.position}>
+          <mesh receiveShadow position={[0, -0.22, 0]}>
+            <torusGeometry args={[0.32, 0.035, 8, 20]} />
+            <meshStandardMaterial color={seated.has(part.id) ? "#49c6b2" : "#6f5c4c"} />
+          </mesh>
+          <mesh castShadow position={[0, seated.has(part.id) ? 0.22 : 0.58, 0]} visible={!seated.has(part.id) || carried === part.id}>
+            {part.id === "coil" ? <torusGeometry args={[0.24, 0.09, 12, 24]} /> : <cylinderGeometry args={[0.2, 0.26, 0.32, 12]} />}
+            <meshStandardMaterial color={part.color} emissive={part.id === "aperture" ? "#8b4b10" : "#000000"} emissiveIntensity={acceptedPlacement ? 0.8 : 0} />
+          </mesh>
+        </group>
+      ))}
+      <group name="z1-relay-socket" position={[0, 0.62, 0.62]}>
+        <mesh receiveShadow>
+          <cylinderGeometry args={[0.42, 0.42, 0.08, 16]} />
+          <meshStandardMaterial color={acceptedPlacement ? "#e7b23c" : "#8f7964"} emissive={acceptedPlacement ? "#8b4b10" : "#000000"} emissiveIntensity={acceptedPlacement ? 1.2 : 0} />
+        </mesh>
+        {acceptedPlacement ? <pointLight color="#ffbf55" distance={1.4} intensity={0.45} position={[0, 0.34, 0]} /> : null}
+      </group>
+      <mesh name="relay-status-plate" position={[0, 0.8, -0.72]}>
+        <boxGeometry args={[2.8, 0.16, 0.05]} />
+        <meshStandardMaterial color={placement.status === "accepted" ? "#d8a944" : "#6f5c4c"} />
+      </mesh>
+    </group>
+  );
+}
+
 /** Locktard Street beta sandbox: gate → staged approach → round plaza with Palace teaser,
  *  workshop yard on the west ring, all held by the palisade + forest. */
 export function StreetWorld({
   acceptedPlacement = false,
+  assembly = { status: "parts_0", seatedParts: [], carriedPart: null },
+  placement = { status: "idle", socketId: null, attemptId: null, acceptedSocketId: null },
   presenceAccepted = false,
   reducedEffects = false,
 }: {
   /** Presentation-only: the app-owned placement fact has been accepted. */
   acceptedPlacement?: boolean;
+  /** Presentation-only projection of the bounded assembly reducer state. */
+  assembly?: AssemblyState;
+  /** Presentation-only projection of the bounded placement reducer state. */
+  placement?: PlacementState;
   /** Presentation-only: settled presence improves local legibility. */
   presenceAccepted?: boolean;
   /** Presentation-only effects preference. */
@@ -493,6 +549,8 @@ export function StreetWorld({
           />
         </Suspense>
       </PropBoundary>
+
+      <RelayWorkbench acceptedPlacement={acceptedPlacement} assembly={assembly} placement={placement} />
 
       {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}
       <PropBoundary>
