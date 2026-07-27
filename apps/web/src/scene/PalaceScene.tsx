@@ -27,7 +27,13 @@ import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
-import { reducePhase1Relay, type Phase1RelayState } from "../meaningverse/phase1Relay";
+import {
+  createAttentivePresenceState,
+  reduceAttentivePresence,
+  reducePhase1Relay,
+  type AttentivePresenceState,
+  type Phase1RelayState,
+} from "../meaningverse/phase1Relay";
 import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
 import {
   type MultiplayerViewState,
@@ -154,6 +160,8 @@ const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number
 const TRAVEL_SWAP_MS = 300;
 const TRAVEL_TOTAL_MS = 1500;
 const PHASE1_RELAY_ATTEMPT_ID = "werkstattgasse:z1:relay:attempt-1";
+const KERNI_POSITION: [number, number, number] = [-27.5, 0, 93];
+const KERNI_PROXIMITY_RADIUS = 2.6;
 
 // drei KeyboardControls map — ecctrl reads these named actions. Full WASD; Decorate is on "B".
 const KEYBOARD_MAP = [
@@ -311,6 +319,7 @@ function WalkSystems({
   spawn,
   activeWorld,
   onActive,
+  onKerniProximity,
   onNearPose,
 }: {
   bodyRef: RefObject<RapierRigidBody>;
@@ -320,12 +329,14 @@ function WalkSystems({
   /** The active engine world — only its own interactables may prompt. */
   activeWorld: EngineTarget;
   onActive: (item: Interactable | null) => void;
+  onKerniProximity: (inRange: boolean) => void;
   onNearPose: (point: PosePoint | null) => void;
 }) {
   const [, getKeys] = useKeyboardControls();
   const { world, rapier } = useRapier();
   const lastId = useRef<string | null>(null);
   const lastPose = useRef<string | null>(null);
+  const lastKerniRange = useRef(false);
   const jumpPrev = useRef(false);
   const jumpStartedAt = useRef(Number.NEGATIVE_INFINITY);
   useFrame((state) => {
@@ -413,6 +424,14 @@ function WalkSystems({
     if (id !== lastId.current) {
       lastId.current = id;
       onActive(best);
+    }
+
+    const kerniInRange =
+      activeWorld === "street" &&
+      Math.hypot(pos.x - KERNI_POSITION[0], pos.z - KERNI_POSITION[2]) <= KERNI_PROXIMITY_RADIUS;
+    if (kerniInRange !== lastKerniRange.current) {
+      lastKerniRange.current = kerniInRange;
+      onKerniProximity(kerniInRange);
     }
 
     // Nearest usable piece (chair/bed) within range — reported up only when it changes.
@@ -703,6 +722,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     { status: "inactive" } satisfies Phase1RelayState,
   );
   const [wireOpen, setWireOpen] = useState(false);
+  const [attentivePresence, dispatchAttentivePresence] = useReducer(
+    reduceAttentivePresence,
+    undefined,
+    createAttentivePresenceState,
+  );
+  const [reducedEffects, setReducedEffects] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [kerniInRange, setKerniInRange] = useState(false);
   const phase1RelayTransport = useMemo<Phase1RelayTransport>(
     () => ({
       openRelay: () => {},
@@ -740,6 +770,47 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     const glimpseTimer = window.setTimeout(() => setWireOpen(true), STREET_GLIMPSE_MS);
     return () => window.clearTimeout(glimpseTimer);
   }, [world]);
+  useEffect(() => {
+    dispatchAttentivePresence({
+      type: "feed_changed",
+      feed: world !== "street" ? "glimpse" : wireOpen ? "foreground" : "away",
+    });
+  }, [wireOpen, world]);
+  useEffect(() => {
+    if (world !== "street" || (mode !== "walk" && mode !== "decorate") || wireOpen) return;
+
+    let frameId = 0;
+    let previousTimestamp: number | null = null;
+    const resetSamplingBaseline = () => {
+      previousTimestamp = null;
+    };
+    const sampleActiveFrame = (timestamp: number) => {
+      const foregroundFocused = document.hasFocus();
+      const documentVisible = document.visibilityState === "visible";
+      if (!foregroundFocused || !documentVisible || domOwnsWorldFocus()) {
+        resetSamplingBaseline();
+      } else if (previousTimestamp !== null) {
+        dispatchAttentivePresence({
+          type: "active_frame_sampled",
+          deltaMs: timestamp - previousTimestamp,
+          foregroundFocused: true,
+          documentVisible: true,
+        });
+      }
+      previousTimestamp = foregroundFocused && documentVisible ? timestamp : null;
+      frameId = window.requestAnimationFrame(sampleActiveFrame);
+    };
+    frameId = window.requestAnimationFrame(sampleActiveFrame);
+    document.addEventListener("visibilitychange", resetSamplingBaseline);
+    window.addEventListener("blur", resetSamplingBaseline);
+    window.addEventListener("focus", resetSamplingBaseline);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      document.removeEventListener("visibilitychange", resetSamplingBaseline);
+      window.removeEventListener("blur", resetSamplingBaseline);
+      window.removeEventListener("focus", resetSamplingBaseline);
+    };
+  }, [mode, wireOpen, world]);
   const multiplayerTransportRef = useRef<PalaceMultiplayerTransport | null>(null);
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession>({
     transport: null,
@@ -1250,6 +1321,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   activeWorld={world}
                   bodyRef={playerBody}
                   onActive={setActiveInteract}
+                  onKerniProximity={setKerniInRange}
                   onNearPose={setNearPose}
                   poseables={poseables}
                   spawn={SPAWN_FOR[world]}
@@ -1394,6 +1466,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       </div>
       {world === "street" ? (
         <Phase1RelayOverlay
+          attentivePresence={attentivePresence}
           onActivate={activatePhase1Relay}
           onWireDismiss={() => {
             releaseMovementKeys();

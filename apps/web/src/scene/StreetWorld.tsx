@@ -412,7 +412,18 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
 
 /** Locktard Street beta sandbox: gate → staged approach → round plaza with Palace teaser,
  *  workshop yard on the west ring, all held by the palisade + forest. */
-export function StreetWorld() {
+export function StreetWorld({
+  acceptedPlacement = false,
+  presenceAccepted = false,
+  reducedEffects = false,
+}: {
+  /** Presentation-only: the app-owned placement fact has been accepted. */
+  acceptedPlacement?: boolean;
+  /** Presentation-only: settled presence improves local legibility. */
+  presenceAccepted?: boolean;
+  /** Presentation-only effects preference. */
+  reducedEffects?: boolean;
+}) {
   const dirt = useMemo(dirtTexture, []);
   const path = useMemo(pathTexture, []);
   const rimLamps = useMemo(rimLampPositions, []);
@@ -473,7 +484,13 @@ export function StreetWorld() {
       {/* Kerni, the floating workshop familiar — hovers at the yard edge, no collider by canon */}
       <PropBoundary>
         <Suspense fallback={null}>
-          <KerniFamiliar position={[-27.5, 0, 93]} rotationY={-2.16} />
+          <KerniFamiliar
+            acceptedPlacement={acceptedPlacement}
+            presenceAccepted={presenceAccepted}
+            position={[-27.5, 0, 93]}
+            reducedEffects={reducedEffects}
+            rotationY={-2.16}
+          />
         </Suspense>
       </PropBoundary>
 

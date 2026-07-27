@@ -5799,3 +5799,19 @@ input.compose-input::placeholder {
     transition: none;
   }
 }
+
+.phase1-presence-status {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  z-index: 7;
+  max-width: min(420px, calc(100vw - 48px));
+  padding: 9px 13px;
+  border: 1px solid rgba(231, 178, 60, 0.35);
+  border-radius: 999px;
+  background: rgba(18, 12, 7, 0.78);
+  color: var(--body);
+  font: 600 12px / 1.4 var(--copy);
+  text-align: center;
+  transform: translateX(-50%);
+}

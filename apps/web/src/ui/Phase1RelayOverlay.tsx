@@ -1,9 +1,13 @@
 import { useEffect, useRef } from "react";
-import type { Phase1RelayState } from "../meaningverse/phase1Relay";
+import type {
+  AttentivePresenceState,
+  Phase1RelayState,
+} from "../meaningverse/phase1Relay";
 import { FICTIONAL_WIRE_CARDS } from "../meaningverse/onboardingStory";
 
 type Phase1RelayOverlayProps = {
   state: Phase1RelayState;
+  attentivePresence?: AttentivePresenceState;
   onActivate?: () => void;
   wireOpen?: boolean;
   onWireDismiss?: () => void;
@@ -108,6 +112,7 @@ function FictionalWire({ open, onDismiss, onReopen }: FictionalWireProps) {
 /** Bounded relay status surface; every visible state is derived from application truth. */
 export function Phase1RelayOverlay({
   state,
+  attentivePresence,
   onActivate,
   wireOpen = false,
   onWireDismiss = () => {},
@@ -139,6 +144,17 @@ export function Phase1RelayOverlay({
           </button>
         ) : null}
       </section>
+      {attentivePresence?.presenceAccepted ? (
+        <div
+          aria-live="polite"
+          className="phase1-presence-status"
+          data-presence-state="accepted"
+          role="status"
+        >
+          <span aria-hidden="true">◉ </span>
+          <span>[The workbench is easier to notice now.]</span>
+        </div>
+      ) : null}
       <FictionalWire
         onDismiss={onWireDismiss}
         onReopen={onWireReopen}
