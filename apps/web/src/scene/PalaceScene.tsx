@@ -800,7 +800,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     const url = new URL(window.location.href);
     const keys = [...url.searchParams.keys()];
     const encoded = url.searchParams.get("activation");
-    if (url.searchParams.get("join") !== "street" || !encoded || url.hash || keys.some((key) => key !== "join" && key !== "activation")) return;
+    if (
+      url.searchParams.getAll("join").length !== 1 ||
+      url.searchParams.getAll("activation").length !== 1 ||
+      url.searchParams.get("join") !== "street" ||
+      !encoded ||
+      url.hash ||
+      keys.some((key) => key !== "join" && key !== "activation")
+    ) return;
     const candidate = decodePhase1ActivationCapability(encoded);
     const activation = verifyPhase1ActivationCapability(candidate);
     if (!activation) return;

@@ -17,6 +17,7 @@ import {
   createPhase1LensTemplate,
   createPhase1WitnessTemplate,
   parsePhase1RelayEvent,
+  reducePhase1Evidence,
   verifyAndAuthorizePhase1Event,
   verifyPhase1ActivationCapability,
   Phase1RelayEvidenceGuard,
@@ -172,11 +173,12 @@ const witnessEvidence = verifyAndAuthorizePhase1Event(witnessEvent, {
 });
 assert.equal(witnessEvidence?.action, "touch-relay-witness");
 assert.equal(verifyAndAuthorizePhase1Event(witnessEvent, { state: signedState, now, guard: witnessGuard }), null);
-const lensTemplate = createPhase1LensTemplate(
-  { ...signedState, acceptedWitness: { eventId: witnessEvent.id, pubkey: witnessPubkey, createdAt: now } },
-  witnessPubkey,
-  now,
-);
+if (!witnessEvidence) throw new Error("witness verification failed");
+const witnessAcceptedState = reducePhase1Evidence(signedState, witnessEvidence);
+assert.equal(witnessAcceptedState.acceptedWitness?.eventId, witnessEvent.id);
+assert.equal(witnessAcceptedState.activation?.creatorPubkey, creatorPubkey);
+assert.equal(reducePhase1Evidence(witnessAcceptedState, witnessEvidence), witnessAcceptedState);
+const lensTemplate = createPhase1LensTemplate(witnessAcceptedState, witnessPubkey, now);
 assert.deepEqual(lensTemplate.tags, [
   ["t", "palace-phase-1"],
   ["action", "attach-signal-lens"],
@@ -189,11 +191,21 @@ const lensEvent = finalizeEvent(lensTemplate, witnessSecret);
 assert.equal(parsePhase1RelayEvent(lensEvent)?.action, "attach-signal-lens");
 assert.equal(
   verifyAndAuthorizePhase1Event(lensEvent, {
-    state: { ...signedState, acceptedWitness: { eventId: witnessEvent.id, pubkey: witnessPubkey, createdAt: now } },
+    state: witnessAcceptedState,
     now,
   })?.action,
   "attach-signal-lens",
 );
+const lensEvidence = verifyAndAuthorizePhase1Event(lensEvent, {
+  state: witnessAcceptedState,
+  now,
+  guard: new Phase1RelayEvidenceGuard(),
+});
+if (!lensEvidence) throw new Error("lens verification failed");
+const lensAcceptedState = reducePhase1Evidence(witnessAcceptedState, lensEvidence);
+assert.equal(lensAcceptedState.acceptedLens?.eventId, lensEvent.id);
+assert.equal(lensAcceptedState.activation?.creatorPubkey, creatorPubkey);
+assert.equal(reducePhase1Evidence(lensAcceptedState, lensEvidence), lensAcceptedState);
 assert.deepEqual(createPhase1Filter(activationEvent.id, activationEvent.created_at), {
   kinds: [PHASE1_EVENT_KIND],
   "#e": [activationEvent.id],

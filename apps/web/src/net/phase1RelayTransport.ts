@@ -454,7 +454,8 @@ export async function signPhase1Event(
 
 export async function publishPhase1Event(signed: Phase1SignedEvent): Promise<Phase1PublishResult> {
   if (signed.raw.action === "activate-relay-invite") return { acknowledged: false, relayCount: 0 };
-  const event = new NDKEvent(getNdk(), signed.raw);
+  const { action: _action, ...rawEvent } = signed.raw;
+  const event = new NDKEvent(getNdk(), rawEvent);
   try {
     const relays = await event.publish(undefined, 3000, 1, { skipContentTagging: true });
     return { acknowledged: relays.size > 0, relayCount: relays.size };
