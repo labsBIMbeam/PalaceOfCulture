@@ -17,6 +17,7 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -26,6 +27,7 @@ import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
+import { reducePhase1Relay, type Phase1RelayState } from "../meaningverse/phase1Relay";
 import {
   type MultiplayerViewState,
   OFFLINE_MULTIPLAYER_STATE,
@@ -34,11 +36,16 @@ import {
   getMultiplayerUrl,
   horizontalYawFromQuaternion,
 } from "../net/multiplayer";
+import {
+  createPhase1RelayLifecycleGate,
+  type Phase1RelayTransport,
+} from "../net/phase1RelayTransport";
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
 import { DecorPicker } from "../ui/DecorPicker";
 import { MeaningPath } from "../ui/MeaningPath";
 import { MediaPlayer } from "../ui/MediaPlayer";
+import { Phase1RelayOverlay } from "../ui/Phase1RelayOverlay";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { GrowableObject } from "./GrowableObject";
@@ -145,6 +152,7 @@ const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number
 /** How long the travel curtain stays down (world swap happens under it). */
 const TRAVEL_SWAP_MS = 300;
 const TRAVEL_TOTAL_MS = 1500;
+const PHASE1_RELAY_ATTEMPT_ID = "werkstattgasse:z1:relay:attempt-1";
 
 // drei KeyboardControls map — ecctrl reads these named actions. Full WASD; Decorate is on "B".
 const KEYBOARD_MAP = [
@@ -679,6 +687,38 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // Public Palace = plain decorate placement only (B), capped against spam — no magnet there.
   const [world, setWorld] = useState<EngineTarget>(target);
   const canBuild = world === "home";
+  const [phase1RelayState, dispatchPhase1Relay] = useReducer(
+    reducePhase1Relay,
+    { status: "inactive" } satisfies Phase1RelayState,
+  );
+  const phase1RelayTransport = useMemo<Phase1RelayTransport>(
+    () => ({
+      openRelay: () => {},
+      dispose: () => {},
+    }),
+    [],
+  );
+  const phase1RelayLifecycle = useMemo(
+    () => createPhase1RelayLifecycleGate(phase1RelayTransport),
+    [phase1RelayTransport],
+  );
+  useEffect(
+    () => () => phase1RelayLifecycle.dispose(),
+    [phase1RelayLifecycle],
+  );
+  useEffect(() => {
+    phase1RelayLifecycle.apply(phase1RelayState);
+  }, [phase1RelayLifecycle, phase1RelayState]);
+  const activatePhase1Relay = () => {
+    dispatchPhase1Relay({
+      type: "activation_requested",
+      attemptId: PHASE1_RELAY_ATTEMPT_ID,
+    });
+    dispatchPhase1Relay({
+      type: "activation_accepted",
+      attemptId: PHASE1_RELAY_ATTEMPT_ID,
+    });
+  };
   const multiplayerTransportRef = useRef<PalaceMultiplayerTransport | null>(null);
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession>({
     transport: null,
@@ -692,7 +732,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const builderTargets = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
-    if (world !== "street") {
+    if (world !== "street" || phase1RelayState.status !== "accepted") {
       multiplayerTransportRef.current = null;
       setMultiplayerSession({ transport: null });
       return;
@@ -721,7 +761,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       if (multiplayerTransportRef.current === transport) multiplayerTransportRef.current = null;
       void transport.leave();
     };
-  }, [avatarAssetId, handle, world]);
+  }, [avatarAssetId, handle, phase1RelayState.status, world]);
 
   useEffect(() => {
     void homeBuild.setup();
@@ -1199,14 +1239,16 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             {world === "street" ? (
               <>
                 <StreetWorld />
-                <MeaningShip
-                  localSessionId={multiplayerView.localSessionId}
-                  modules={multiplayerView.shipModules}
-                  status={multiplayerView.status}
-                />
+                {phase1RelayState.status === "accepted" ? (
+                  <MeaningShip
+                    localSessionId={multiplayerView.localSessionId}
+                    modules={multiplayerView.shipModules}
+                    status={multiplayerView.status}
+                  />
+                ) : null}
               </>
             ) : null}
-            {world === "street" ? (
+            {world === "street" && phase1RelayState.status === "accepted" ? (
               <MultiplayerLayer
                 bodyRef={playerBody}
                 transportRef={multiplayerTransportRef}
@@ -1286,7 +1328,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span>{title}</span>
           <small>{subtitle}</small>
         </div>
-        {world === "street" ? <MultiplayerStatus view={multiplayerView} /> : null}
+        {world === "street" && phase1RelayState.status === "accepted" ? (
+          <MultiplayerStatus view={multiplayerView} />
+        ) : null}
         <div className="engine-actions">
           {mode !== "decorate" && mode !== "build" ? (
             <button className="nav-pill nav-pill--engine" onClick={toggleOverview} type="button">
@@ -1326,6 +1370,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         </div>
       </div>
       {world === "street" ? (
+        <Phase1RelayOverlay onActivate={activatePhase1Relay} state={phase1RelayState} />
+      ) : null}
+      {world === "street" && phase1RelayState.status === "accepted" ? (
         // Kept mounted (only hidden) through Decorate so typed labels and invite progress survive.
         <div hidden={mode === "decorate"}>
           <MeaningPath
@@ -1427,7 +1474,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           system={homeBuild}
         />
       ) : null}
-      {mode !== "decorate" && mode !== "build" ? <ChatPanel handle={handle} /> : null}
+      {phase1RelayState.status === "accepted" && mode !== "decorate" && mode !== "build" ? (
+        <ChatPanel handle={handle} />
+      ) : null}
       {mode !== "decorate" && mode !== "build" ? <MediaPlayer /> : null}
     </div>
   );
