@@ -6,6 +6,41 @@ export const PROJECT_SCALE = "x600billion";
 export const SHIP_NAME = "Leviathan";
 export const SHIP_MODULE_CAPACITY = 36;
 export const TUESDAY_CONTRIBUTOR_TARGET = 30;
+export const PHASE1_INVITE_MAX_BYTES = 4096;
+
+export type Phase1InviteState =
+  | "idle"
+  | "consent"
+  | "signer_pending"
+  | "copied"
+  | "manual"
+  | "failed"
+  | "cancelled";
+
+export type Phase1InviteAttempt = {
+  readonly token: string;
+  readonly state: Phase1InviteState;
+};
+
+export type Phase1SignerCapability = {
+  readonly getPublicKey: () => Promise<string> | string;
+  readonly signEvent: (event: unknown) => Promise<unknown> | unknown;
+};
+
+/** Capability detection is deliberately structural and never invokes an extension method. */
+export function isPhase1SignerCapability(value: unknown): value is Phase1SignerCapability {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.getPublicKey === "function" && typeof candidate.signEvent === "function";
+}
+
+let phase1InviteAttemptCounter = 0;
+
+/** Make an app-owned consent token; it is not an event ID, identity, or authorization proof. */
+export function createPhase1InviteAttempt(): Phase1InviteAttempt {
+  phase1InviteAttemptCounter += 1;
+  return { token: `phase1-invite-${phase1InviteAttemptCounter}`, state: "idle" };
+}
 
 export type NostrEventDraft = {
   kind: 30078;
@@ -15,10 +50,11 @@ export type NostrEventDraft = {
 };
 
 /** Build a direct Street invitation without carrying unrelated query state or URL fragments. */
-export function buildMeaningverseInvite(currentHref: string): string {
+export function buildMeaningverseInvite(currentHref: string, activation?: string): string {
   const url = new URL(currentHref);
   url.search = "";
   url.searchParams.set("join", "street");
+  if (activation) url.searchParams.set("activation", activation);
   url.hash = "";
   return url.toString();
 }

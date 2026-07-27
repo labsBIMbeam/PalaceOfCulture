@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Phase1InviteState } from "../meaningverse/model";
 import type {
   AttentivePresenceState,
   Phase1RelayState,
@@ -27,6 +28,10 @@ type Phase1RelayOverlayProps = {
   onKerniAcknowledge?: () => void;
   onKerniClose?: () => void;
   onBeginRelay?: () => void;
+  activationInviteUrl?: string | null;
+  inviteState?: Phase1InviteState;
+  onInviteConsent?: () => void;
+  onInviteCancel?: () => void;
 };
 
 type FictionalWireProps = {
@@ -235,7 +240,16 @@ export function Phase1RelayOverlay({
   onKerniAcknowledge = () => {},
   onKerniClose = () => {},
   onBeginRelay = () => {},
+  activationInviteUrl = null,
+  inviteState = "idle",
+  onInviteConsent = () => {},
+  onInviteCancel = () => {},
 }: Phase1RelayOverlayProps) {
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const inviteHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (inviteOpen) inviteHeadingRef.current?.focus();
+  }, [inviteOpen]);
   const status =
     state.status === "accepted"
       ? "OPEN"
@@ -281,6 +295,62 @@ export function Phase1RelayOverlay({
           </button>
         ) : null}
       </section>
+      {state.status === "accepted" ? (
+        <section aria-label="Relay invite" data-phase1-relay-invite="open">
+          <h2>Relay is OPEN</h2>
+          <p>The light is on. Invite one person when you want to.</p>
+          <button data-phase1-safe-control="true" onClick={() => setInviteOpen(true)} type="button">
+            Copy invite
+          </button>
+        </section>
+      ) : null}
+      {inviteOpen ? (
+        <section
+          aria-labelledby="phase1-invite-heading"
+          aria-modal="true"
+          data-phase1-invite="consent"
+          role="dialog"
+        >
+          <h2 id="phase1-invite-heading" ref={inviteHeadingRef} tabIndex={-1}>
+            Share this relay invite?
+          </h2>
+          <p>
+            The activation capability is signed for this relay only. It is never published, and showing
+            or copying it does not prove that anyone received it.
+          </p>
+          <p data-phase1-invite-action="activate-relay-invite">activate-relay-invite</p>
+          {activationInviteUrl ? (
+            <label>
+              Copy the invite manually
+              <textarea aria-label="Selectable relay invite" readOnly value={activationInviteUrl} />
+            </label>
+          ) : null}
+          <p aria-live="polite" role="status">
+            {inviteState === "copied"
+              ? "Invite copied"
+              : inviteState === "manual"
+                ? "I copied it"
+                : inviteState === "failed"
+                  ? "The invite could not be copied. Select the link or try again."
+                  : "Nothing is shared until you approve the activation signature."}
+          </p>
+          <button onClick={onInviteConsent} type="button">
+            Approve activation signature
+          </button>
+          <button
+            onClick={() => {
+              setInviteOpen(false);
+              onInviteCancel();
+            }}
+            type="button"
+          >
+            Not now
+          </button>
+          <button onClick={() => setInviteOpen(false)} type="button">
+            Close invite
+          </button>
+        </section>
+      ) : null}
       <section aria-label="Relay assembly" data-relay-assembly={assembly.status}>
         <p>Relay parts: {assembly.seatedParts.length}/3</p>
         <ul>

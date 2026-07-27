@@ -1,6 +1,7 @@
 export const RELAY_PART_ORDER = ["foot", "coil", "aperture"] as const;
 export type RelayPart = (typeof RELAY_PART_ORDER)[number];
 export const RELAY_SOCKET_ID = "z1-relay-socket" as const;
+export const PHASE1_RELAY_ID = "werkstattgasse:z1:relay:1" as const;
 export const COMPLETED_RELAY = "completed-relay" as const;
 export type RelayCarriedPart = RelayPart | typeof COMPLETED_RELAY | null;
 export type AssemblyStatus = "parts_0" | "parts_1" | "parts_2" | "parts_3" | "carrying";
@@ -27,6 +28,41 @@ export type Phase1RelayState = {
   readonly inspirationChoice: RelayInspirationChoice | null;
   readonly activationEpoch: number;
   readonly acceptedPlacement: boolean;
+  readonly relayId: typeof PHASE1_RELAY_ID | null;
+  readonly activation: Phase1ActivationFact | null;
+  readonly acceptedWitness: Phase1WitnessFact | null;
+  readonly acceptedLens: Phase1LensFact | null;
+  readonly acceptedEventIds: readonly string[];
+  readonly creatorIdentity: string | null;
+};
+
+export type Phase1ActivationFact = {
+  readonly relayId: typeof PHASE1_RELAY_ID;
+  readonly activationId: string;
+  readonly creatorPubkey: string;
+  readonly createdAt: number;
+  readonly source: "local-signed-activation" | "verified-invite-capability";
+};
+
+export type Phase1WitnessFact = {
+  readonly eventId: string;
+  readonly pubkey: string;
+  readonly createdAt: number;
+};
+
+export type Phase1LensFact = {
+  readonly eventId: string;
+  readonly pubkey: string;
+  readonly witnessEventId: string;
+  readonly createdAt: number;
+};
+
+export type Phase1ActivationCapability = {
+  readonly relayId: typeof PHASE1_RELAY_ID;
+  readonly activationId: string;
+  readonly creatorPubkey: string;
+  readonly createdAt: number;
+  readonly source: "verified-invite-capability";
 };
 
 export type PhysicalRelayOrigin = "player-physical";
@@ -109,6 +145,12 @@ export function createPhase1RelayState(
     inspirationChoice: facts.inspirationChoice ?? null,
     activationEpoch: 0,
     acceptedPlacement: false,
+    relayId: null,
+    activation: null,
+    acceptedWitness: null,
+    acceptedLens: null,
+    acceptedEventIds: [],
+    creatorIdentity: null,
   };
 }
 
@@ -245,16 +287,22 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
       state.placement.socketId !== RELAY_SOCKET_ID ||
       state.assembly.carriedPart !== COMPLETED_RELAY
     ) return state;
-    return withPlacement(
-      state,
-      {
-        status: "accepted",
-        socketId: RELAY_SOCKET_ID,
-        attemptId: action.attemptId,
-        acceptedSocketId: RELAY_SOCKET_ID,
-      },
-      { activationEpoch: state.activationEpoch + 1, acceptedPlacement: true },
-    );
+    return {
+      ...withPlacement(
+        state,
+        {
+          status: "accepted",
+          socketId: RELAY_SOCKET_ID,
+          attemptId: action.attemptId,
+          acceptedSocketId: RELAY_SOCKET_ID,
+        },
+        {
+          activationEpoch: state.activationEpoch + 1,
+          acceptedPlacement: true,
+        },
+      ),
+      relayId: PHASE1_RELAY_ID,
+    };
   }
 
   if (state.placement.status !== "pending" || state.placement.attemptId !== action.attemptId) return state;
@@ -266,6 +314,110 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
 
 export function isRelayAccepted(state: Phase1RelayState): boolean {
   return state.placement.status === "accepted" && state.acceptedPlacement;
+}
+
+function isHex(value: unknown, length: number): value is string {
+  return typeof value === "string" && new RegExp(`^[0-9a-f]{${length}}$`).test(value);
+}
+
+function isActivationCapability(value: unknown): value is Phase1ActivationCapability {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  const keys = Object.keys(candidate);
+  return (
+    keys.length === 5 &&
+    keys.every((key) => ["relayId", "activationId", "creatorPubkey", "createdAt", "source"].includes(key)) &&
+    candidate.relayId === PHASE1_RELAY_ID &&
+    isHex(candidate.activationId, 64) &&
+    isHex(candidate.creatorPubkey, 64) &&
+    Number.isSafeInteger(candidate.createdAt) &&
+    (candidate.createdAt as number) >= 0 &&
+    candidate.source === "verified-invite-capability"
+  );
+}
+
+/** Import only the bounded result of a completed, verified URL capability. */
+export function importVerifiedActivationCapability(
+  state: Phase1RelayState,
+  capability: unknown,
+): Phase1RelayState {
+  if (!isActivationCapability(capability)) return state;
+  if (state.activation && state.activation.activationId !== capability.activationId) return state;
+  const activation: Phase1ActivationFact = { ...capability };
+  return {
+    ...state,
+    status: "accepted",
+    placement: {
+      ...state.placement,
+      status: "accepted",
+      socketId: RELAY_SOCKET_ID,
+      acceptedSocketId: RELAY_SOCKET_ID,
+    },
+    acceptedPlacement: true,
+    relayId: PHASE1_RELAY_ID,
+    activation,
+  };
+}
+
+/** Store a verified local activation without changing the creator's primary identity. */
+export function acceptLocalActivation(
+  state: Phase1RelayState,
+  activation: Omit<Phase1ActivationFact, "source" | "relayId">,
+): Phase1RelayState {
+  if (!isRelayAccepted(state) || !isHex(activation.activationId, 64) || !isHex(activation.creatorPubkey, 64)) {
+    return state;
+  }
+  if (state.activation && state.activation.activationId !== activation.activationId) return state;
+  return {
+    ...state,
+    relayId: PHASE1_RELAY_ID,
+    activation: {
+      ...activation,
+      relayId: PHASE1_RELAY_ID,
+      source: "local-signed-activation",
+    },
+  };
+}
+
+export function acceptPhase1Witness(
+  state: Phase1RelayState,
+  evidence: Phase1WitnessFact,
+  creatorPubkey: string,
+): Phase1RelayState {
+  if (
+    !state.activation ||
+    state.acceptedWitness ||
+    !isHex(evidence.eventId, 64) ||
+    !isHex(evidence.pubkey, 64) ||
+    evidence.pubkey === creatorPubkey ||
+    state.acceptedEventIds.includes(evidence.eventId)
+  ) return state;
+  return {
+    ...state,
+    acceptedWitness: { ...evidence },
+    acceptedEventIds: [...state.acceptedEventIds, evidence.eventId].slice(-64),
+  };
+}
+
+export function acceptPhase1Lens(state: Phase1RelayState, evidence: Phase1LensFact): Phase1RelayState {
+  if (
+    !state.activation ||
+    !state.acceptedWitness ||
+    state.acceptedLens ||
+    evidence.witnessEventId !== state.acceptedWitness.eventId ||
+    evidence.pubkey !== state.acceptedWitness.pubkey ||
+    !isHex(evidence.eventId, 64) ||
+    state.acceptedEventIds.includes(evidence.eventId)
+  ) return state;
+  return {
+    ...state,
+    acceptedLens: { ...evidence },
+    acceptedEventIds: [...state.acceptedEventIds, evidence.eventId].slice(-64),
+  };
+}
+
+export function getPhase1LensHandoff(state: Phase1RelayState): Phase1LensFact | null {
+  return state.acceptedLens;
 }
 
 export const ATTENTIVE_PRESENCE_THRESHOLD_MS = 36_000;
