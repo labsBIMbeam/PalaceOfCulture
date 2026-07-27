@@ -123,10 +123,57 @@ const acceptAfterCancel = reducePhase1Relay(cancelled, {
 assert.equal(acceptAfterCancel, cancelled, "cancellation cannot be resurrected");
 
 const palaceSceneSource = readFileSync(resolve(webRoot, "src/scene/PalaceScene.tsx"), "utf8");
+const phase1RelaySource = readFileSync(
+  resolve(webRoot, "src/meaningverse/phase1Relay.ts"),
+  "utf8",
+);
+const phase1TransportSource = readFileSync(
+  resolve(webRoot, "src/net/phase1RelayTransport.ts"),
+  "utf8",
+);
+const phase1OverlaySource = readFileSync(
+  resolve(webRoot, "src/ui/Phase1RelayOverlay.tsx"),
+  "utf8",
+);
 assert.ok(palaceSceneSource.includes("reducePhase1Relay"));
 assert.ok(palaceSceneSource.includes("Phase1RelayOverlay"));
 assert.ok(palaceSceneSource.includes("createPhase1RelayLifecycleGate"));
+assert.ok(palaceSceneSource.includes('phase1RelayState.status !== "accepted"'));
+assert.ok(palaceSceneSource.includes("phase1RelayLifecycle.apply(phase1RelayState)"));
+assert.ok(palaceSceneSource.includes('type: "activation_requested"'));
+assert.ok(palaceSceneSource.includes('type: "activation_accepted"'));
+assert.ok(!palaceSceneSource.includes('data-relay-socket="werkstattgasse:z1:relay:1"'));
 assert.ok(!palaceSceneSource.includes("@nostr-dev-kit/ndk"));
 assert.ok(!palaceSceneSource.includes("nostr-tools"));
+assert.ok(!palaceSceneSource.includes("from \"nostr-tools\""));
+
+for (const forbidden of [
+  "fake peer",
+  "ambient",
+  "backlog",
+  "loopback",
+  "participantCount",
+  "participant count",
+  "Kerni",
+  "timer",
+  "animation",
+]) {
+  assert.equal(
+    phase1RelaySource.toLowerCase().includes(forbidden.toLowerCase()),
+    false,
+    `reducer source must not encode ${forbidden} as authority`,
+  );
+  assert.equal(
+    phase1TransportSource.toLowerCase().includes(forbidden.toLowerCase()),
+    false,
+    `transport source must not encode ${forbidden} as authority`,
+  );
+}
+assert.ok(!phase1OverlaySource.includes("BuilderHud"));
+assert.ok(!phase1OverlaySource.includes("grid"));
+assert.ok(!phase1OverlaySource.includes("free placement"));
+assert.ok(phase1OverlaySource.includes('data-relay-socket="werkstattgasse:z1:relay:1"'));
+assert.ok(phase1OverlaySource.includes('aria-live="polite"'));
 
 lifecycle.dispose();
+console.log("\nPHASE 1 RELAY TRACER GREEN");
