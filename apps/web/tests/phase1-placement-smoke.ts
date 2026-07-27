@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import {
   RELAY_PART_ORDER,
-  type Phase1RelayState,
+  RELAY_SOCKET_ID,
+  type Phase1RelayAction,
   type RelayMemoryFragment,
   type RelayInspirationChoice,
   createPhase1RelayState,
@@ -148,5 +149,162 @@ for (const forged of [
 const malformed = { type: "pickup_part", part: "foot", ...physical, extra: true };
 assert.deepEqual(reducePhase1Relay(ready(), malformed as never), ready());
 assert.deepEqual(reducePhase1Relay(ready(), null as never), ready());
+
+const completedState = () => {
+  let current = ready();
+  for (const part of RELAY_PART_ORDER) {
+    current = reducePhase1Relay(current, { type: "pickup_part", part, ...physical });
+    current = reducePhase1Relay(current, {
+      type: "seat_part",
+      part,
+      cradleId: part,
+      ...physical,
+    });
+  }
+  return current;
+};
+
+const incomplete = ready();
+const invalidTarget = reducePhase1Relay(incomplete, {
+  type: "place_requested",
+  socketId: "z1-other-socket",
+  attemptId: "attempt-invalid",
+  ...physical,
+});
+assert.equal(invalidTarget.status, "invalid");
+assert.equal(invalidTarget.assembly.carriedPart, null);
+
+const assembled = completedState();
+const wrongPreview = reducePhase1Relay(assembled, {
+  type: "preview_placement",
+  socketId: "z1-other-socket",
+  ...physical,
+});
+assert.equal(wrongPreview.status, "invalid");
+assert.equal(wrongPreview.assembly.carriedPart, "completed-relay");
+const validPreview = reducePhase1Relay(assembled, {
+  type: "preview_placement",
+  socketId: RELAY_SOCKET_ID,
+  ...physical,
+});
+assert.equal(validPreview.status, "valid");
+
+const pendingA = reducePhase1Relay(validPreview, {
+  type: "place_requested",
+  socketId: RELAY_SOCKET_ID,
+  attemptId: "attempt-a",
+  ...physical,
+});
+assert.equal(pendingA.status, "pending");
+assert.equal(pendingA.placement.attemptId, "attempt-a");
+const duplicateA = reducePhase1Relay(pendingA, {
+  type: "place_requested",
+  socketId: RELAY_SOCKET_ID,
+  attemptId: "attempt-a",
+  ...physical,
+});
+assert.deepEqual(duplicateA, pendingA, "duplicate same-ID request is idempotent");
+const contenderB = reducePhase1Relay(pendingA, {
+  type: "place_requested",
+  socketId: RELAY_SOCKET_ID,
+  attemptId: "attempt-b",
+  ...physical,
+});
+assert.deepEqual(contenderB, pendingA, "a different contender cannot replace the winner");
+
+assert.deepEqual(
+  reducePhase1Relay(pendingA, {
+    type: "placement_accepted",
+    socketId: RELAY_SOCKET_ID,
+    attemptId: "stale",
+    origin: "fixed-socket-completion",
+  }),
+  pendingA,
+  "stale completion cannot accept",
+);
+const acceptedA = reducePhase1Relay(pendingA, {
+  type: "placement_accepted",
+  socketId: RELAY_SOCKET_ID,
+  attemptId: "attempt-a",
+  origin: "fixed-socket-completion",
+});
+assert.equal(acceptedA.status, "accepted");
+assert.equal(acceptedA.acceptedPlacement, true);
+assert.equal(acceptedA.activationEpoch, 1);
+assert.equal(acceptedA.placement.acceptedSocketId, RELAY_SOCKET_ID);
+for (const late of [
+  {
+    type: "placement_accepted",
+    socketId: RELAY_SOCKET_ID,
+    attemptId: "attempt-b",
+    origin: "fixed-socket-completion",
+  },
+  {
+    type: "placement_failed",
+    attemptId: "attempt-a",
+    origin: "fixed-socket-completion",
+  },
+  {
+    type: "placement_cancelled",
+    attemptId: "attempt-a",
+    origin: "fixed-socket-completion",
+  },
+  {
+    type: "place_requested",
+    socketId: RELAY_SOCKET_ID,
+    attemptId: "attempt-c",
+    ...physical,
+  },
+] as const) {
+  assert.deepEqual(reducePhase1Relay(acceptedA, late as never), acceptedA, "accepted winner is frozen");
+}
+
+const pendingForFailure = reducePhase1Relay(
+  reducePhase1Relay(assembled, {
+    type: "preview_placement",
+    socketId: RELAY_SOCKET_ID,
+    ...physical,
+  }),
+  { type: "place_requested", socketId: RELAY_SOCKET_ID, attemptId: "attempt-fail", ...physical },
+);
+const failed = reducePhase1Relay(pendingForFailure, {
+  type: "placement_failed",
+  attemptId: "attempt-fail",
+  origin: "fixed-socket-completion",
+});
+assert.equal(failed.status, "failed");
+assert.equal(failed.acceptedPlacement, false);
+assert.equal(failed.assembly.carriedPart, "completed-relay");
+const retried = reducePhase1Relay(failed, {
+  type: "place_requested",
+  socketId: RELAY_SOCKET_ID,
+  attemptId: "attempt-retry",
+  ...physical,
+});
+assert.equal(retried.status, "pending");
+assert.equal(retried.placement.attemptId, "attempt-retry");
+assert.equal(retried.activationEpoch, 0);
+const cancelled = reducePhase1Relay(retried, {
+  type: "placement_cancelled",
+  attemptId: "attempt-retry",
+  origin: "fixed-socket-completion",
+});
+assert.equal(cancelled.status, "failed");
+assert.equal(cancelled.assembly.carriedPart, "completed-relay");
+assert.equal(cancelled.acceptedPlacement, false);
+
+const legacyPending = pendingForFailure;
+for (const legacy of [
+  { type: "activation_requested", attemptId: "legacy" },
+  { type: "activation_accepted", attemptId: "attempt-fail" },
+  { type: "activation_failed", attemptId: "attempt-fail" },
+  { type: "activation_cancelled", attemptId: "attempt-fail" },
+]) {
+  assert.deepEqual(
+    reducePhase1Relay(legacyPending, legacy as unknown as Phase1RelayAction),
+    legacyPending,
+    "Plan-01 direct activation compatibility shape is a permanent no-op",
+  );
+}
 
 console.log("\nPHASE 1 PLACEMENT ASSEMBLY RED/GREEN CONTRACT");
