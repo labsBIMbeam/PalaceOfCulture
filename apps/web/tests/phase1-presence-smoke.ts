@@ -11,6 +11,14 @@ import {
   STREET_GLIMPSE_MS,
   introSkipTarget,
 } from "../src/meaningverse/onboardingStory";
+import {
+  ATTENTIVE_FRAME_MAX_MS,
+  ATTENTIVE_PRESENCE_THRESHOLD_MS,
+  type AttentivePresenceAction,
+  type AttentivePresenceState,
+  createAttentivePresenceState,
+  reduceAttentivePresence,
+} from "../src/meaningverse/phase1Relay";
 import { Phase1RelayOverlay } from "../src/ui/Phase1RelayOverlay";
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -76,6 +84,95 @@ const closedMarkup = renderToStaticMarkup(
 assert.match(closedMarkup, />Wire</);
 assert.doesNotMatch(closedMarkup, /THE NEARBY WIRE/);
 assert.doesNotMatch(closedMarkup, /WORKSHOP NOTE/);
+
+assert.equal(ATTENTIVE_PRESENCE_THRESHOLD_MS, 36_000);
+assert.equal(ATTENTIVE_FRAME_MAX_MS, 250);
+const validFrame = (
+  state: AttentivePresenceState,
+  deltaMs: number,
+  overrides: Partial<Extract<AttentivePresenceAction, { type: "active_frame_sampled" }>> = {},
+) =>
+  reduceAttentivePresence(state, {
+    type: "active_frame_sampled",
+    deltaMs,
+    foregroundFocused: true,
+    documentVisible: true,
+    ...overrides,
+  });
+
+let presence = createAttentivePresenceState();
+assert.equal(presence.feed, "away");
+for (let index = 0; index < 143; index += 1) {
+  presence = validFrame(presence, ATTENTIVE_FRAME_MAX_MS);
+}
+presence = validFrame(presence, 249);
+assert.equal(presence.accumulatedMs, 35_999);
+assert.equal(presence.presenceAccepted, false);
+presence = validFrame(presence, 1);
+assert.equal(presence.accumulatedMs, 36_000);
+assert.equal(presence.presenceAccepted, true);
+const acceptedPresence = validFrame(presence, 200);
+assert.equal(acceptedPresence.presenceAccepted, true);
+assert.equal(acceptedPresence.accumulatedMs, 36_200);
+
+const afterForeground = reduceAttentivePresence(presence, {
+  type: "feed_changed",
+  feed: "foreground",
+});
+assert.equal(afterForeground.accumulatedMs, 36_000);
+assert.equal(validFrame(afterForeground, 250).accumulatedMs, 36_000);
+const afterReopened = reduceAttentivePresence(afterForeground, {
+  type: "feed_changed",
+  feed: "reopened",
+});
+assert.equal(validFrame(afterReopened, 250).accumulatedMs, 36_000);
+const resumed = reduceAttentivePresence(afterReopened, { type: "feed_changed", feed: "away" });
+assert.equal(validFrame(resumed, 250).accumulatedMs, 36_250);
+
+const bounded = validFrame(createAttentivePresenceState(), 999);
+assert.equal(bounded.accumulatedMs, ATTENTIVE_FRAME_MAX_MS);
+for (const malformed of [-1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+  assert.equal(
+    validFrame(createAttentivePresenceState(), malformed).accumulatedMs,
+    0,
+    `malformed frame ${String(malformed)} must fail closed`,
+  );
+}
+assert.equal(
+  validFrame(createAttentivePresenceState(), 250, { foregroundFocused: false }).accumulatedMs,
+  0,
+);
+assert.equal(
+  validFrame(createAttentivePresenceState(), 250, { documentVisible: false }).accumulatedMs,
+  0,
+);
+assert.equal(
+  reduceAttentivePresence(
+    createAttentivePresenceState(),
+    null as unknown as AttentivePresenceAction,
+  ).accumulatedMs,
+  0,
+);
+assert.equal(
+  reduceAttentivePresence(
+    createAttentivePresenceState(),
+    {
+      type: "active_frame_sampled",
+      deltaMs: 250,
+      foregroundFocused: true,
+      documentVisible: true,
+      forged: true,
+    } as unknown as AttentivePresenceAction,
+  ).accumulatedMs,
+  0,
+  "extra elapsed authority fields must be ignored rather than trusted",
+);
+assert.ok(presence.accumulatedMs <= acceptedPresence.accumulatedMs);
+assert.equal(
+  reduceAttentivePresence(acceptedPresence, { type: "feed_changed", feed: "foreground" })
+    .presenceAccepted,
+  true,
+);
 
 const overlaySource = readFileSync(resolve(webRoot, "src/ui/Phase1RelayOverlay.tsx"), "utf8");
 const palaceSceneSource = readFileSync(resolve(webRoot, "src/scene/PalaceScene.tsx"), "utf8");
