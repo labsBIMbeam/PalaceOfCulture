@@ -13,6 +13,22 @@ export type Phase1RelayAction =
 const isAttemptId = (attemptId: unknown): attemptId is string =>
   typeof attemptId === "string" && attemptId.length > 0;
 
+const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  const keys = Object.keys(candidate);
+  if (keys.length !== 2 || !keys.includes("type") || !keys.includes("attemptId")) {
+    return false;
+  }
+  return (
+    (candidate.type === "activation_requested" ||
+      candidate.type === "activation_accepted" ||
+      candidate.type === "activation_failed" ||
+      candidate.type === "activation_cancelled") &&
+    isAttemptId(candidate.attemptId)
+  );
+};
+
 /**
  * Reduce the bounded Phase-1 relay activation truth. External effects and presentation are
  * deliberately absent: only a matching pending attempt can become accepted.
@@ -21,7 +37,7 @@ export function reducePhase1Relay(
   state: Phase1RelayState,
   action: Phase1RelayAction,
 ): Phase1RelayState {
-  if (!isAttemptId(action.attemptId)) return state;
+  if (!isPhase1RelayAction(action)) return state;
 
   switch (action.type) {
     case "activation_requested":
