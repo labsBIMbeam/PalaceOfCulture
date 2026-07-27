@@ -28,6 +28,7 @@ import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import { reducePhase1Relay, type Phase1RelayState } from "../meaningverse/phase1Relay";
+import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
 import {
   type MultiplayerViewState,
   OFFLINE_MULTIPLAYER_STATE,
@@ -176,6 +177,16 @@ function releaseMovementKeys() {
   for (const code of MOVEMENT_CODES) {
     window.dispatchEvent(new KeyboardEvent("keyup", { code }));
   }
+}
+
+/** Return world ownership to DOM controls instead of letting a key leak into the scene. */
+function domOwnsWorldFocus(): boolean {
+  const active = document.activeElement;
+  return (
+    active instanceof HTMLElement &&
+    (active.matches("button, a[href], input, select, textarea") ||
+      active.closest("[role='dialog'], [data-phase1-wire='open']") !== null)
+  );
 }
 
 /** Orbit/overview camera — resets the rig on entry so toggling back from walk isn't jarring. */
@@ -691,6 +702,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     reducePhase1Relay,
     { status: "inactive" } satisfies Phase1RelayState,
   );
+  const [wireOpen, setWireOpen] = useState(false);
   const phase1RelayTransport = useMemo<Phase1RelayTransport>(
     () => ({
       openRelay: () => {},
@@ -719,6 +731,15 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       attemptId: PHASE1_RELAY_ATTEMPT_ID,
     });
   };
+  useEffect(() => {
+    if (world !== "street") {
+      setWireOpen(false);
+      return;
+    }
+    setWireOpen(false);
+    const glimpseTimer = window.setTimeout(() => setWireOpen(true), STREET_GLIMPSE_MS);
+    return () => window.clearTimeout(glimpseTimer);
+  }, [world]);
   const multiplayerTransportRef = useRef<PalaceMultiplayerTransport | null>(null);
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession>({
     transport: null,
@@ -923,8 +944,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     if (mode !== "walk") return;
     const onInteractKey = (event: KeyboardEvent) => {
       if (event.code !== "KeyE") return;
-      const el = document.activeElement;
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (domOwnsWorldFocus()) return;
       if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
       else if (activeRef.current) activateInteract(activeRef.current);
@@ -944,8 +964,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   useEffect(() => {
     if (mode !== "decorate") return;
     const onDecorateKey = (event: KeyboardEvent) => {
-      const el = document.activeElement;
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (domOwnsWorldFocus()) return;
       if (event.code === "KeyF") placeAtGhost();
       else if (event.code === "KeyQ") setGhostYaw((yaw) => yaw - Math.PI / 4);
       else if (event.code === "KeyE") setGhostYaw((yaw) => yaw + Math.PI / 4);
@@ -990,7 +1009,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   useEffect(() => {
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      if (
+        target instanceof HTMLElement &&
+        (target.matches("button, a[href], input, select, textarea") ||
+          target.closest("[role='dialog'], [data-phase1-wire='open']") !== null)
+      ) {
         releaseMovementKeys();
       }
     };
@@ -1370,7 +1393,19 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         </div>
       </div>
       {world === "street" ? (
-        <Phase1RelayOverlay onActivate={activatePhase1Relay} state={phase1RelayState} />
+        <Phase1RelayOverlay
+          onActivate={activatePhase1Relay}
+          onWireDismiss={() => {
+            releaseMovementKeys();
+            setWireOpen(false);
+          }}
+          onWireReopen={() => {
+            releaseMovementKeys();
+            setWireOpen(true);
+          }}
+          state={phase1RelayState}
+          wireOpen={wireOpen}
+        />
       ) : null}
       {world === "street" && phase1RelayState.status === "accepted" ? (
         // Kept mounted (only hidden) through Decorate so typed labels and invite progress survive.

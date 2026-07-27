@@ -47,6 +47,30 @@ export const INTRO_CARDS = INTRO_SEQUENCE.filter(
   (beat): beat is IntroBeat & { readonly visualMode: "card" } => beat.visualMode === "card",
 );
 
+/** The Street remains unobstructed and freely walkable before the local Wire appears. */
+export const STREET_GLIMPSE_MS = 2400;
+
+export type FictionalWireCard = {
+  readonly kicker: "WORKSHOP NOTE" | "STREET WEATHER" | "LOCAL STATUS";
+  readonly body: string;
+};
+
+/** Fixed local copy: this is a fictional Wire, never a remote or algorithmic feed. */
+export const FICTIONAL_WIRE_CARDS: readonly FictionalWireCard[] = [
+  {
+    kicker: "WORKSHOP NOTE",
+    body: "The mushroom sorter has rejected one perfectly ordinary spoon.",
+  },
+  {
+    kicker: "STREET WEATHER",
+    body: "Copper dust after dusk. The framed windows remain opinionated.",
+  },
+  {
+    kicker: "LOCAL STATUS",
+    body: "A small machine is still humming beside a bench nobody reserved.",
+  },
+] as const;
+
 /**
  * Skip never erases the canon: skipping the decorative video lands on the story cards; only
  * skipping from the cards leaves the intro. The bite, Kerni, and the Street survive every path.
@@ -68,43 +92,40 @@ export type TutorialStage = {
 
 export const TUTORIAL: Readonly<Record<TutorialStageId, TutorialStage>> = {
   enter: {
-    objective: "Walk in. The room connects on its own.",
+    objective: "Walk into the Street. Take your time.",
     optionalKerniLine:
       "Welcome. No rush — the Palace gets better when people leave something useful behind. Start with one small thing.",
-    status: "The live room is connected.",
-    worldResponse: "Connected sessions become visible; retained room modules stay visible.",
-    offlineFallback: "Walking and looking still work. No room or player is simulated.",
+    status: "The Street is ready; the workshop is quiet.",
+    worldResponse: "The Street opens before any relay communication begins.",
+    offlineFallback: "Walking and looking still work. No peer is simulated.",
   },
   create: {
-    objective: "Name one part of the ship. Weird is allowed.",
-    optionalKerniLine: "The ship is missing something. I can't tell what. That's the good part.",
-    status: "The part has a non-empty name.",
-    worldResponse: "Create lights up; the part remains private intent.",
-    offlineFallback: "Typing works offline. Nothing is stored until placement succeeds.",
+    objective: "Choose one small relay part.",
+    optionalKerniLine: "One useful part is enough. The bench can wait.",
+    status: "The part is ready at the workbench.",
+    worldResponse: "A physical part remains a local player choice.",
+    offlineFallback: "The workbench remains available; nothing is accepted early.",
   },
   place: {
-    objective: "Place your part. The ship changes for all.",
-    optionalKerniLine: "Once it's placed, everyone here sees it. No pressure. Small pressure.",
-    status: "The server accepted the local player's module.",
-    worldResponse: "The module appears live on the Leviathan.",
-    offlineFallback:
-      "A rejected or offline placement changes nothing and never completes the step.",
+    objective: "Place the relay in its fixed socket.",
+    optionalKerniLine: "The socket is small and honest. It either fits or it does not.",
+    status: "The relay is accepted at the workbench.",
+    worldResponse: "The relay lights the Street from its fixed socket.",
+    offlineFallback: "A rejected placement changes nothing and never completes the step.",
   },
   invite: {
-    objective: "Share one invite link.",
-    optionalKerniLine:
-      "A ship built in one session is a very ambitious chair. There's an invite button, if you want it.",
-    status: "The invite was copied or its manual share was explicitly confirmed.",
+    objective: "Invite one person when you want to.",
+    optionalKerniLine: "The light is ready. An invitation is always your choice.",
+    status: "The invite was copied or manually confirmed.",
     worldResponse: "The invite is available; no peer is invented.",
-    offlineFallback: "Manual copy stays open until the player confirms sharing.",
+    offlineFallback: "Manual copy stays open until the player confirms it.",
   },
   co_create: {
-    objective: "Another live session answers — or it stays open.",
-    optionalKerniLine:
-      "The second chair is honestly empty. Honest beats full. Full is nicer, though.",
-    status: "A second live session placed its own module.",
-    worldResponse: "The peer's module appears live and Co-create completes.",
-    offlineFallback: "The step stays open without penalty. No bot, ghost, or timer completes it.",
+    objective: "A witness may answer — or it stays open.",
+    optionalKerniLine: "The light can wait. Honest beats full.",
+    status: "A signed light pulse is accepted.",
+    worldResponse: "The relay records one invited contribution.",
+    offlineFallback: "The step stays open without penalty. No ghost or timer completes it.",
   },
 } as const;
 

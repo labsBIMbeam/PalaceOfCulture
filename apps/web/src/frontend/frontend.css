@@ -2796,6 +2796,7 @@ input.compose-input::placeholder {
   position: fixed;
   inset: 0;
   z-index: 100;
+  overflow-x: hidden;
   background: #efe6d2;
 }
 
@@ -5665,5 +5666,136 @@ input.compose-input::placeholder {
 
   .moc-path__head h2 {
     font-size: 18px;
+  }
+}
+
+/* --- Phase 1: fictional Wire intrusion, never a network feed --- */
+.phase1-wire-reopen {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 8;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid rgba(156, 138, 100, 0.46);
+  border-radius: 10px;
+  background: rgba(18, 12, 7, 0.76);
+  color: var(--muted);
+  font: 700 12px var(--display);
+  cursor: pointer;
+}
+
+.phase1-wire {
+  position: absolute;
+  top: 88px;
+  right: 24px;
+  bottom: 24px;
+  z-index: 8;
+  display: flex;
+  width: min(384px, calc(100vw - 48px));
+  max-height: calc(100dvh - 112px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(231, 178, 60, 0.42);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(42, 24, 16, 0.96), rgba(18, 12, 7, 0.98));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(12px);
+}
+
+.phase1-wire__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(231, 178, 60, 0.18);
+}
+
+.phase1-wire__head h2 {
+  max-width: 250px;
+  margin: 3px 0 0;
+  color: var(--text);
+  font: 700 20px / 1.25 var(--display);
+  letter-spacing: 0.04em;
+}
+
+.phase1-wire__kicker,
+.phase1-wire__card h3 {
+  margin: 0;
+  color: var(--gold);
+  font: 700 12px / 1.35 var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.phase1-wire__mark {
+  color: var(--gold-bright);
+  font: 700 28px / 1 var(--display);
+}
+
+.phase1-wire__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding: 12px;
+  overscroll-behavior: contain;
+}
+
+.phase1-wire__card {
+  flex: none;
+  padding: 13px;
+  border: 1px solid rgba(231, 178, 60, 0.16);
+  border-radius: 12px;
+  background: rgba(40, 27, 17, 0.58);
+}
+
+.phase1-wire__card p {
+  margin: 8px 0 0;
+  color: var(--body);
+  font: 400 14px / 1.55 var(--copy);
+  overflow-wrap: anywhere;
+}
+
+.phase1-wire__foot {
+  padding: 12px;
+  border-top: 1px solid rgba(231, 178, 60, 0.18);
+}
+
+.phase1-wire__dismiss {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--gold-bright);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #23140d;
+  font: 700 15px var(--display);
+  cursor: pointer;
+}
+
+.phase1-wire button:focus-visible,
+.phase1-wire-reopen:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 3px;
+}
+
+@media (max-width: 680px) {
+  .phase1-wire {
+    right: 12px;
+    width: calc(100vw - 24px);
+  }
+
+  .phase1-wire-reopen {
+    right: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phase1-wire,
+  .phase1-wire-reopen {
+    transition: none;
   }
 }
