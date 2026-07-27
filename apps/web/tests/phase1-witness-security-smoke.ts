@@ -6,6 +6,19 @@ import {
   isPhase1SignerCapability,
   type Phase1InviteState,
 } from "../src/meaningverse/model";
+import { finalizeEvent, getPublicKey } from "nostr-tools";
+import {
+  PHASE1_EVENT_KIND,
+  PHASE1_MAX_EVENT_BYTES,
+  createPhase1ActivationTemplate,
+  createPhase1Filter,
+  createPhase1LensTemplate,
+  createPhase1WitnessTemplate,
+  parsePhase1RelayEvent,
+  verifyAndAuthorizePhase1Event,
+  verifyPhase1ActivationCapability,
+  Phase1RelayEvidenceGuard,
+} from "../src/net/phase1RelayTransport";
 import {
   PHASE1_RELAY_ID,
   createPhase1RelayState,
@@ -87,6 +100,84 @@ const unchanged = importVerifiedActivationCapability(routeOnly, {
   source: "route",
 });
 assert.equal(unchanged, routeOnly, "route-shaped data cannot create activation truth");
+
+const now = 1_800_000_000;
+const creatorSecret = new Uint8Array(32).fill(7);
+const witnessSecret = new Uint8Array(32).fill(8);
+const creatorPubkey = getPublicKey(creatorSecret);
+const witnessPubkey = getPublicKey(witnessSecret);
+const creatorState = {
+  ...assembled,
+  activation: null,
+};
+const activationTemplate = createPhase1ActivationTemplate(creatorState, creatorPubkey, now);
+assert.equal(activationTemplate.kind, PHASE1_EVENT_KIND);
+assert.equal(activationTemplate.content, "");
+assert.deepEqual(activationTemplate.tags, [
+  ["t", "palace-phase-1"],
+  ["action", "activate-relay-invite"],
+  ["relay", PHASE1_RELAY_ID],
+  ["creator", creatorPubkey],
+]);
+const activationEvent = finalizeEvent(activationTemplate, creatorSecret);
+const activation = verifyPhase1ActivationCapability(activationEvent, now);
+assert.ok(activation);
+assert.equal(activation?.activationId, activationEvent.id);
+assert.equal(activation?.creatorPubkey, creatorPubkey);
+assert.equal(verifyPhase1ActivationCapability({ ...activationEvent, content: "published" }, now), null);
+assert.equal(verifyPhase1ActivationCapability(activationEvent, now + 901), null);
+assert.equal(verifyPhase1ActivationCapability(activationEvent, now - 61), null);
+
+const signedState = importVerifiedActivationCapability(routeOnly, activation);
+assert.equal(signedState.relayId, PHASE1_RELAY_ID);
+const witnessTemplate = createPhase1WitnessTemplate(signedState, witnessPubkey, now);
+assert.deepEqual(witnessTemplate.tags, [
+  ["t", "palace-phase-1"],
+  ["action", "touch-relay-witness"],
+  ["relay", PHASE1_RELAY_ID],
+  ["e", activationEvent.id],
+  ["p", creatorPubkey],
+]);
+const witnessEvent = finalizeEvent(witnessTemplate, witnessSecret);
+const witnessEvidence = verifyAndAuthorizePhase1Event(witnessEvent, {
+  state: signedState,
+  now,
+  guard: new Phase1RelayEvidenceGuard(),
+});
+assert.equal(witnessEvidence?.action, "touch-relay-witness");
+assert.equal(verifyAndAuthorizePhase1Event(witnessEvent, { state: signedState, now }), null);
+const lensTemplate = createPhase1LensTemplate(
+  { ...signedState, acceptedWitness: { eventId: witnessEvent.id, pubkey: witnessPubkey, createdAt: now } },
+  witnessPubkey,
+  now,
+);
+assert.deepEqual(lensTemplate.tags, [
+  ["t", "palace-phase-1"],
+  ["action", "attach-signal-lens"],
+  ["relay", PHASE1_RELAY_ID],
+  ["e", activationEvent.id],
+  ["p", creatorPubkey],
+  ["w", witnessEvent.id],
+]);
+const lensEvent = finalizeEvent(lensTemplate, witnessSecret);
+assert.equal(parsePhase1RelayEvent(lensEvent)?.action, "attach-signal-lens");
+assert.equal(
+  verifyAndAuthorizePhase1Event(lensEvent, {
+    state: { ...signedState, acceptedWitness: { eventId: witnessEvent.id, pubkey: witnessPubkey, createdAt: now } },
+    now,
+  })?.action,
+  "attach-signal-lens",
+);
+assert.deepEqual(createPhase1Filter(activationEvent.id, activationEvent.created_at), {
+  kinds: [PHASE1_EVENT_KIND],
+  "#e": [activationEvent.id],
+  since: activationEvent.created_at - 60,
+  limit: 16,
+});
+assert.ok(PHASE1_MAX_EVENT_BYTES >= 4096);
+assert.equal(parsePhase1RelayEvent({ ...activationEvent, extra: true }), null);
+assert.equal(parsePhase1RelayEvent({ ...activationEvent, tags: activationEvent.tags.slice().reverse() }), null);
+assert.equal(parsePhase1RelayEvent(JSON.stringify({ ...activationEvent, content: "x" })), null);
 
 const modelSource = readFileSync(new URL("../src/meaningverse/model.ts", import.meta.url), "utf8");
 const relaySource = readFileSync(new URL("../src/meaningverse/phase1Relay.ts", import.meta.url), "utf8");
