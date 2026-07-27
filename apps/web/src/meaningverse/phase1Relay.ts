@@ -1,68 +1,269 @@
-export type Phase1RelayState =
-  | { readonly status: "inactive" }
-  | { readonly status: "pending"; readonly attemptId: string }
-  | { readonly status: "accepted"; readonly attemptId: string }
-  | { readonly status: "failed"; readonly attemptId: string };
+export const RELAY_PART_ORDER = ["foot", "coil", "aperture"] as const;
+export type RelayPart = (typeof RELAY_PART_ORDER)[number];
+export const RELAY_SOCKET_ID = "z1-relay-socket" as const;
+export const COMPLETED_RELAY = "completed-relay" as const;
+export type RelayCarriedPart = RelayPart | typeof COMPLETED_RELAY | null;
+export type AssemblyStatus = "parts_0" | "parts_1" | "parts_2" | "parts_3" | "carrying";
 
-export type Phase1RelayAction =
-  | { readonly type: "activation_requested"; readonly attemptId: string }
-  | { readonly type: "activation_accepted"; readonly attemptId: string }
-  | { readonly type: "activation_failed"; readonly attemptId: string }
-  | { readonly type: "activation_cancelled"; readonly attemptId: string };
+export type AssemblyState = {
+  readonly status: AssemblyStatus;
+  readonly seatedParts: readonly RelayPart[];
+  readonly carriedPart: RelayCarriedPart;
+};
+
+export type PlacementStatus = "idle" | "valid" | "invalid" | "pending" | "accepted" | "failed";
+export type PlacementState = {
+  readonly status: PlacementStatus;
+  readonly socketId: string | null;
+  readonly attemptId: string | null;
+  readonly acceptedSocketId: typeof RELAY_SOCKET_ID | null;
+};
+
+export type Phase1RelayState = {
+  readonly status: PlacementStatus;
+  readonly assembly: AssemblyState;
+  readonly placement: PlacementState;
+  readonly memoryFragment: RelayMemoryFragment | null;
+  readonly inspirationChoice: RelayInspirationChoice | null;
+  readonly activationEpoch: number;
+  readonly acceptedPlacement: boolean;
+};
+
+export type PhysicalRelayOrigin = "player-physical";
+
+type PhysicalRelayAction =
+  | { readonly type: "pickup_part"; readonly part: RelayPart; readonly origin: PhysicalRelayOrigin }
+  | {
+      readonly type: "seat_part";
+      readonly part: RelayPart;
+      readonly cradleId: RelayPart;
+      readonly origin: PhysicalRelayOrigin;
+    };
+
+type PlacementAction =
+  | {
+      readonly type: "preview_placement";
+      readonly socketId: string;
+      readonly origin: PhysicalRelayOrigin;
+    }
+  | {
+      readonly type: "place_requested";
+      readonly socketId: string;
+      readonly attemptId: string;
+      readonly origin: PhysicalRelayOrigin;
+    }
+  | {
+      readonly type: "placement_accepted";
+      readonly socketId: string;
+      readonly attemptId: string;
+      readonly origin: "fixed-socket-completion";
+    }
+  | {
+      readonly type: "placement_failed" | "placement_cancelled";
+      readonly attemptId: string;
+      readonly origin: "fixed-socket-completion";
+    };
+
+/** Compatibility input for the removed Plan-01 generic direct-activation path. It is never valid. */
+export type LegacyDirectActivationAction = {
+  readonly type: "activation_requested" | "activation_accepted" | "activation_failed" | "activation_cancelled";
+  readonly attemptId: string;
+};
+
+export type Phase1RelayAction = PhysicalRelayAction | PlacementAction;
 
 const isAttemptId = (attemptId: unknown): attemptId is string =>
   typeof attemptId === "string" && attemptId.length > 0;
+const isRelayPart = (part: unknown): part is RelayPart =>
+  part === "foot" || part === "coil" || part === "aperture";
+const isPhysicalOrigin = (origin: unknown): origin is PhysicalRelayOrigin =>
+  origin === "player-physical";
+const exactKeys = (value: Record<string, unknown>, expected: readonly string[]) => {
+  const keys = Object.keys(value);
+  return keys.length === expected.length && expected.every((key) => keys.includes(key));
+};
+
+const createAssemblyState = (): AssemblyState => ({
+  status: "parts_0",
+  seatedParts: [],
+  carriedPart: null,
+});
+const createPlacementState = (): PlacementState => ({
+  status: "idle",
+  socketId: null,
+  attemptId: null,
+  acceptedSocketId: null,
+});
+
+export function createPhase1RelayState(
+  facts: {
+    readonly memoryFragment?: RelayMemoryFragment | null;
+    readonly inspirationChoice?: RelayInspirationChoice | null;
+  } = {},
+): Phase1RelayState {
+  return {
+    status: "idle",
+    assembly: createAssemblyState(),
+    placement: createPlacementState(),
+    memoryFragment: facts.memoryFragment ?? null,
+    inspirationChoice: facts.inspirationChoice ?? null,
+    activationEpoch: 0,
+    acceptedPlacement: false,
+  };
+}
+
+const withPlacement = (
+  state: Phase1RelayState,
+  placement: PlacementState,
+  patch: Partial<Pick<Phase1RelayState, "activationEpoch" | "acceptedPlacement">> = {},
+): Phase1RelayState => ({
+  ...state,
+  status: placement.status,
+  placement,
+  ...patch,
+});
+
+const nextAssemblyStatus = (count: number): AssemblyStatus =>
+  count === 0 ? "parts_0" : count === 1 ? "parts_1" : count === 2 ? "parts_2" : "parts_3";
+
+const hasAssemblyGate = (state: Phase1RelayState): boolean =>
+  isRelayMemoryFragment(state.memoryFragment) && isRelayInspirationChoice(state.inspirationChoice);
 
 const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
-  const keys = Object.keys(candidate);
-  if (keys.length !== 2 || !keys.includes("type") || !keys.includes("attemptId")) {
-    return false;
+  switch (candidate.type) {
+    case "pickup_part":
+      return exactKeys(candidate, ["type", "part", "origin"]) && isRelayPart(candidate.part) && isPhysicalOrigin(candidate.origin);
+    case "seat_part":
+      return (
+        exactKeys(candidate, ["type", "part", "cradleId", "origin"]) &&
+        isRelayPart(candidate.part) &&
+        isRelayPart(candidate.cradleId) &&
+        isPhysicalOrigin(candidate.origin)
+      );
+    case "preview_placement":
+      return exactKeys(candidate, ["type", "socketId", "origin"]) && typeof candidate.socketId === "string" && candidate.socketId.length > 0 && isPhysicalOrigin(candidate.origin);
+    case "place_requested":
+      return (
+        exactKeys(candidate, ["type", "socketId", "attemptId", "origin"]) &&
+        typeof candidate.socketId === "string" &&
+        candidate.socketId.length > 0 &&
+        isAttemptId(candidate.attemptId) &&
+        isPhysicalOrigin(candidate.origin)
+      );
+    case "placement_accepted":
+      return (
+        exactKeys(candidate, ["type", "socketId", "attemptId", "origin"]) &&
+        candidate.socketId === RELAY_SOCKET_ID &&
+        isAttemptId(candidate.attemptId) &&
+        candidate.origin === "fixed-socket-completion"
+      );
+    case "placement_failed":
+    case "placement_cancelled":
+      return (
+        exactKeys(candidate, ["type", "attemptId", "origin"]) &&
+        isAttemptId(candidate.attemptId) &&
+        candidate.origin === "fixed-socket-completion"
+      );
+    default:
+      return false;
   }
-  return (
-    (candidate.type === "activation_requested" ||
-      candidate.type === "activation_accepted" ||
-      candidate.type === "activation_failed" ||
-      candidate.type === "activation_cancelled") &&
-    isAttemptId(candidate.attemptId)
-  );
 };
 
 /**
- * Reduce the bounded Phase-1 relay activation truth. External effects and presentation are
- * deliberately absent: only a matching pending attempt can become accepted.
+ * Reduce bounded Phase-1 physical relay truth. Meshes, timers, DOM, Kerni, and transport callbacks
+ * are intentionally not action authorities; accepted truth is created only by these fail-closed guards.
  */
-export function reducePhase1Relay(
-  state: Phase1RelayState,
-  action: Phase1RelayAction,
-): Phase1RelayState {
-  if (!isPhase1RelayAction(action)) return state;
+export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAction): Phase1RelayState {
+  if (!isPhase1RelayAction(action) || !hasAssemblyGate(state)) return state;
 
-  switch (action.type) {
-    case "activation_requested":
-      if (state.status === "inactive" || state.status === "failed") {
-        return { status: "pending", attemptId: action.attemptId };
-      }
-      return state;
-    case "activation_accepted":
-      if (state.status === "pending" && state.attemptId === action.attemptId) {
-        return { status: "accepted", attemptId: action.attemptId };
-      }
-      return state;
-    case "activation_failed":
-      if (state.status === "pending" && state.attemptId === action.attemptId) {
-        return { status: "failed", attemptId: action.attemptId };
-      }
-      return state;
-    case "activation_cancelled":
-      if (state.status === "pending" && state.attemptId === action.attemptId) {
-        return { status: "inactive" };
-      }
-      return state;
-    default:
-      return state;
+  if (action.type === "pickup_part") {
+    if (state.assembly.carriedPart !== null || state.assembly.status === "parts_3" || state.assembly.status === "carrying") return state;
+    const expected = RELAY_PART_ORDER[state.assembly.seatedParts.length];
+    if (action.part !== expected) return state;
+    return { ...state, assembly: { ...state.assembly, carriedPart: action.part } };
   }
+
+  if (action.type === "seat_part") {
+    if (state.assembly.carriedPart !== action.part || action.cradleId !== action.part) return state;
+    const expected = RELAY_PART_ORDER[state.assembly.seatedParts.length];
+    if (action.part !== expected) return state;
+    const seatedParts = [...state.assembly.seatedParts, action.part] as RelayPart[];
+    if (seatedParts.length === RELAY_PART_ORDER.length) {
+      return {
+        ...state,
+        assembly: { status: "carrying", seatedParts, carriedPart: COMPLETED_RELAY },
+      };
+    }
+    return {
+      ...state,
+      assembly: {
+        status: nextAssemblyStatus(seatedParts.length),
+        seatedParts,
+        carriedPart: null,
+      },
+    };
+  }
+
+  if (action.type === "preview_placement") {
+    if (state.placement.status === "accepted") return state;
+    const canPreview = state.assembly.carriedPart === COMPLETED_RELAY;
+    const status: PlacementStatus = canPreview && action.socketId === RELAY_SOCKET_ID ? "valid" : "invalid";
+    return withPlacement(state, {
+      ...state.placement,
+      status,
+      socketId: action.socketId,
+    });
+  }
+
+  if (action.type === "place_requested") {
+    if (state.placement.status === "accepted") return state;
+    if (state.placement.status === "pending") {
+      return state.placement.attemptId === action.attemptId ? state : state;
+    }
+    if (state.assembly.carriedPart !== COMPLETED_RELAY || action.socketId !== RELAY_SOCKET_ID) return withPlacement(state, {
+      ...state.placement,
+      status: "invalid",
+      socketId: action.socketId,
+    });
+    if (!["idle", "valid", "failed"].includes(state.placement.status)) return state;
+    return withPlacement(state, {
+      status: "pending",
+      socketId: RELAY_SOCKET_ID,
+      attemptId: action.attemptId,
+      acceptedSocketId: null,
+    });
+  }
+
+  if (action.type === "placement_accepted") {
+    if (
+      state.placement.status !== "pending" ||
+      state.placement.attemptId !== action.attemptId ||
+      state.placement.socketId !== RELAY_SOCKET_ID ||
+      state.assembly.carriedPart !== COMPLETED_RELAY
+    ) return state;
+    return withPlacement(
+      state,
+      {
+        status: "accepted",
+        socketId: RELAY_SOCKET_ID,
+        attemptId: action.attemptId,
+        acceptedSocketId: RELAY_SOCKET_ID,
+      },
+      { activationEpoch: state.activationEpoch + 1, acceptedPlacement: true },
+    );
+  }
+
+  if (state.placement.status !== "pending" || state.placement.attemptId !== action.attemptId) return state;
+  return withPlacement(state, {
+    ...state.placement,
+    status: "failed",
+  });
+}
+
+export function isRelayAccepted(state: Phase1RelayState): boolean {
+  return state.placement.status === "accepted" && state.acceptedPlacement;
 }
 
 export const ATTENTIVE_PRESENCE_THRESHOLD_MS = 36_000;
@@ -285,9 +486,11 @@ export function reduceRelayHandoff(
   }
 }
 
-/** The Plan-03 handoff is eligible only after both explicit application-owned facts exist. */
-export function relayAssemblyEligible(state: RelayHandoffState): boolean {
-  return Boolean(state.memoryFragment && state.inspirationChoice);
+/** The Phase-1 assembly gate is the conjunction of the two accepted application facts. */
+export function relayAssemblyEligible(
+  state: Pick<Phase1RelayState, "memoryFragment" | "inspirationChoice"> | RelayHandoffState,
+): boolean {
+  return isRelayMemoryFragment(state.memoryFragment) && isRelayInspirationChoice(state.inspirationChoice);
 }
 
 export const deriveRelayAssemblyEligible = relayAssemblyEligible;
