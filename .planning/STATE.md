@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Visible Art in Werkstattgasse
 status: executing
-stopped_at: Plan 01-03 complete; ready to execute plan 01-04
-last_updated: "2026-07-27T17:36:26.786Z"
-last_activity: 2026-07-27
-last_activity_desc: Plan 01-03 complete; assembly, placement, regressions, full tests, and build passed.
+stopped_at: Plan 01-04 complete; ready to execute plan 01-05
+last_updated: "2026-07-28T07:40:00Z"
+last_activity: 2026-07-28
+last_activity_desc: Plan 01-04 complete; signed invite, strict kind-9127 transport, witness/lens consent, regressions, full tests, and build passed.
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: `.planning/PROJECT.md` (updated 2026-07-26)
 ## Current Position
 
 Phase: 1 of 6 (Visible Art in Werkstattgasse)
-Plan: 4 of 5
-Status: Ready to execute Plan 01-04
-Last activity: 2026-07-27 — Plan 01-03 complete; all planned verification passed.
+Plan: 5 of 5
+Status: Ready to execute Plan 01-05
+Last activity: 2026-07-28 — Plan 01-04 complete; all planned verification passed.
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -90,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T17:36:26Z
-Stopped at: Plan 01-03 complete; ready to execute plan 01-04
-Resume file: .planning/phases/01-visible-art-in-werkstattgasse/01-04-PLAN.md
+Last session: 2026-07-28T07:40:00Z
+Stopped at: Plan 01-04 complete; ready to execute plan 01-05
+Resume file: .planning/phases/01-visible-art-in-werkstattgasse/01-05-PLAN.md

@@ -29,7 +29,7 @@ The roadmap starts with the smallest complete expression of the Core Value in th
   3. The builder can see finite slots, select an honestly mocked unlocked object, preview its footprint, receive visible rejection for an invalid fit, place it legally, and inspect the result.
   4. The builder can invite another person into a bounded handoff where the placed artifact can be witnessed or remixed, without requiring a full social feed, broad persistence, generative AI, or multiplayer scale.
 
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Production Truth Tracer
@@ -44,7 +44,7 @@ The roadmap starts with the smallest complete expression of the Core Value in th
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-04-PLAN.md — Voluntary Invite and Signed Witness Security
+- [x] 01-04-PLAN.md — Voluntary Invite and Signed Witness Security
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -135,7 +135,7 @@ The roadmap starts with the smallest complete expression of the Core Value in th
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Visible Art in Werkstattgasse | 3/5 | In Progress|  |
+| 1. Visible Art in Werkstattgasse | 4/5 | In Progress|  |
 | 2. Earned and Proof-Bound Palace Objects | 0/TBD | Not started | - |
 | 3. Communal Crafting and Commissioning | 0/TBD | Not started | - |
 | 4. Homecoming and Ethical Time | 0/TBD | Not started | - |
