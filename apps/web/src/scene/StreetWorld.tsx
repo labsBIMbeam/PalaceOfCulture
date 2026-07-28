@@ -18,7 +18,7 @@ import { Signpost } from "./Signpost";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
 import { mulberry32 } from "./rand";
-import type { AssemblyState, PlacementState } from "../meaningverse/phase1Relay";
+import type { AssemblyState, PlacementState, SignalLens } from "../meaningverse/phase1Relay";
 
 /** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
  *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
@@ -413,10 +413,12 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
 
 function RelayWorkbench({
   acceptedPlacement,
+  acceptedLens,
   assembly,
   placement,
 }: {
   acceptedPlacement: boolean;
+  acceptedLens: SignalLens | null;
   assembly: AssemblyState;
   placement: PlacementState;
 }) {
@@ -452,6 +454,15 @@ function RelayWorkbench({
         </mesh>
         {acceptedPlacement ? <pointLight color="#ffbf55" distance={1.4} intensity={0.45} position={[0, 0.34, 0]} /> : null}
       </group>
+      {acceptedLens ? (
+        <group name="signal-lens" position={[0, 1.18, 0.62]}>
+          <mesh rotation-x={Math.PI / 2}>
+            <torusGeometry args={[0.28, 0.055, 10, 24]} />
+            <meshStandardMaterial color="#5cd8ff" emissive="#15546a" emissiveIntensity={0.9} />
+          </mesh>
+          <pointLight color="#5cd8ff" distance={1.1} intensity={0.22} />
+        </group>
+      ) : null}
       <mesh name="relay-status-plate" position={[0, 0.8, -0.72]}>
         <boxGeometry args={[2.8, 0.16, 0.05]} />
         <meshStandardMaterial color={placement.status === "accepted" ? "#d8a944" : "#6f5c4c"} />
@@ -464,6 +475,7 @@ function RelayWorkbench({
  *  workshop yard on the west ring, all held by the palisade + forest. */
 export function StreetWorld({
   acceptedPlacement = false,
+  acceptedLens = null,
   assembly = { status: "parts_0", seatedParts: [], carriedPart: null },
   placement = { status: "idle", socketId: null, attemptId: null, acceptedSocketId: null },
   presenceAccepted = false,
@@ -471,6 +483,8 @@ export function StreetWorld({
 }: {
   /** Presentation-only: the app-owned placement fact has been accepted. */
   acceptedPlacement?: boolean;
+  /** Presentation-only: one additive lens from reducer-authorized accepted evidence. */
+  acceptedLens?: SignalLens | null;
   /** Presentation-only projection of the bounded assembly reducer state. */
   assembly?: AssemblyState;
   /** Presentation-only projection of the bounded placement reducer state. */
@@ -550,7 +564,7 @@ export function StreetWorld({
         </Suspense>
       </PropBoundary>
 
-      <RelayWorkbench acceptedPlacement={acceptedPlacement} assembly={assembly} placement={placement} />
+      <RelayWorkbench acceptedPlacement={acceptedPlacement} acceptedLens={acceptedLens} assembly={assembly} placement={placement} />
 
       {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}
       <PropBoundary>

@@ -258,6 +258,8 @@ export function Phase1RelayOverlay({
   onLensCancel = () => {},
 }: Phase1RelayOverlayProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [reducedEffects, setReducedEffects] = useState(false);
   const inviteHeadingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (inviteOpen) inviteHeadingRef.current?.focus();
@@ -307,10 +309,19 @@ export function Phase1RelayOverlay({
           </button>
         ) : null}
       </section>
+      <section aria-label="Accessibility controls" data-phase1-accessibility="true">
+        <button aria-pressed={muted} onClick={() => setMuted((value) => !value)} type="button">
+          {muted ? "Muted" : "Sound on"}
+        </button>
+        <button aria-pressed={reducedEffects} onClick={() => setReducedEffects((value) => !value)} type="button">
+          Reduced effects: {reducedEffects ? "on" : "off"}
+        </button>
+      </section>
       {state.status === "accepted" ? (
         <section aria-label="Relay invite" data-phase1-relay-invite="open">
           <h2>Relay is OPEN</h2>
           <p>The light is on. Invite one person when you want to.</p>
+          {!state.acceptedWitness ? <p>No answer yet. The light stays on.</p> : null}
           <button data-phase1-safe-control="true" onClick={() => setInviteOpen(true)} type="button">
             Copy invite
           </button>
@@ -403,6 +414,15 @@ export function Phase1RelayOverlay({
             <button onClick={onLensConsent} type="button">Sign lens</button>
           )}
           <button onClick={onLensCancel} type="button">Not now</button>
+        </section>
+      ) : null}
+      {state.acceptedLens ? (
+        <section aria-label="Accepted signal lens" data-phase1-lens="accepted">
+          <p aria-live="polite" role="status"><span aria-hidden="true">◉ </span>Lens added.</p>
+          <h2>RELAY · BUILT BY</h2>
+          <p className="phase1-attribution" data-attribution-kind="creator">Creator: {state.activation?.creatorPubkey ?? "unknown"}</p>
+          <p className="phase1-attribution" data-attribution-kind="signal-lens">SIGNAL LENS · ADDED BY: {state.acceptedLens.pubkey}</p>
+          <p className="phase1-attribution">Witness event: {state.acceptedLens.witnessEventId}</p>
         </section>
       ) : null}
       <section aria-label="Relay assembly" data-relay-assembly={assembly.status}>

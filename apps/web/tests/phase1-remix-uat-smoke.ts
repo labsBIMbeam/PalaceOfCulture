@@ -104,7 +104,7 @@ assert.deepEqual(lensState.activation, creatorBeforeLens, "lens acceptance canno
 assert.equal(lensState.acceptedLens?.pubkey, lensState.acceptedWitness?.pubkey);
 assert.deepEqual(getPhase1Attributions(lensState), [
   { kind: "creator", pubkey: creatorPubkey },
-  { kind: "signal-lens", eventId: lensEvent.id, pubkey: witnessPubkey, createdAt: now },
+  { kind: "signal-lens", eventId: lensEvent.id, pubkey: witnessPubkey, witnessEventId: witnessEvent.id, createdAt: now },
 ]);
 assert.deepEqual(reducePhase1Relay(lensState, lensAction), lensState, "second lens is a no-op");
 

@@ -5815,3 +5815,33 @@ input.compose-input::placeholder {
   text-align: center;
   transform: translateX(-50%);
 }
+
+.phase1-signed-pulse,
+.phase1-signed-pulse-path {
+  animation: phase1-signed-pulse 900ms ease-out both;
+  outline: 2px solid #5cd8ff;
+  outline-offset: 4px;
+}
+
+.phase1-signed-pulse-path--static {
+  animation: none;
+  outline: 2px solid #5cd8ff;
+}
+
+@keyframes phase1-signed-pulse {
+  0% { opacity: 0.72; filter: brightness(1.25); }
+  100% { opacity: 1; filter: none; }
+}
+
+.phase1-attribution {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phase1-signed-pulse {
+    animation: none;
+    outline: 2px solid #5cd8ff;
+  }
+}

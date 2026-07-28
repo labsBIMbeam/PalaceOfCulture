@@ -34,6 +34,9 @@ export type Phase1RelayState = {
   readonly acceptedLens: Phase1LensFact | null;
   readonly acceptedEventIds: readonly string[];
   readonly creatorIdentity: string | null;
+  /** Presentation-only accepted delta; it is set only by a reducer-authorized evidence action. */
+  readonly acceptedDelta?: Phase1AcceptedDelta | null;
+  readonly acceptedEvidenceEpoch?: number;
 };
 
 export type Phase1ActivationFact = {
@@ -56,6 +59,51 @@ export type Phase1LensFact = {
   readonly witnessEventId: string;
   readonly createdAt: number;
 };
+
+/** Plan-05 presentation name for the one bounded, reducer-authorized additive lens. */
+export type SignalLens = Phase1LensFact;
+
+export type Phase1AcceptedDelta =
+  | {
+      readonly kind: "witness";
+      readonly eventId: string;
+      readonly pubkey: string;
+      readonly createdAt: number;
+      readonly epoch: number;
+    }
+  | {
+      readonly kind: "lens";
+      readonly eventId: string;
+      readonly pubkey: string;
+      readonly witnessEventId: string;
+      readonly createdAt: number;
+      readonly epoch: number;
+    };
+
+export type Phase1AuthorizedEvidence = {
+  readonly action: "activate-relay-invite" | "touch-relay-witness" | "attach-signal-lens";
+  readonly id: string;
+  readonly pubkey: string;
+  readonly created_at: number;
+  readonly tags: readonly (readonly string[])[];
+};
+
+export type Phase1AuthorizedEvidenceAction =
+  | {
+      readonly type: "accepted_witness_delta";
+      readonly eventId: string;
+      readonly pubkey: string;
+      readonly createdAt: number;
+      readonly origin: "plan-04-authorized";
+    }
+  | {
+      readonly type: "accepted_lens_delta";
+      readonly eventId: string;
+      readonly pubkey: string;
+      readonly witnessEventId: string;
+      readonly createdAt: number;
+      readonly origin: "plan-04-authorized";
+    };
 
 export type Phase1ActivationCapability = {
   readonly relayId: typeof PHASE1_RELAY_ID;
@@ -139,7 +187,12 @@ type EvidenceAction =
       readonly origin: "relay-live-evidence";
     };
 
-export type Phase1RelayAction = ActivationAction | EvidenceAction | PhysicalRelayAction | PlacementAction;
+export type Phase1RelayAction =
+  | ActivationAction
+  | EvidenceAction
+  | Phase1AuthorizedEvidenceAction
+  | PhysicalRelayAction
+  | PlacementAction;
 
 const isAttemptId = (attemptId: unknown): attemptId is string =>
   typeof attemptId === "string" && attemptId.length > 0;
@@ -184,6 +237,8 @@ export function createPhase1RelayState(
     acceptedLens: null,
     acceptedEventIds: [],
     creatorIdentity: null,
+    acceptedDelta: null,
+    acceptedEvidenceEpoch: 0,
   };
 }
 
@@ -244,6 +299,25 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
         Number.isSafeInteger(candidate.createdAt) &&
         (candidate.createdAt as number) >= 0 &&
         candidate.origin === "relay-live-evidence"
+      );
+    case "accepted_witness_delta":
+      return (
+        exactKeys(candidate, ["type", "eventId", "pubkey", "createdAt", "origin"]) &&
+        isHex(candidate.eventId, 64) &&
+        isHex(candidate.pubkey, 64) &&
+        Number.isSafeInteger(candidate.createdAt) &&
+        (candidate.createdAt as number) >= 0 &&
+        candidate.origin === "plan-04-authorized"
+      );
+    case "accepted_lens_delta":
+      return (
+        exactKeys(candidate, ["type", "eventId", "pubkey", "witnessEventId", "createdAt", "origin"]) &&
+        isHex(candidate.eventId, 64) &&
+        isHex(candidate.pubkey, 64) &&
+        isHex(candidate.witnessEventId, 64) &&
+        Number.isSafeInteger(candidate.createdAt) &&
+        (candidate.createdAt as number) >= 0 &&
+        candidate.origin === "plan-04-authorized"
       );
     case "pickup_part":
       return exactKeys(candidate, ["type", "part", "origin"]) && isRelayPart(candidate.part) && isPhysicalOrigin(candidate.origin);
@@ -313,6 +387,21 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
     );
   }
   if (action.type === "lens_verified") {
+    return acceptPhase1Lens(state, {
+      eventId: action.eventId,
+      pubkey: action.pubkey,
+      witnessEventId: action.witnessEventId,
+      createdAt: action.createdAt,
+    });
+  }
+  if (action.type === "accepted_witness_delta") {
+    return acceptPhase1Witness(
+      state,
+      { eventId: action.eventId, pubkey: action.pubkey, createdAt: action.createdAt },
+      state.activation?.creatorPubkey ?? "",
+    );
+  }
+  if (action.type === "accepted_lens_delta") {
     return acceptPhase1Lens(state, {
       eventId: action.eventId,
       pubkey: action.pubkey,
@@ -458,6 +547,7 @@ export function importVerifiedActivationCapability(
     acceptedPlacement: true,
     relayId: PHASE1_RELAY_ID,
     activation,
+    creatorIdentity: state.creatorIdentity ?? activation.creatorPubkey,
   };
 }
 
@@ -478,6 +568,7 @@ export function acceptLocalActivation(
       relayId: PHASE1_RELAY_ID,
       source: "local-signed-activation",
     },
+    creatorIdentity: state.creatorIdentity ?? activation.creatorPubkey,
   };
 }
 
@@ -498,6 +589,14 @@ export function acceptPhase1Witness(
     ...state,
     acceptedWitness: { ...evidence },
     acceptedEventIds: [...state.acceptedEventIds, evidence.eventId].slice(-64),
+    acceptedDelta: {
+      kind: "witness",
+      eventId: evidence.eventId,
+      pubkey: evidence.pubkey,
+      createdAt: evidence.createdAt,
+      epoch: (state.acceptedEvidenceEpoch ?? 0) + 1,
+    },
+    acceptedEvidenceEpoch: (state.acceptedEvidenceEpoch ?? 0) + 1,
   };
 }
 
@@ -515,11 +614,105 @@ export function acceptPhase1Lens(state: Phase1RelayState, evidence: Phase1LensFa
     ...state,
     acceptedLens: { ...evidence },
     acceptedEventIds: [...state.acceptedEventIds, evidence.eventId].slice(-64),
+    acceptedDelta: {
+      kind: "lens",
+      eventId: evidence.eventId,
+      pubkey: evidence.pubkey,
+      witnessEventId: evidence.witnessEventId,
+      createdAt: evidence.createdAt,
+      epoch: (state.acceptedEvidenceEpoch ?? 0) + 1,
+    },
+    acceptedEvidenceEpoch: (state.acceptedEvidenceEpoch ?? 0) + 1,
   };
 }
 
 export function getPhase1LensHandoff(state: Phase1RelayState): Phase1LensFact | null {
   return state.acceptedLens;
+}
+
+/**
+ * Narrow adapter handoff: the transport has already parsed, verified, bound, rate-limited, and
+ * deduplicated this event. Plan 05 turns that authorized evidence into a reducer action without
+ * re-parsing or accepting raw relay input.
+ */
+export function createPhase1AuthorizedEvidenceAction(
+  evidence: Phase1AuthorizedEvidence,
+): Phase1AuthorizedEvidenceAction | null {
+  if (evidence.action === "touch-relay-witness") {
+    return {
+      type: "accepted_witness_delta",
+      eventId: evidence.id,
+      pubkey: evidence.pubkey,
+      createdAt: evidence.created_at,
+      origin: "plan-04-authorized",
+    };
+  }
+  if (evidence.action === "attach-signal-lens") {
+    const witnessEventId = evidence.tags[5]?.[1];
+    if (!witnessEventId) return null;
+    return {
+      type: "accepted_lens_delta",
+      eventId: evidence.id,
+      pubkey: evidence.pubkey,
+      witnessEventId,
+      createdAt: evidence.created_at,
+      origin: "plan-04-authorized",
+    };
+  }
+  return null;
+}
+
+export type Phase1EvidenceSnapshot = {
+  readonly witnessEventId: string | null;
+  readonly lensEventId: string | null;
+  readonly evidenceEpoch: number;
+};
+
+export function phase1EvidenceSnapshot(state: Phase1RelayState): Phase1EvidenceSnapshot {
+  return {
+    witnessEventId: state.acceptedWitness?.eventId ?? null,
+    lensEventId: state.acceptedLens?.eventId ?? null,
+    evidenceEpoch: state.acceptedEvidenceEpoch ?? 0,
+  };
+}
+
+/** Initial sync and reconnect snapshots establish a baseline and never emit presentation deltas. */
+export function diffPhase1AcceptedEvidence(
+  previous: Phase1EvidenceSnapshot | null,
+  state: Phase1RelayState,
+): { readonly baseline: Phase1EvidenceSnapshot; readonly delta: Phase1AcceptedDelta | null } {
+  const baseline = phase1EvidenceSnapshot(state);
+  if (!previous || previous.evidenceEpoch >= baseline.evidenceEpoch) {
+    return { baseline, delta: null };
+  }
+  if (baseline.lensEventId && baseline.lensEventId !== previous.lensEventId && state.acceptedLens) {
+    return { baseline, delta: state.acceptedDelta?.kind === "lens" ? state.acceptedDelta : null };
+  }
+  if (baseline.witnessEventId && baseline.witnessEventId !== previous.witnessEventId && state.acceptedWitness) {
+    return { baseline, delta: state.acceptedDelta?.kind === "witness" ? state.acceptedDelta : null };
+  }
+  return { baseline, delta: null };
+}
+
+export type Phase1Attribution =
+  | { readonly kind: "creator"; readonly pubkey: string }
+  | {
+      readonly kind: "signal-lens";
+      readonly eventId: string;
+      readonly pubkey: string;
+      readonly witnessEventId: string;
+      readonly createdAt: number;
+    };
+
+/** Attribution is chronological and additive; creator identity is read from immutable activation truth. */
+export function getPhase1Attributions(state: Phase1RelayState): readonly Phase1Attribution[] {
+  const creatorPubkey = state.creatorIdentity ?? state.activation?.creatorPubkey;
+  if (!creatorPubkey) return [];
+  const rows: Phase1Attribution[] = [{ kind: "creator", pubkey: creatorPubkey }];
+  if (state.acceptedLens) {
+    rows.push({ kind: "signal-lens", ...state.acceptedLens });
+  }
+  return rows;
 }
 
 export const ATTENTIVE_PRESENCE_THRESHOLD_MS = 36_000;

@@ -36,12 +36,14 @@ import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import {
   createAttentivePresenceState,
+  createPhase1AuthorizedEvidenceAction,
   createPhase1RelayState,
   createRelayHandoffState,
   reduceAttentivePresence,
   reducePhase1Relay,
   reduceRelayHandoff,
   type AttentivePresenceState,
+  type Phase1AcceptedDelta,
   type RelayHandoffState,
 } from "../meaningverse/phase1Relay";
 import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
@@ -708,6 +710,27 @@ function MultiplayerStatus({ view }: { view: MultiplayerViewState }) {
   );
 }
 
+function SignedPulseEffect({
+  delta,
+  reducedEffects,
+}: {
+  delta: Phase1AcceptedDelta | null;
+  reducedEffects: boolean;
+}) {
+  if (!delta || delta.kind !== "witness") return null;
+  return (
+    <Html center position={[-27.5, 1.5, 91.8]}>
+      <div
+        aria-hidden="true"
+        className={reducedEffects ? "phase1-signed-pulse-path phase1-signed-pulse-path--static" : "phase1-signed-pulse-path"}
+        data-phase1-pulse="accepted-witness"
+      >
+        <span>↯</span>
+      </div>
+    </Html>
+  );
+}
+
 /** The 3D game view, launched from the frontend UI. */
 export function PalaceScene({ target, onExit, character, startInBuild }: PalaceSceneProps) {
   const [mode, setMode] = useState<ViewMode>(startInBuild && target === "home" ? "build" : "walk");
@@ -750,6 +773,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   phase1RelayStateRef.current = phase1RelayState;
   const witnessAttemptTokenRef = useRef<string | null>(null);
   const lensAttemptTokenRef = useRef<string | null>(null);
+  const [signedPulseDelta, setSignedPulseDelta] = useState<Phase1AcceptedDelta | null>(null);
+  const presentedPulseIdRef = useRef<string | null>(null);
   const [wireOpen, setWireOpen] = useState(false);
   const [attentivePresence, dispatchAttentivePresence] = useReducer(
     reduceAttentivePresence,
@@ -786,6 +811,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   useEffect(() => {
     phase1RelayLifecycle.apply(phase1RelayState);
   }, [phase1RelayLifecycle, phase1RelayState]);
+  useEffect(() => {
+    const delta = phase1RelayState.acceptedDelta;
+    if (!delta || delta.kind !== "witness" || presentedPulseIdRef.current === delta.eventId) return;
+    presentedPulseIdRef.current = delta.eventId;
+    setSignedPulseDelta(delta);
+    const timer = window.setTimeout(() => setSignedPulseDelta(null), 900);
+    return () => window.clearTimeout(timer);
+  }, [phase1RelayState.acceptedDelta]);
   const pickupRelayPart = (part: "foot" | "coil" | "aperture") => {
     dispatchPhase1Relay({ type: "pickup_part", part, origin: "player-physical" });
   };
@@ -813,24 +846,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       () => phase1RelayStateRef.current,
       () => undefined,
       (event) => {
-        if (event.action === "touch-relay-witness") {
-          dispatchPhase1Relay({
-            type: "witness_verified",
-            eventId: event.id,
-            pubkey: event.pubkey,
-            createdAt: event.created_at,
-            origin: "relay-live-evidence",
-          });
-        } else if (event.action === "attach-signal-lens") {
-          dispatchPhase1Relay({
-            type: "lens_verified",
-            eventId: event.id,
-            pubkey: event.pubkey,
-            witnessEventId: event.tags[5]?.[1] ?? "",
-            createdAt: event.created_at,
-            origin: "relay-live-evidence",
-          });
-        }
+        const authorizedAction = createPhase1AuthorizedEvidenceAction(event);
+        if (authorizedAction) dispatchPhase1Relay(authorizedAction);
       },
     );
     const subscription = createPhase1RelaySubscription(
@@ -1555,12 +1572,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             {world === "street" ? (
               <>
                 <StreetWorld
+                  acceptedLens={phase1RelayState.acceptedLens}
                   acceptedPlacement={phase1RelayState.status === "accepted"}
                   assembly={phase1RelayState.assembly}
                   placement={phase1RelayState.placement}
                   presenceAccepted={attentivePresence.presenceAccepted}
                   reducedEffects={reducedEffects}
                 />
+                <SignedPulseEffect delta={signedPulseDelta} reducedEffects={reducedEffects} />
                 {phase1RelayState.status === "accepted" ? (
                   <MeaningShip
                     localSessionId={multiplayerView.localSessionId}
