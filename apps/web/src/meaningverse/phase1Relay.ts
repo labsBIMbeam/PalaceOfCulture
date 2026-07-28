@@ -122,7 +122,24 @@ type ActivationAction =
       readonly origin: "verified-invite-capability";
     };
 
-export type Phase1RelayAction = ActivationAction | PhysicalRelayAction | PlacementAction;
+type EvidenceAction =
+  | {
+      readonly type: "witness_verified";
+      readonly eventId: string;
+      readonly pubkey: string;
+      readonly createdAt: number;
+      readonly origin: "relay-live-evidence";
+    }
+  | {
+      readonly type: "lens_verified";
+      readonly eventId: string;
+      readonly pubkey: string;
+      readonly witnessEventId: string;
+      readonly createdAt: number;
+      readonly origin: "relay-live-evidence";
+    };
+
+export type Phase1RelayAction = ActivationAction | EvidenceAction | PhysicalRelayAction | PlacementAction;
 
 const isAttemptId = (attemptId: unknown): attemptId is string =>
   typeof attemptId === "string" && attemptId.length > 0;
@@ -209,6 +226,25 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
         (candidate.createdAt as number) >= 0 &&
         candidate.origin === "verified-invite-capability"
       );
+    case "witness_verified":
+      return (
+        exactKeys(candidate, ["type", "eventId", "pubkey", "createdAt", "origin"]) &&
+        isHex(candidate.eventId, 64) &&
+        isHex(candidate.pubkey, 64) &&
+        Number.isSafeInteger(candidate.createdAt) &&
+        (candidate.createdAt as number) >= 0 &&
+        candidate.origin === "relay-live-evidence"
+      );
+    case "lens_verified":
+      return (
+        exactKeys(candidate, ["type", "eventId", "pubkey", "witnessEventId", "createdAt", "origin"]) &&
+        isHex(candidate.eventId, 64) &&
+        isHex(candidate.pubkey, 64) &&
+        isHex(candidate.witnessEventId, 64) &&
+        Number.isSafeInteger(candidate.createdAt) &&
+        (candidate.createdAt as number) >= 0 &&
+        candidate.origin === "relay-live-evidence"
+      );
     case "pickup_part":
       return exactKeys(candidate, ["type", "part", "origin"]) && isRelayPart(candidate.part) && isPhysicalOrigin(candidate.origin);
     case "seat_part":
@@ -267,6 +303,21 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
       creatorPubkey: action.creatorPubkey,
       createdAt: action.createdAt,
       source: "verified-invite-capability",
+    });
+  }
+  if (action.type === "witness_verified") {
+    return acceptPhase1Witness(
+      state,
+      { eventId: action.eventId, pubkey: action.pubkey, createdAt: action.createdAt },
+      state.activation?.creatorPubkey ?? "",
+    );
+  }
+  if (action.type === "lens_verified") {
+    return acceptPhase1Lens(state, {
+      eventId: action.eventId,
+      pubkey: action.pubkey,
+      witnessEventId: action.witnessEventId,
+      createdAt: action.createdAt,
     });
   }
   if (!hasAssemblyGate(state)) return state;

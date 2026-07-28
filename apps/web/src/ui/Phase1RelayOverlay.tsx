@@ -32,6 +32,12 @@ type Phase1RelayOverlayProps = {
   inviteState?: Phase1InviteState;
   onInviteConsent?: () => void;
   onInviteCancel?: () => void;
+  witnessState?: Phase1InviteState;
+  lensState?: Phase1InviteState;
+  onWitnessConsent?: () => void;
+  onLensConsent?: () => void;
+  onWitnessCancel?: () => void;
+  onLensCancel?: () => void;
 };
 
 type FictionalWireProps = {
@@ -244,6 +250,12 @@ export function Phase1RelayOverlay({
   inviteState = "idle",
   onInviteConsent = () => {},
   onInviteCancel = () => {},
+  witnessState = "idle",
+  lensState = "idle",
+  onWitnessConsent = () => {},
+  onLensConsent = () => {},
+  onWitnessCancel = () => {},
+  onLensCancel = () => {},
 }: Phase1RelayOverlayProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const inviteHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -349,6 +361,48 @@ export function Phase1RelayOverlay({
           <button onClick={() => setInviteOpen(false)} type="button">
             Close invite
           </button>
+        </section>
+      ) : null}
+      {state.status === "accepted" && state.activation?.source === "verified-invite-capability" && !state.acceptedWitness ? (
+        <section aria-label="Signed light pulse" data-phase1-witness="consent">
+          <h2>SIGNED LIGHT PULSE</h2>
+          <p>Send one light pulse? Your signer approves one dependency-bound witness event.</p>
+          <p aria-live="polite" role="status">
+            {witnessState === "waiting"
+              ? "Waiting for relay-backed confirmation…"
+              : witnessState === "failed"
+                ? "The pulse could not be verified. Nothing changed."
+                : witnessState === "cancelled"
+                  ? "No pulse was sent. The relay stays OPEN."
+                  : "Nothing is sent until you approve a signature."}
+          </p>
+          {witnessState === "signer_pending" || witnessState === "waiting" ? (
+            <button onClick={onWitnessCancel} type="button">Cancel signing</button>
+          ) : (
+            <button onClick={onWitnessConsent} type="button">Sign pulse</button>
+          )}
+          <button onClick={onWitnessCancel} type="button">Not now</button>
+        </section>
+      ) : null}
+      {state.status === "accepted" && state.acceptedWitness && !state.acceptedLens ? (
+        <section aria-label="Signal lens" data-phase1-lens="consent">
+          <h2>ATTACH SIGNAL LENS</h2>
+          <p>Attach one bounded lens to the accepted witness. Nothing changes until relay confirmation.</p>
+          <p aria-live="polite" role="status">
+            {lensState === "waiting"
+              ? "Waiting for relay-backed confirmation…"
+              : lensState === "failed"
+                ? "The lens could not be verified. Nothing changed."
+                : lensState === "cancelled"
+                  ? "No lens was sent. The relay stays OPEN."
+                  : "Nothing is sent until you approve a signature."}
+          </p>
+          {lensState === "signer_pending" || lensState === "waiting" ? (
+            <button onClick={onLensCancel} type="button">Cancel signing</button>
+          ) : (
+            <button onClick={onLensConsent} type="button">Sign lens</button>
+          )}
+          <button onClick={onLensCancel} type="button">Not now</button>
         </section>
       ) : null}
       <section aria-label="Relay assembly" data-relay-assembly={assembly.status}>

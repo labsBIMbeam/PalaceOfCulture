@@ -56,6 +56,12 @@ import {
 import {
   createPhase1RelayLifecycleGate,
   createPhase1ActivationTemplate,
+  createPhase1LensTemplate,
+  createPhase1RelaySubscription,
+  createPhase1LiveEvidenceGate,
+  createPhase1WitnessTemplate,
+  isPhase1Nip07Available,
+  publishPhase1Event,
   signPhase1Event,
   verifyPhase1ActivationCapability,
   type Phase1RelayTransport,
@@ -737,7 +743,13 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   );
   const [inviteState, setInviteState] = useState<Phase1InviteState>("idle");
   const [activationInviteUrl, setActivationInviteUrl] = useState<string | null>(null);
+  const [witnessState, setWitnessState] = useState<Phase1InviteState>("idle");
+  const [lensState, setLensState] = useState<Phase1InviteState>("idle");
   const inviteAttemptTokenRef = useRef<string | null>(null);
+  const phase1RelayStateRef = useRef(phase1RelayState);
+  phase1RelayStateRef.current = phase1RelayState;
+  const witnessAttemptTokenRef = useRef<string | null>(null);
+  const lensAttemptTokenRef = useRef<string | null>(null);
   const [wireOpen, setWireOpen] = useState(false);
   const [attentivePresence, dispatchAttentivePresence] = useReducer(
     reduceAttentivePresence,
@@ -793,6 +805,81 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   };
   const retryRelayPlacement = () => {
     if (phase1RelayState.placement.status === "failed") placeRelay();
+  };
+  useEffect(() => {
+    const activation = phase1RelayState.activation;
+    if (!activation) return;
+    const liveGate = createPhase1LiveEvidenceGate(
+      () => phase1RelayStateRef.current,
+      () => undefined,
+      (event) => {
+        if (event.action === "touch-relay-witness") {
+          dispatchPhase1Relay({
+            type: "witness_verified",
+            eventId: event.id,
+            pubkey: event.pubkey,
+            createdAt: event.created_at,
+            origin: "relay-live-evidence",
+          });
+        } else if (event.action === "attach-signal-lens") {
+          dispatchPhase1Relay({
+            type: "lens_verified",
+            eventId: event.id,
+            pubkey: event.pubkey,
+            witnessEventId: event.tags[5]?.[1] ?? "",
+            createdAt: event.created_at,
+            origin: "relay-live-evidence",
+          });
+        }
+      },
+    );
+    const subscription = createPhase1RelaySubscription(
+      activation.activationId,
+      activation.createdAt,
+      liveGate,
+    );
+    return () => subscription.stop();
+  }, [phase1RelayState.activation?.activationId, phase1RelayState.activation?.createdAt]);
+  const beginEvidenceAttempt = async (kind: "witness" | "lens") => {
+    const state = phase1RelayStateRef.current;
+    const activation = state.activation;
+    const isWitness = kind === "witness";
+    const setter = isWitness ? setWitnessState : setLensState;
+    const tokenRef = isWitness ? witnessAttemptTokenRef : lensAttemptTokenRef;
+    if (
+      !activation ||
+      (isWitness && (activation.source !== "verified-invite-capability" || state.acceptedWitness)) ||
+      (!isWitness && (!state.acceptedWitness || state.acceptedLens)) ||
+      !isPhase1Nip07Available()
+    ) {
+      setter("failed");
+      return;
+    }
+    const token = `${kind}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    tokenRef.current = token;
+    setter("signer_pending");
+    try {
+      const nostr = (window as Window & { nostr: { getPublicKey: () => Promise<string> } }).nostr;
+      const pubkey = await nostr.getPublicKey();
+      if (tokenRef.current !== token) return;
+      const template = isWitness
+        ? createPhase1WitnessTemplate(state, pubkey)
+        : createPhase1LensTemplate(state, pubkey);
+      const signed = await signPhase1Event(template, { isCurrent: () => tokenRef.current === token });
+      if (!signed || tokenRef.current !== token) return;
+      const published = await publishPhase1Event(signed);
+      if (!published.acknowledged || tokenRef.current !== token) {
+        setter("failed");
+        return;
+      }
+      setter("waiting");
+    } catch {
+      if (tokenRef.current === token) setter("failed");
+    }
+  };
+  const cancelEvidenceAttempt = (kind: "witness" | "lens") => {
+    (kind === "witness" ? witnessAttemptTokenRef : lensAttemptTokenRef).current = null;
+    (kind === "witness" ? setWitnessState : setLensState)("cancelled");
   };
   const keepHoldingRelay = () => undefined;
   useEffect(() => {
@@ -1614,6 +1701,12 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           inviteState={inviteState}
           onInviteCancel={cancelInvite}
           onInviteConsent={consentInvite}
+          witnessState={witnessState}
+          lensState={lensState}
+          onWitnessConsent={() => void beginEvidenceAttempt("witness")}
+          onLensConsent={() => void beginEvidenceAttempt("lens")}
+          onWitnessCancel={() => cancelEvidenceAttempt("witness")}
+          onLensCancel={() => cancelEvidenceAttempt("lens")}
           onBeginRelay={beginRelay}
           onKeepHolding={keepHoldingRelay}
           onPlaceRelay={placeRelay}

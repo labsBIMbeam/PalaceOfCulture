@@ -205,7 +205,24 @@ if (!lensEvidence) throw new Error("lens verification failed");
 const lensAcceptedState = reducePhase1Evidence(witnessAcceptedState, lensEvidence);
 assert.equal(lensAcceptedState.acceptedLens?.eventId, lensEvent.id);
 assert.equal(lensAcceptedState.activation?.creatorPubkey, creatorPubkey);
-assert.equal(reducePhase1Evidence(lensAcceptedState, lensEvidence), lensAcceptedState);
+const witnessActionState = reducePhase1Relay(signedState, {
+  type: "witness_verified",
+  eventId: witnessEvent.id,
+  pubkey: witnessPubkey,
+  createdAt: now,
+  origin: "relay-live-evidence",
+});
+assert.equal(witnessActionState.acceptedWitness?.eventId, witnessEvent.id);
+const lensActionState = reducePhase1Relay(witnessActionState, {
+  type: "lens_verified",
+  eventId: lensEvent.id,
+  pubkey: witnessPubkey,
+  witnessEventId: witnessEvent.id,
+  createdAt: now,
+  origin: "relay-live-evidence",
+});
+assert.equal(lensActionState.acceptedLens?.eventId, lensEvent.id);
+assert.equal(lensActionState.activation?.creatorPubkey, creatorPubkey);
 assert.deepEqual(createPhase1Filter(activationEvent.id, activationEvent.created_at), {
   kinds: [PHASE1_EVENT_KIND],
   "#e": [activationEvent.id],
@@ -221,6 +238,7 @@ const modelSource = readFileSync(new URL("../src/meaningverse/model.ts", import.
 const relaySource = readFileSync(new URL("../src/meaningverse/phase1Relay.ts", import.meta.url), "utf8");
 const overlaySource = readFileSync(new URL("../src/ui/Phase1RelayOverlay.tsx", import.meta.url), "utf8");
 const sceneSource = readFileSync(new URL("../src/scene/PalaceScene.tsx", import.meta.url), "utf8");
+const transportSource = readFileSync(new URL("../src/net/phase1RelayTransport.ts", import.meta.url), "utf8");
 assert.doesNotMatch(modelSource, /dangerouslySetInnerHTML/);
 assert.doesNotMatch(overlaySource, /dangerouslySetInnerHTML/);
 assert.match(overlaySource, /Copy invite/);
@@ -229,6 +247,12 @@ assert.match(overlaySource, /Not now/);
 assert.match(overlaySource, /aria-live="polite"/);
 assert.match(sceneSource, /domOwnsWorldFocus/);
 assert.match(relaySource, /importVerifiedActivationCapability/);
+assert.match(sceneSource, /createPhase1RelaySubscription/);
+assert.match(sceneSource, /beginEvidenceAttempt/);
+assert.match(overlaySource, /SIGNED LIGHT PULSE/);
+assert.match(overlaySource, /ATTACH SIGNAL LENS/);
+assert.match(transportSource, /event\.publish\(undefined, 3000, 1, \{ skipContentTagging: true \}\)/);
+assert.match(transportSource, /onEose: \(\) => \{\}/);
 assert.doesNotMatch(sceneSource, /from ["'](?:nostr-tools|@nostr-dev-kit\/ndk)/);
 
 console.log("PHASE1 WITNESS SECURITY SMOKE RED/GREEN TASK 1: assertions loaded");

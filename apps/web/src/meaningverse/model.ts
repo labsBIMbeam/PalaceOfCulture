@@ -14,6 +14,7 @@ export type Phase1InviteState =
   | "signer_pending"
   | "copied"
   | "manual"
+  | "waiting"
   | "failed"
   | "cancelled";
 
