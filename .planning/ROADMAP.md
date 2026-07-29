@@ -8,7 +8,7 @@ The roadmap starts with the smallest complete expression of the Core Value in th
 
 **Phase Numbering:** Sequential integer phases are planned milestone work; decimal phases are reserved for urgent later insertions.
 
-- [ ] **Phase 1: Visible Art in Werkstattgasse** - Deliver the under-ten-minute enter → create → place → invite → witness/remix vertical slice.
+- [x] **Phase 1: Visible Art in Werkstattgasse** - Deliver the under-ten-minute enter → create → place → invite → witness/remix vertical slice.
 - [ ] **Phase 2: Earned and Proof-Bound Palace Objects** - Make finite placement rights, asset classes, and non-custodial timelock objects legible and enforceable.
 - [ ] **Phase 3: Communal Crafting and Commissioning** - Turn shared work into durable, attributed capability through one complete bakery chain.
 - [ ] **Phase 4: Homecoming and Ethical Time** - Grow Home through elapsed-time production, age, inhabitants, reports, and non-punitive cadence.
@@ -29,7 +29,7 @@ The roadmap starts with the smallest complete expression of the Core Value in th
   3. The builder can see finite slots, select an honestly mocked unlocked object, preview its footprint, receive visible rejection for an invalid fit, place it legally, and inspect the result.
   4. The builder can invite another person into a bounded handoff where the placed artifact can be witnessed or remixed, without requiring a full social feed, broad persistence, generative AI, or multiplayer scale.
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Production Truth Tracer
@@ -48,7 +48,7 @@ The roadmap starts with the smallest complete expression of the Core Value in th
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 01-05-PLAN.md — Witness Pulse, Remix Lens, Accessibility, and Phase UAT
+- [x] 01-05-PLAN.md — Witness Pulse, Remix Lens, Accessibility, and Phase UAT
 
 **UI hint**: yes
 
@@ -135,7 +135,7 @@ The roadmap starts with the smallest complete expression of the Core Value in th
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Visible Art in Werkstattgasse | 4/5 | In Progress|  |
+| 1. Visible Art in Werkstattgasse | 5/5 | Complete | 2026-07-29 |
 | 2. Earned and Proof-Bound Palace Objects | 0/TBD | Not started | - |
 | 3. Communal Crafting and Commissioning | 0/TBD | Not started | - |
 | 4. Homecoming and Ethical Time | 0/TBD | Not started | - |

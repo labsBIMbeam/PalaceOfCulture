@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 1
 current_phase_name: Visible Art in Werkstattgasse
-status: executing
-stopped_at: Plan 01-04 complete; ready to execute plan 01-05
-last_updated: "2026-07-28T07:40:00Z"
-last_activity: 2026-07-28
-last_activity_desc: Plan 01-04 complete; signed invite, strict kind-9127 transport, witness/lens consent, regressions, full tests, and build passed.
+status: phase_complete
+stopped_at: Phase 1 complete; ready to plan Phase 2
+last_updated: "2026-07-29T14:35:03Z"
+last_activity: 2026-07-29
+last_activity_desc: Plan 01-05 complete; accepted-only witness pulse, additive lens, accessibility contracts, focused gates, and Claude closure review passed under explicit test waiver.
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -29,16 +29,16 @@ See: `.planning/PROJECT.md` (updated 2026-07-26)
 
 Phase: 1 of 6 (Visible Art in Werkstattgasse)
 Plan: 5 of 5
-Status: Ready to execute Plan 01-05
-Last activity: 2026-07-28 — Plan 01-04 complete; all planned verification passed.
+Status: Phase 1 complete; ready to plan Phase 2
+Last activity: 2026-07-29 — Plan 01-05 completed with focused gates and Claude staged-tree GO; remaining heavy/manual gates explicitly waived by user.
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 5
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -90,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T07:40:00Z
-Stopped at: Plan 01-04 complete; ready to execute plan 01-05
-Resume file: .planning/phases/01-visible-art-in-werkstattgasse/01-05-PLAN.md
+Last session: 2026-07-29T14:35:03Z
+Stopped at: Phase 1 complete; ready to plan Phase 2
+Resume file: .planning/ROADMAP.md

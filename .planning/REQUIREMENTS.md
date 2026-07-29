@@ -35,8 +35,8 @@ Requirements for the initial staged release. Each requirement is a one-to-one, u
 
 ### Social Art
 
-- [ ] **ART-01**: A player can turn intentional waiting or walking into a small encounter, attentive dialogue into a memory fragment, and memory plus inspiration into an artifact placed as a shared community trace without an algorithmic feed becoming the primary loop.
-- [ ] **ART-02**: A builder can complete one local/mock walkable Werkstattgasse slice from noisy-feed refusal through presence, encounter, memory, artifact creation, finite-slot placement, visible world change, and an inviteable witness/remix handoff without requiring real social-network feeds, generative AI, a full economy, broad persistence, multiplayer scale, or a large quest system.
+- [x] **ART-01**: A player can turn intentional waiting or walking into a small encounter, attentive dialogue into a memory fragment, and memory plus inspiration into an artifact placed as a shared community trace without an algorithmic feed becoming the primary loop.
+- [x] **ART-02**: A builder can complete one local/mock walkable Werkstattgasse slice from noisy-feed refusal through presence, encounter, memory, artifact creation, finite-slot placement, visible world change, and an inviteable witness/remix handoff without requiring real social-network feeds, generative AI, a full economy, broad persistence, multiplayer scale, or a large quest system.
 
 ### Communal Crafting
 
@@ -50,7 +50,7 @@ Requirements for the initial staged release. Each requirement is a one-to-one, u
 - [ ] **PLAC-02**: A curator or builder can distinguish furniture/deco, culture, special, teaching, hero, timelock, and later structural asset classes, with sources and stronger controls where appropriate and structural parts deferred until furnishing is fun.
 - [ ] **PLAC-03**: A builder can receive a timelock asset only from valid non-custodial proof—Bitcoin L1 by default and for legend tiers, Liquid only as constrained fallback, never Lightning, normal resources, scores, trust, or currency—while principal remains server-independent.
 - [ ] **PLAC-04**: A builder can preview and place rectangular footprints on the 0.7m furnishing grid only where finite personal, room, guild, exhibit, stage, or monument slot rules allow, and receives visible rejection for invalid slot, tier, trust, count, approval, or fit conditions.
-- [ ] **PLAC-05**: A builder can enter the social world, see finite slots, select an honestly mocked unlocked object, preview and place it legally, inspect the visible result, and observe higher-tier unlocks before terraforming, paid placement, open upload, spam-scale persistence, or structural construction exists.
+- [x] **PLAC-05**: A builder can enter the social world, see finite slots, select an honestly mocked unlocked object, preview and place it legally, inspect the visible result, and observe higher-tier unlocks before terraforming, paid placement, open upload, spam-scale persistence, or structural construction exists.
 
 ## v2 Requirements
 
@@ -105,9 +105,9 @@ No additional extracted requirements were assigned to v2. Deferred spatial and p
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ART-01 | Phase 1 | Pending |
-| ART-02 | Phase 1 | Pending |
-| PLAC-05 | Phase 1 | Pending |
+| ART-01 | Phase 1 | Complete |
+| ART-02 | Phase 1 | Complete |
+| PLAC-05 | Phase 1 | Complete |
 | PLAC-01 | Phase 2 | Pending |
 | PLAC-02 | Phase 2 | Pending |
 | PLAC-03 | Phase 2 | Pending |
