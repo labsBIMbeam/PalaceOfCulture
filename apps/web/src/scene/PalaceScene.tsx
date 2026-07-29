@@ -35,8 +35,11 @@ import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import {
+  PHASE1_SIGNED_PULSE_MS,
+  advancePhase1PulsePresentation,
   createAttentivePresenceState,
   createPhase1AuthorizedEvidenceAction,
+  createPhase1PulsePresentation,
   createPhase1RelayState,
   createRelayHandoffState,
   reduceAttentivePresence,
@@ -774,7 +777,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const witnessAttemptTokenRef = useRef<string | null>(null);
   const lensAttemptTokenRef = useRef<string | null>(null);
   const [signedPulseDelta, setSignedPulseDelta] = useState<Phase1AcceptedDelta | null>(null);
-  const presentedPulseIdRef = useRef<string | null>(null);
+  // Presentation baseline for the accepted-witness pulse. Every (re)opened receive path is a new
+  // epoch: it re-baselines silently instead of replaying accepted history.
+  const pulsePresentationRef = useRef(createPhase1PulsePresentation());
+  const [relayReceiveEpoch, setRelayReceiveEpoch] = useState(0);
   const [wireOpen, setWireOpen] = useState(false);
   const [attentivePresence, dispatchAttentivePresence] = useReducer(
     reduceAttentivePresence,
@@ -787,11 +793,23 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     createRelayHandoffState,
   );
   const [kerniDialogueOpen, setKerniDialogueOpen] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [reducedEffects, setReducedEffects] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
   );
+  // The OS preference is a live input, not a mount-time snapshot: a mid-session change reaches the
+  // running experience. Between OS changes the in-experience toggle owns the setting, so the
+  // control still works when the OS expresses no preference at all.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!query?.addEventListener) return;
+    const follow = (event: MediaQueryListEvent) => setReducedEffects(event.matches);
+    query.addEventListener("change", follow);
+    return () => query.removeEventListener("change", follow);
+  }, []);
   const [kerniInRange, setKerniInRange] = useState(false);
   const phase1RelayTransport = useMemo<Phase1RelayTransport>(
     () => ({
@@ -812,13 +830,18 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     phase1RelayLifecycle.apply(phase1RelayState);
   }, [phase1RelayLifecycle, phase1RelayState]);
   useEffect(() => {
-    const delta = phase1RelayState.acceptedDelta;
-    if (!delta || delta.kind !== "witness" || presentedPulseIdRef.current === delta.eventId) return;
-    presentedPulseIdRef.current = delta.eventId;
-    setSignedPulseDelta(delta);
-    const timer = window.setTimeout(() => setSignedPulseDelta(null), 900);
+    const previous = pulsePresentationRef.current;
+    const next = advancePhase1PulsePresentation(previous, phase1RelayState, relayReceiveEpoch);
+    pulsePresentationRef.current = next;
+    if (next.pulse !== previous.pulse) setSignedPulseDelta(next.pulse);
+  }, [phase1RelayState, relayReceiveEpoch]);
+  // Keyed on the presented pulse alone: a later relay message (a lens delta, a duplicate) can
+  // neither restart nor cancel the bounded interval, so the pulse always settles back to amber.
+  useEffect(() => {
+    if (!signedPulseDelta) return;
+    const timer = window.setTimeout(() => setSignedPulseDelta(null), PHASE1_SIGNED_PULSE_MS);
     return () => window.clearTimeout(timer);
-  }, [phase1RelayState.acceptedDelta]);
+  }, [signedPulseDelta]);
   const pickupRelayPart = (part: "foot" | "coil" | "aperture") => {
     dispatchPhase1Relay({ type: "pickup_part", part, origin: "player-physical" });
   };
@@ -855,6 +878,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       activation.createdAt,
       liveGate,
     );
+    // Opening the activation-scoped receive path starts a new observation epoch.
+    setRelayReceiveEpoch((epoch) => epoch + 1);
     return () => subscription.stop();
   }, [phase1RelayState.activation?.activationId, phase1RelayState.activation?.createdAt]);
   const beginEvidenceAttempt = async (kind: "witness" | "lens") => {
@@ -1736,6 +1761,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           onKerniAcknowledge={acknowledgeKerniOrientation}
           onKerniClose={() => setKerniDialogueOpen(false)}
           onKerniInteract={openKerniDialogue}
+          muted={muted}
+          reducedEffects={reducedEffects}
+          onToggleMuted={() => setMuted((value) => !value)}
+          onToggleReducedEffects={() => setReducedEffects((value) => !value)}
           onWireDismiss={() => {
             releaseMovementKeys();
             setWireOpen(false);

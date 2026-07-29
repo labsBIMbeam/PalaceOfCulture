@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Phase1InviteState } from "../meaningverse/model";
 import type {
   AttentivePresenceState,
@@ -38,6 +38,11 @@ type Phase1RelayOverlayProps = {
   onLensConsent?: () => void;
   onWitnessCancel?: () => void;
   onLensCancel?: () => void;
+  /** Owned by the scene so the OS preference and the in-experience toggle drive the same truth. */
+  muted?: boolean;
+  reducedEffects?: boolean;
+  onToggleMuted?: () => void;
+  onToggleReducedEffects?: () => void;
 };
 
 type FictionalWireProps = {
@@ -256,14 +261,52 @@ export function Phase1RelayOverlay({
   onLensConsent = () => {},
   onWitnessCancel = () => {},
   onLensCancel = () => {},
+  muted = false,
+  reducedEffects = false,
+  onToggleMuted = () => {},
+  onToggleReducedEffects = () => {},
 }: Phase1RelayOverlayProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [reducedEffects, setReducedEffects] = useState(false);
+  const invitePanelRef = useRef<HTMLElement>(null);
   const inviteHeadingRef = useRef<HTMLHeadingElement>(null);
+  const inviteInvokerRef = useRef<HTMLButtonElement>(null);
+
+  /** Closing a consent sheet always hands the world back to the control that opened it. */
+  const closeInvite = useCallback(() => {
+    setInviteOpen(false);
+    window.setTimeout(() => inviteInvokerRef.current?.focus(), 0);
+  }, []);
+
   useEffect(() => {
-    if (inviteOpen) inviteHeadingRef.current?.focus();
-  }, [inviteOpen]);
+    if (!inviteOpen) return;
+
+    inviteHeadingRef.current?.focus();
+    const containFocus = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeInvite();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = invitePanelRef.current?.querySelectorAll<HTMLElement>(
+        "button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+      );
+      if (!focusable || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", containFocus, true);
+    return () => document.removeEventListener("keydown", containFocus, true);
+  }, [closeInvite, inviteOpen]);
   const status =
     state.status === "accepted"
       ? "OPEN"
@@ -310,10 +353,10 @@ export function Phase1RelayOverlay({
         ) : null}
       </section>
       <section aria-label="Accessibility controls" data-phase1-accessibility="true">
-        <button aria-pressed={muted} onClick={() => setMuted((value) => !value)} type="button">
+        <button aria-pressed={muted} onClick={onToggleMuted} type="button">
           {muted ? "Muted" : "Sound on"}
         </button>
-        <button aria-pressed={reducedEffects} onClick={() => setReducedEffects((value) => !value)} type="button">
+        <button aria-pressed={reducedEffects} onClick={onToggleReducedEffects} type="button">
           Reduced effects: {reducedEffects ? "on" : "off"}
         </button>
       </section>
@@ -322,7 +365,12 @@ export function Phase1RelayOverlay({
           <h2>Relay is OPEN</h2>
           <p>The light is on. Invite one person when you want to.</p>
           {!state.acceptedWitness ? <p>No answer yet. The light stays on.</p> : null}
-          <button data-phase1-safe-control="true" onClick={() => setInviteOpen(true)} type="button">
+          <button
+            data-phase1-safe-control="true"
+            onClick={() => setInviteOpen(true)}
+            ref={inviteInvokerRef}
+            type="button"
+          >
             Copy invite
           </button>
         </section>
@@ -331,7 +379,9 @@ export function Phase1RelayOverlay({
         <section
           aria-labelledby="phase1-invite-heading"
           aria-modal="true"
+          className="phase1-invite"
           data-phase1-invite="consent"
+          ref={invitePanelRef}
           role="dialog"
         >
           <h2 id="phase1-invite-heading" ref={inviteHeadingRef} tabIndex={-1}>
@@ -362,16 +412,17 @@ export function Phase1RelayOverlay({
           </button>
           <button
             onClick={() => {
-              setInviteOpen(false);
+              closeInvite();
               onInviteCancel();
             }}
             type="button"
           >
             Not now
           </button>
-          <button onClick={() => setInviteOpen(false)} type="button">
+          <button onClick={closeInvite} type="button">
             Close invite
           </button>
+          <span className="visually-hidden">Press Escape to close the invite.</span>
         </section>
       ) : null}
       {state.status === "accepted" && state.activation?.source === "verified-invite-capability" && !state.acceptedWitness ? (
@@ -393,6 +444,20 @@ export function Phase1RelayOverlay({
             <button onClick={onWitnessConsent} type="button">Sign pulse</button>
           )}
           <button onClick={onWitnessCancel} type="button">Not now</button>
+        </section>
+      ) : null}
+      {state.acceptedWitness ? (
+        <section aria-label="Signed pulse status" data-phase1-witness="accepted">
+          <p aria-live="polite" role="status">
+            <span aria-hidden="true">↯ </span>
+            <span>Pulse accepted</span>
+          </p>
+          <p className="phase1-subtitle">Your signed light reached this relay.</p>
+          {muted || reducedEffects ? (
+            <p className="phase1-subtitle" data-phase1-subtitle="signed-witness">
+              [Signed witness received.]
+            </p>
+          ) : null}
         </section>
       ) : null}
       {state.status === "accepted" && state.acceptedWitness && !state.acceptedLens ? (

@@ -694,6 +694,43 @@ export function diffPhase1AcceptedEvidence(
   return { baseline, delta: null };
 }
 
+/** One bounded 900ms cyan witness pulse; the scene and the stylesheet share this single number. */
+export const PHASE1_SIGNED_PULSE_MS = 900;
+
+export type Phase1PulsePresentation = {
+  /** The receive epoch this baseline belongs to; a new epoch re-baselines silently. */
+  readonly receiveEpoch: number;
+  readonly baseline: Phase1EvidenceSnapshot | null;
+  readonly pulse: Phase1AcceptedDelta | null;
+};
+
+export function createPhase1PulsePresentation(): Phase1PulsePresentation {
+  return { receiveEpoch: -1, baseline: null, pulse: null };
+}
+
+/**
+ * Presentation-only reduction for the accepted-witness pulse. Mount, initial sync, and every
+ * reconnect open a new receive epoch that establishes a silent baseline and drops the transient
+ * effect; only a newly accepted witness delta inside the same epoch presents one pulse. The
+ * presented pulse keeps its identity across later deltas (a lens acceptance, a duplicate, replayed
+ * history), so the bounded 900ms interval is never restarted, cancelled, or stranded.
+ */
+export function advancePhase1PulsePresentation(
+  previous: Phase1PulsePresentation,
+  state: Phase1RelayState,
+  receiveEpoch: number,
+): Phase1PulsePresentation {
+  if (previous.receiveEpoch !== receiveEpoch) {
+    return { receiveEpoch, baseline: phase1EvidenceSnapshot(state), pulse: null };
+  }
+  const { baseline, delta } = diffPhase1AcceptedEvidence(previous.baseline, state);
+  const pulse = delta && delta.kind === "witness" ? delta : previous.pulse;
+  if (pulse === previous.pulse && baseline.evidenceEpoch === previous.baseline?.evidenceEpoch) {
+    return previous;
+  }
+  return { receiveEpoch, baseline, pulse };
+}
+
 export type Phase1Attribution =
   | { readonly kind: "creator"; readonly pubkey: string }
   | {
