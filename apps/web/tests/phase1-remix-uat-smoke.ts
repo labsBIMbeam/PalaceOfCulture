@@ -2,13 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { finalizeEvent, getPublicKey } from "nostr-tools";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
-  PHASE1_EVENT_KIND,
-  parsePhase1RelayEvent,
-  reducePhase1Evidence,
-  verifyAndAuthorizePhase1Event,
-  Phase1RelayEvidenceGuard,
-} from "../src/net/phase1RelayTransport";
+  FICTIONAL_WIRE_CARDS,
+  INTRO_CARDS,
+  INTRO_SEQUENCE,
+  STREET_GLIMPSE_MS,
+  introSkipTarget,
+} from "../src/meaningverse/onboardingStory";
 import {
   ATTENTIVE_FRAME_MAX_MS,
   ATTENTIVE_PRESENCE_THRESHOLD_MS,
@@ -18,9 +21,9 @@ import {
   RELAY_SOCKET_ID,
   advancePhase1PulsePresentation,
   createAttentivePresenceState,
+  createPhase1AuthorizedEvidenceAction,
   createPhase1PulsePresentation,
   createPhase1RelayState,
-  createPhase1AuthorizedEvidenceAction,
   createRelayHandoffState,
   diffPhase1AcceptedEvidence,
   getPhase1Attributions,
@@ -30,16 +33,13 @@ import {
   relayAssemblyEligible,
 } from "../src/meaningverse/phase1Relay";
 import {
-  INTRO_CARDS,
-  INTRO_SEQUENCE,
-  STREET_GLIMPSE_MS,
-  FICTIONAL_WIRE_CARDS,
-  introSkipTarget,
-} from "../src/meaningverse/onboardingStory";
+  PHASE1_EVENT_KIND,
+  Phase1RelayEvidenceGuard,
+  parsePhase1RelayEvent,
+  reducePhase1Evidence,
+  verifyAndAuthorizePhase1Event,
+} from "../src/net/phase1RelayTransport";
 import { Phase1RelayOverlay } from "../src/ui/Phase1RelayOverlay";
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { finalizeEvent, getPublicKey } from "nostr-tools";
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const source = (path: string) => readFileSync(resolve(webRoot, path), "utf8");
@@ -123,11 +123,21 @@ assert.ok(lensAction);
 const creatorBeforeLens = witnessedState.activation;
 const lensState = reducePhase1Relay(witnessedState, lensAction);
 assert.equal(lensState.acceptedLens?.eventId, lensEvent.id);
-assert.deepEqual(lensState.activation, creatorBeforeLens, "lens acceptance cannot mutate creator truth");
+assert.deepEqual(
+  lensState.activation,
+  creatorBeforeLens,
+  "lens acceptance cannot mutate creator truth",
+);
 assert.equal(lensState.acceptedLens?.pubkey, lensState.acceptedWitness?.pubkey);
 assert.deepEqual(getPhase1Attributions(lensState), [
   { kind: "creator", pubkey: creatorPubkey },
-  { kind: "signal-lens", eventId: lensEvent.id, pubkey: witnessPubkey, witnessEventId: witnessEvent.id, createdAt: now },
+  {
+    kind: "signal-lens",
+    eventId: lensEvent.id,
+    pubkey: witnessPubkey,
+    witnessEventId: witnessEvent.id,
+    createdAt: now,
+  },
 ]);
 assert.deepEqual(reducePhase1Relay(lensState, lensAction), lensState, "second lens is a no-op");
 
@@ -161,7 +171,11 @@ assert.equal(pulsed.pulse?.eventId, witnessEvent.id);
 // A lens delta arriving in a separate render must not disturb the in-flight witness pulse.
 // This is the exact sequence (two unbatched relay messages) that used to strand the pulse.
 const afterLens = advancePhase1PulsePresentation(pulsed, lensState, 0);
-assert.equal(afterLens.pulse, pulsed.pulse, "a lens delta cannot restart or strand the witness pulse");
+assert.equal(
+  afterLens.pulse,
+  pulsed.pulse,
+  "a lens delta cannot restart or strand the witness pulse",
+);
 
 // Duplicate and replayed evidence stay silent.
 const afterDuplicate = advancePhase1PulsePresentation(afterLens, lensState, 0);
@@ -228,7 +242,11 @@ assert.match(
   "witness acceptance lives in one polite live region",
 );
 assert.match(witnessMarkup, /↯|lightning|path/i, "acceptance carries a non-color icon");
-assert.doesNotMatch(witnessMarkup, /No answer yet/, "an accepted witness replaces the no-answer copy");
+assert.doesNotMatch(
+  witnessMarkup,
+  /No answer yet/,
+  "an accepted witness replaces the no-answer copy",
+);
 
 // Muted and reduced effects are real inputs, not overlay-local decoration.
 const quietMarkup = renderToStaticMarkup(
@@ -238,7 +256,11 @@ const quietMarkup = renderToStaticMarkup(
     reducedEffects: true,
   }),
 );
-assert.match(quietMarkup, /\[Signed witness received\.\]/, "muted/reduced effects expose the subtitle");
+assert.match(
+  quietMarkup,
+  /\[Signed witness received\.\]/,
+  "muted/reduced effects expose the subtitle",
+);
 assert.match(quietMarkup, /aria-pressed="true"/);
 assert.match(quietMarkup, /Reduced effects: on/);
 assert.match(quietMarkup, /Muted/);
@@ -265,7 +287,10 @@ assert.match(
 
 // The CSS reduced-motion fallback must target the class the scene actually renders.
 assert.match(palaceSource, /className=\{[\s\S]{0,200}?phase1-signed-pulse-path/);
-assert.match(cssSource, /\.phase1-signed-pulse-path \{[\s\S]{0,160}?animation: phase1-signed-pulse 900ms/);
+assert.match(
+  cssSource,
+  /\.phase1-signed-pulse-path \{[\s\S]{0,160}?animation: phase1-signed-pulse 900ms/,
+);
 assert.match(
   cssSource,
   /@media \(prefers-reduced-motion: reduce\) \{\s*\.phase1-signed-pulse-path/,
@@ -285,12 +310,19 @@ assert.match(lensMarkup, /Lens added\./);
 assert.match(lensMarkup, /RELAY · BUILT BY/);
 assert.match(lensMarkup, /SIGNAL LENS · ADDED BY/);
 assert.match(lensMarkup, new RegExp(witnessPubkey));
-assert.match(lensMarkup, new RegExp(creatorPubkey), "creator attribution survives the additive lens");
+assert.match(
+  lensMarkup,
+  new RegExp(creatorPubkey),
+  "creator attribution survives the additive lens",
+);
 assert.doesNotMatch(lensMarkup, /verified human|Palace handle|dangerouslySetInnerHTML/i);
 
 assert.match(palaceSource, /SignedPulseEffect/);
 assert.match(palaceSource, /createPhase1AuthorizedEvidenceAction/);
-assert.doesNotMatch(palaceSource, /dispatchPhase1Relay\(\{\s*type:\s*"(?:witness_verified|lens_verified)"/s);
+assert.doesNotMatch(
+  palaceSource,
+  /dispatchPhase1Relay\(\{\s*type:\s*"(?:witness_verified|lens_verified)"/s,
+);
 assert.match(streetSource, /SignalLens/);
 assert.match(streetSource, /acceptedLens/);
 assert.match(overlaySource, /No answer yet\. The light stays on\./);
@@ -298,8 +330,14 @@ assert.match(overlaySource, /Reduced effects/);
 assert.match(overlaySource, /Muted/);
 assert.match(overlaySource, /aria-live="polite"/);
 assert.doesNotMatch(overlaySource, /dangerouslySetInnerHTML/);
-assert.doesNotMatch(relaySource, /signPhase1|publishPhase1|createPhase1RelaySubscription|parsePhase1RelayEvent|verifyEvent/);
-assert.doesNotMatch(relaySource, /participant count|fake avatar|townsfolk|ghost session|ambient evidence/i);
+assert.doesNotMatch(
+  relaySource,
+  /signPhase1|publishPhase1|createPhase1RelaySubscription|parsePhase1RelayEvent|verifyEvent/,
+);
+assert.doesNotMatch(
+  relaySource,
+  /participant count|fake avatar|townsfolk|ghost session|ambient evidence/i,
+);
 assert.doesNotMatch(palaceSource, /from ["'](?:nostr-tools|@nostr-dev-kit\/ndk)/);
 assert.match(transportSource, /createPhase1LiveEvidenceGate/);
 
@@ -330,14 +368,25 @@ assert.match(
 // Escape closes it, and every close path returns focus to the Copy invite button that opened it.
 const inviteRegionStart = overlaySource.indexOf("const [inviteOpen");
 const inviteRegionEnd = overlaySource.indexOf('data-phase1-witness="consent"');
-assert.ok(inviteRegionStart > 0 && inviteRegionEnd > inviteRegionStart, "invite region is locatable");
+assert.ok(
+  inviteRegionStart > 0 && inviteRegionEnd > inviteRegionStart,
+  "invite region is locatable",
+);
 const inviteSource = overlaySource.slice(inviteRegionStart, inviteRegionEnd);
 
 assert.match(inviteSource, /aria-modal="true"/);
-assert.match(inviteSource, /role="dialog"/);
-assert.match(inviteSource, /inviteHeadingRef\.current\?\.focus\(\)/, "opening moves focus to the heading");
+assert.match(inviteSource, /<dialog/);
+assert.match(
+  inviteSource,
+  /inviteHeadingRef\.current\?\.focus\(\)/,
+  "opening moves focus to the heading",
+);
 assert.match(inviteSource, /inviteInvokerRef/, "the invoking Copy invite button is tracked by ref");
-assert.match(inviteSource, /ref=\{inviteInvokerRef\}/, "the ref is attached to the Copy invite control");
+assert.match(
+  inviteSource,
+  /ref=\{inviteInvokerRef\}/,
+  "the ref is attached to the Copy invite control",
+);
 assert.match(
   inviteSource,
   /inviteInvokerRef\.current\?\.focus\(\)/,
@@ -379,8 +428,8 @@ for (const dialog of ["phase1-wire", "phase1-kerni-dialogue", "phase1-invite"]) 
 }
 assert.equal(
   occurrences(overlaySource, 'aria-modal="true"'),
-  occurrences(overlaySource, 'role="dialog"'),
-  "every modal panel declares both dialog semantics",
+  occurrences(overlaySource, "<dialog"),
+  "every modal panel uses native dialog semantics",
 );
 assert.equal(
   occurrences(overlaySource, 'document.addEventListener("keydown"'),
@@ -448,7 +497,11 @@ const sample = (state: ReturnType<typeof createAttentivePresenceState>, deltaMs:
 
 let presence = createAttentivePresenceState();
 // Just below the threshold never accepts.
-for (let elapsed = 0; elapsed + ATTENTIVE_FRAME_MAX_MS <= ATTENTIVE_PRESENCE_THRESHOLD_MS - ATTENTIVE_FRAME_MAX_MS; elapsed += ATTENTIVE_FRAME_MAX_MS) {
+for (
+  let elapsed = 0;
+  elapsed + ATTENTIVE_FRAME_MAX_MS <= ATTENTIVE_PRESENCE_THRESHOLD_MS - ATTENTIVE_FRAME_MAX_MS;
+  elapsed += ATTENTIVE_FRAME_MAX_MS
+) {
   presence = sample(presence, ATTENTIVE_FRAME_MAX_MS);
 }
 assert.equal(presence.presenceAccepted, false, "just below the threshold is not accepted presence");
@@ -457,7 +510,11 @@ assert.ok(justBelow < ATTENTIVE_PRESENCE_THRESHOLD_MS);
 
 // Reopening the Wire pauses accumulation and never decrements accepted time.
 const paused = reduceAttentivePresence(presence, { type: "feed_changed", feed: "reopened" });
-assert.equal(sample(paused, ATTENTIVE_FRAME_MAX_MS).accumulatedMs, justBelow, "a reopened feed pauses");
+assert.equal(
+  sample(paused, ATTENTIVE_FRAME_MAX_MS).accumulatedMs,
+  justBelow,
+  "a reopened feed pauses",
+);
 const resumed = reduceAttentivePresence(paused, { type: "feed_changed", feed: "away" });
 assert.equal(resumed.accumulatedMs, justBelow, "pausing never decrements accepted attention");
 
@@ -477,10 +534,18 @@ assert.equal(
 let accepted = resumed;
 while (!accepted.presenceAccepted) accepted = sample(accepted, ATTENTIVE_FRAME_MAX_MS);
 assert.equal(accepted.presenceAccepted, true);
-const afterInterruption = reduceAttentivePresence(accepted, { type: "feed_changed", feed: "foreground" });
-assert.equal(afterInterruption.presenceAccepted, true, "accepted presence is monotonic across interruption");
+const afterInterruption = reduceAttentivePresence(accepted, {
+  type: "feed_changed",
+  feed: "foreground",
+});
 assert.equal(
-  reduceAttentivePresence(afterInterruption, { type: "feed_changed", feed: "reopened" }).presenceAccepted,
+  afterInterruption.presenceAccepted,
+  true,
+  "accepted presence is monotonic across interruption",
+);
+assert.equal(
+  reduceAttentivePresence(afterInterruption, { type: "feed_changed", feed: "reopened" })
+    .presenceAccepted,
   true,
 );
 
@@ -629,14 +694,10 @@ const DECISION_COVERAGE: Readonly<Record<string, () => void>> = {
     );
   },
   "D-11": () => {
-    assert.equal(
-      occurrences(
-        overlaySource,
-        "Welcome. No rush — the Palace gets better when people leave something useful behind. Start with",
-      ),
-      1,
-      "Kerni speaks exactly one line",
+    const kerniLineMatches = overlaySource.match(
+      /Welcome\. No rush — the Palace gets better when people leave something useful behind\. Start\s+with one small thing\./g,
     );
+    assert.equal(kerniLineMatches?.length ?? 0, 1, "Kerni speaks exactly one line");
   },
   "D-12": () => {
     assert.match(overlaySource, /KERNI · WORLD AGENT · SUGGESTION ONLY/);
@@ -646,7 +707,11 @@ const DECISION_COVERAGE: Readonly<Record<string, () => void>> = {
       type: "kerni_orientation_acknowledged",
       origin: "player",
     });
-    assert.equal(acknowledged.memoryFragment, null, "Kerni cannot authorize without the player interaction");
+    assert.equal(
+      acknowledged.memoryFragment,
+      null,
+      "Kerni cannot authorize without the player interaction",
+    );
     assert.equal(relayAssemblyEligible(createRelayHandoffState()), false);
   },
   "D-14": () => {
@@ -727,8 +792,15 @@ const DECISION_COVERAGE: Readonly<Record<string, () => void>> = {
   },
 };
 
-const declaredDecisions = Array.from({ length: 26 }, (_, index) => `D-${String(index + 1).padStart(2, "0")}`);
-assert.deepEqual(Object.keys(DECISION_COVERAGE), declaredDecisions, "every locked decision needs coverage");
+const declaredDecisions = Array.from(
+  { length: 26 },
+  (_, index) => `D-${String(index + 1).padStart(2, "0")}`,
+);
+assert.deepEqual(
+  Object.keys(DECISION_COVERAGE),
+  declaredDecisions,
+  "every locked decision needs coverage",
+);
 for (const decision of declaredDecisions) {
   try {
     DECISION_COVERAGE[decision]?.();

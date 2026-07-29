@@ -15,9 +15,7 @@
     "world proxies",
     "walkability"
   ],
-  "cross_refs": [
-    "docs/STREET-LEVEL-PLAN.md"
-  ],
+  "cross_refs": ["docs/STREET-LEVEL-PLAN.md"],
   "locked": false,
   "precedence": 50,
   "notes": ""

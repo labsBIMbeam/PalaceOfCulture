@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Phase1InviteState } from "../meaningverse/model";
+import { FICTIONAL_WIRE_CARDS } from "../meaningverse/onboardingStory";
 import type {
   AttentivePresenceState,
   Phase1RelayState,
   RelayHandoffState,
 } from "../meaningverse/phase1Relay";
 import { RELAY_PART_ORDER, RELAY_SOCKET_ID } from "../meaningverse/phase1Relay";
-import { FICTIONAL_WIRE_CARDS } from "../meaningverse/onboardingStory";
 
 type Phase1RelayOverlayProps = {
   state: Phase1RelayState;
@@ -52,7 +52,7 @@ type FictionalWireProps = {
 };
 
 function FictionalWire({ open, onDismiss, onReopen }: FictionalWireProps) {
-  const panelRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const reopenRef = useRef<HTMLButtonElement>(null);
 
@@ -101,13 +101,13 @@ function FictionalWire({ open, onDismiss, onReopen }: FictionalWireProps) {
         Wire
       </button>
       {open ? (
-        <section
+        <dialog
           aria-labelledby="phase1-wire-heading"
           aria-modal="true"
           className="phase1-wire"
           data-phase1-wire="open"
+          open
           ref={panelRef}
-          role="dialog"
         >
           <header className="phase1-wire__head">
             <div>
@@ -134,7 +134,7 @@ function FictionalWire({ open, onDismiss, onReopen }: FictionalWireProps) {
             </button>
             <span className="visually-hidden">Press Escape to put away the Wire.</span>
           </footer>
-        </section>
+        </dialog>
       ) : null}
     </>
   );
@@ -153,15 +153,15 @@ function KerniDialogue({
   onAcknowledge: () => void;
   onClose: () => void;
 }) {
-  const closeAndReturnFocus = () => {
+  const closeAndReturnFocus = useCallback(() => {
     onClose();
     window.setTimeout(() => {
       document
         .querySelector<HTMLElement>("[data-kerni-interaction], [data-phase1-safe-control]")
         ?.focus();
     }, 0);
-  };
-  const panelRef = useRef<HTMLElement>(null);
+  }, [onClose]);
+  const panelRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -191,17 +191,17 @@ function KerniDialogue({
     };
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [onClose, open]);
+  }, [closeAndReturnFocus, open]);
 
   if (!open || !orientationInteractionAccepted) return null;
   return (
-    <section
+    <dialog
       aria-label="Kerni dialogue"
       aria-modal="true"
       className="phase1-kerni-dialogue"
       data-kerni-dialogue="open"
+      open
       ref={panelRef}
-      role="dialog"
     >
       <p className="phase1-kerni-dialogue__label">KERNI · WORLD AGENT · SUGGESTION ONLY</p>
       <span className="visually-hidden">Listen to Kerni</span>
@@ -209,8 +209,8 @@ function KerniDialogue({
         Suggestion only
       </h2>
       <p className="phase1-kerni-dialogue__line">
-        Welcome. No rush — the Palace gets better when people leave something useful behind. Start with
-        one small thing.
+        Welcome. No rush — the Palace gets better when people leave something useful behind. Start
+        with one small thing.
       </p>
       <div className="phase1-kerni-dialogue__actions">
         {!acknowledged ? (
@@ -222,7 +222,7 @@ function KerniDialogue({
           Close Kerni dialogue
         </button>
       </div>
-    </section>
+    </dialog>
   );
 }
 
@@ -267,7 +267,7 @@ export function Phase1RelayOverlay({
   onToggleReducedEffects = () => {},
 }: Phase1RelayOverlayProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
-  const invitePanelRef = useRef<HTMLElement>(null);
+  const invitePanelRef = useRef<HTMLDialogElement>(null);
   const inviteHeadingRef = useRef<HTMLHeadingElement>(null);
   const inviteInvokerRef = useRef<HTMLButtonElement>(null);
 
@@ -316,12 +316,23 @@ export function Phase1RelayOverlay({
           ? "The relay did not secure. Try the socket again."
           : "Relay closed.";
   const placement = state.placement ?? {
-    status: state.status === "pending" ? "pending" : state.status === "accepted" ? "accepted" : state.status === "failed" ? "failed" : "idle",
+    status:
+      state.status === "pending"
+        ? "pending"
+        : state.status === "accepted"
+          ? "accepted"
+          : state.status === "failed"
+            ? "failed"
+            : "idle",
     socketId: null,
     attemptId: null,
     acceptedSocketId: null,
   };
-  const assembly = state.assembly ?? { status: "parts_0" as const, seatedParts: [], carriedPart: null };
+  const assembly = state.assembly ?? {
+    status: "parts_0" as const,
+    seatedParts: [],
+    carriedPart: null,
+  };
   const placementCopy =
     placement.status === "valid"
       ? "VALID"
@@ -342,6 +353,7 @@ export function Phase1RelayOverlay({
         data-relay-socket="werkstattgasse:z1:relay:1"
         data-relay-status={state.status}
       >
+        {/* biome-ignore lint/a11y/useSemanticElements: This block is a polite application status, not form output. */}
         <div aria-live="polite" role="status">
           {state.status === "accepted" ? <span aria-hidden="true">◯ </span> : null}
           <span>{status}</span>
@@ -376,20 +388,20 @@ export function Phase1RelayOverlay({
         </section>
       ) : null}
       {inviteOpen ? (
-        <section
+        <dialog
           aria-labelledby="phase1-invite-heading"
           aria-modal="true"
           className="phase1-invite"
           data-phase1-invite="consent"
+          open
           ref={invitePanelRef}
-          role="dialog"
         >
           <h2 id="phase1-invite-heading" ref={inviteHeadingRef} tabIndex={-1}>
             Share this relay invite?
           </h2>
           <p>
-            The activation capability is signed for this relay only. It is never published, and showing
-            or copying it does not prove that anyone received it.
+            The activation capability is signed for this relay only. It is never published, and
+            showing or copying it does not prove that anyone received it.
           </p>
           <p data-phase1-invite-action="activate-relay-invite">activate-relay-invite</p>
           {activationInviteUrl ? (
@@ -398,6 +410,7 @@ export function Phase1RelayOverlay({
               <textarea aria-label="Selectable relay invite" readOnly value={activationInviteUrl} />
             </label>
           ) : null}
+          {/* biome-ignore lint/a11y/useSemanticElements: Invite state is a polite application status, not form output. */}
           <p aria-live="polite" role="status">
             {inviteState === "copied"
               ? "Invite copied"
@@ -423,12 +436,15 @@ export function Phase1RelayOverlay({
             Close invite
           </button>
           <span className="visually-hidden">Press Escape to close the invite.</span>
-        </section>
+        </dialog>
       ) : null}
-      {state.status === "accepted" && state.activation?.source === "verified-invite-capability" && !state.acceptedWitness ? (
+      {state.status === "accepted" &&
+      state.activation?.source === "verified-invite-capability" &&
+      !state.acceptedWitness ? (
         <section aria-label="Signed light pulse" data-phase1-witness="consent">
           <h2>SIGNED LIGHT PULSE</h2>
           <p>Send one light pulse? Your signer approves one dependency-bound witness event.</p>
+          {/* biome-ignore lint/a11y/useSemanticElements: Signing state is a polite application status, not form output. */}
           <p aria-live="polite" role="status">
             {witnessState === "waiting"
               ? "Waiting for relay-backed confirmation…"
@@ -439,15 +455,22 @@ export function Phase1RelayOverlay({
                   : "Nothing is sent until you approve a signature."}
           </p>
           {witnessState === "signer_pending" || witnessState === "waiting" ? (
-            <button onClick={onWitnessCancel} type="button">Cancel signing</button>
+            <button onClick={onWitnessCancel} type="button">
+              Cancel signing
+            </button>
           ) : (
-            <button onClick={onWitnessConsent} type="button">Sign pulse</button>
+            <button onClick={onWitnessConsent} type="button">
+              Sign pulse
+            </button>
           )}
-          <button onClick={onWitnessCancel} type="button">Not now</button>
+          <button onClick={onWitnessCancel} type="button">
+            Not now
+          </button>
         </section>
       ) : null}
       {state.acceptedWitness ? (
         <section aria-label="Signed pulse status" data-phase1-witness="accepted">
+          {/* biome-ignore lint/a11y/useSemanticElements: Witness acceptance is a polite application status, not form output. */}
           <p aria-live="polite" role="status">
             <span aria-hidden="true">↯ </span>
             <span>Pulse accepted</span>
@@ -463,7 +486,11 @@ export function Phase1RelayOverlay({
       {state.status === "accepted" && state.acceptedWitness && !state.acceptedLens ? (
         <section aria-label="Signal lens" data-phase1-lens="consent">
           <h2>ATTACH SIGNAL LENS</h2>
-          <p>Attach one bounded lens to the accepted witness. Nothing changes until relay confirmation.</p>
+          <p>
+            Attach one bounded lens to the accepted witness. Nothing changes until relay
+            confirmation.
+          </p>
+          {/* biome-ignore lint/a11y/useSemanticElements: Lens state is a polite application status, not form output. */}
           <p aria-live="polite" role="status">
             {lensState === "waiting"
               ? "Waiting for relay-backed confirmation…"
@@ -474,19 +501,32 @@ export function Phase1RelayOverlay({
                   : "Nothing is sent until you approve a signature."}
           </p>
           {lensState === "signer_pending" || lensState === "waiting" ? (
-            <button onClick={onLensCancel} type="button">Cancel signing</button>
+            <button onClick={onLensCancel} type="button">
+              Cancel signing
+            </button>
           ) : (
-            <button onClick={onLensConsent} type="button">Sign lens</button>
+            <button onClick={onLensConsent} type="button">
+              Sign lens
+            </button>
           )}
-          <button onClick={onLensCancel} type="button">Not now</button>
+          <button onClick={onLensCancel} type="button">
+            Not now
+          </button>
         </section>
       ) : null}
       {state.acceptedLens ? (
         <section aria-label="Accepted signal lens" data-phase1-lens="accepted">
-          <p aria-live="polite" role="status"><span aria-hidden="true">◉ </span>Lens added.</p>
+          {/* biome-ignore lint/a11y/useSemanticElements: Lens acceptance is a polite application status, not form output. */}
+          <p aria-live="polite" role="status">
+            <span aria-hidden="true">◉ </span>Lens added.
+          </p>
           <h2>RELAY · BUILT BY</h2>
-          <p className="phase1-attribution" data-attribution-kind="creator">Creator: {state.activation?.creatorPubkey ?? "unknown"}</p>
-          <p className="phase1-attribution" data-attribution-kind="signal-lens">SIGNAL LENS · ADDED BY: {state.acceptedLens.pubkey}</p>
+          <p className="phase1-attribution" data-attribution-kind="creator">
+            Creator: {state.activation?.creatorPubkey ?? "unknown"}
+          </p>
+          <p className="phase1-attribution" data-attribution-kind="signal-lens">
+            SIGNAL LENS · ADDED BY: {state.acceptedLens.pubkey}
+          </p>
           <p className="phase1-attribution">Witness event: {state.acceptedLens.witnessEventId}</p>
         </section>
       ) : null}
@@ -495,42 +535,59 @@ export function Phase1RelayOverlay({
         <ul>
           {RELAY_PART_ORDER.map((part) => (
             <li data-relay-part={part} key={part}>
-              {part}: {assembly.seatedParts.includes(part) ? "seated" : assembly.carriedPart === part ? "carried" : "ready"}
+              {part}:{" "}
+              {assembly.seatedParts.includes(part)
+                ? "seated"
+                : assembly.carriedPart === part
+                  ? "carried"
+                  : "ready"}
             </li>
           ))}
         </ul>
         {nextPart && assembly.carriedPart === null ? (
-          <button onClick={() => onPickupPart(nextPart)} type="button">Pick up {nextPart}</button>
+          <button onClick={() => onPickupPart(nextPart)} type="button">
+            Pick up {nextPart}
+          </button>
         ) : null}
         {nextPart && assembly.carriedPart === nextPart ? (
-          <button onClick={() => onSeatPart(nextPart)} type="button">Seat {nextPart}</button>
+          <button onClick={() => onSeatPart(nextPart)} type="button">
+            Seat {nextPart}
+          </button>
         ) : null}
         {assembly.carriedPart === "completed-relay" ? (
-          <button onClick={onPreviewPlacement} type="button">Preview fixed Z1 socket</button>
+          <button onClick={onPreviewPlacement} type="button">
+            Preview fixed Z1 socket
+          </button>
         ) : null}
+        {/* biome-ignore lint/a11y/useSemanticElements: Placement state is a polite application status, not form output. */}
         <div aria-live="polite" data-placement-state={placement.status} role="status">
           {placementCopy}
         </div>
         {placement.status === "valid" ? (
-          <button onClick={onPlaceRelay} type="button">E · Place relay</button>
+          <button onClick={onPlaceRelay} type="button">
+            E · Place relay
+          </button>
         ) : null}
         {placement.status === "failed" ? (
           <>
-            <button onClick={onRetryPlacement} type="button">Try again</button>
-            <button onClick={onKeepHolding} type="button">Keep holding</button>
+            <button onClick={onRetryPlacement} type="button">
+              Try again
+            </button>
+            <button onClick={onKeepHolding} type="button">
+              Keep holding
+            </button>
           </>
         ) : null}
       </section>
       {attentivePresence?.presenceAccepted ? (
-        <div
+        <output
           aria-live="polite"
           className="phase1-presence-status"
           data-presence-state="accepted"
-          role="status"
         >
           <span aria-hidden="true">◉ </span>
           <span>[The workbench is easier to notice now.]</span>
-        </div>
+        </output>
       ) : null}
       {kerniInRange && !handoffState.memoryFragment && !kerniDialogueOpen ? (
         <div className="phase1-kerni-proximity" data-kerni-proximity="2.6m">
@@ -563,11 +620,7 @@ export function Phase1RelayOverlay({
         open={kerniDialogueOpen}
         orientationInteractionAccepted={handoffState.orientationInteractionAccepted}
       />
-      <FictionalWire
-        onDismiss={onWireDismiss}
-        onReopen={onWireReopen}
-        open={wireOpen}
-      />
+      <FictionalWire onDismiss={onWireDismiss} onReopen={onWireReopen} open={wireOpen} />
     </>
   );
 }

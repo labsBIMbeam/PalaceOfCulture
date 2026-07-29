@@ -14,12 +14,7 @@
     "Fountain",
     "Lightning"
   ],
-  "cross_refs": [
-    "DESIGN-BRIEF",
-    "ADR 0002",
-    "BUILD-BRIEF",
-    "ADR 0003"
-  ],
+  "cross_refs": ["DESIGN-BRIEF", "ADR 0002", "BUILD-BRIEF", "ADR 0003"],
   "locked": true,
   "precedence": null,
   "notes": ""

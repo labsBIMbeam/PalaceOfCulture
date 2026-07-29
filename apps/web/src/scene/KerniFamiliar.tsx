@@ -64,7 +64,8 @@ export function KerniFamiliar({
     const started = reactionStartedAt.current;
     const reactionWindow = reducedEffects ? 1.2 : 0.6;
     const reactionElapsed = started === null ? Number.POSITIVE_INFINITY : t - started;
-    const reactionActive = acceptedPlacement && reactionElapsed >= 0 && reactionElapsed < reactionWindow;
+    const reactionActive =
+      acceptedPlacement && reactionElapsed >= 0 && reactionElapsed < reactionWindow;
     g.position.y = HOVER_Y + Math.sin(t * 0.9) * 0.08;
     g.rotation.x = reactionActive && !reducedEffects ? Math.PI / 18 : 0;
     g.rotation.y = rotationY + Math.sin(t * 0.23) * 0.35;
@@ -73,7 +74,9 @@ export function KerniFamiliar({
       lensLight.current.intensity = (presenceAccepted ? 1.05 : 0.9) + (reactionActive ? 0.35 : 0);
     }
     if (ring.current) {
-      ring.current.scale.setScalar(reactionActive ? 1 + Math.min(reactionElapsed / 0.6, 1) * 0.15 : 1);
+      ring.current.scale.setScalar(
+        reactionActive ? 1 + Math.min(reactionElapsed / 0.6, 1) * 0.15 : 1,
+      );
       ring.current.visible = acceptedPlacement;
     }
   });

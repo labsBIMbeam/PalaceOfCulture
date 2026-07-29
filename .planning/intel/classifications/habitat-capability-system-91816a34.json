@@ -14,9 +14,7 @@
     "Street Ledger",
     "habitat state"
   ],
-  "cross_refs": [
-    "private-world-builder-loop.md"
-  ],
+  "cross_refs": ["private-world-builder-loop.md"],
   "locked": false,
   "precedence": 0,
   "notes": ""

@@ -13,9 +13,7 @@
     "inhabitants",
     "town visits"
   ],
-  "cross_refs": [
-    "HOMEBUILDER-GAMEPLAY.md"
-  ],
+  "cross_refs": ["HOMEBUILDER-GAMEPLAY.md"],
   "locked": false,
   "precedence": null,
   "notes": ""

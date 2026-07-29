@@ -1,17 +1,24 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { finalizeEvent, getPublicKey } from "nostr-tools";
 import {
+  type Phase1InviteState,
   buildMeaningverseInvite,
   createPhase1InviteAttempt,
   decodePhase1ActivationCapability,
   encodePhase1ActivationCapability,
   isPhase1SignerCapability,
-  type Phase1InviteState,
 } from "../src/meaningverse/model";
-import { finalizeEvent, getPublicKey } from "nostr-tools";
+import {
+  PHASE1_RELAY_ID,
+  createPhase1RelayState,
+  importVerifiedActivationCapability,
+  reducePhase1Relay,
+} from "../src/meaningverse/phase1Relay";
 import {
   PHASE1_EVENT_KIND,
   PHASE1_MAX_EVENT_BYTES,
+  Phase1RelayEvidenceGuard,
   createPhase1ActivationTemplate,
   createPhase1Filter,
   createPhase1LensTemplate,
@@ -20,14 +27,7 @@ import {
   reducePhase1Evidence,
   verifyAndAuthorizePhase1Event,
   verifyPhase1ActivationCapability,
-  Phase1RelayEvidenceGuard,
 } from "../src/net/phase1RelayTransport";
-import {
-  PHASE1_RELAY_ID,
-  createPhase1RelayState,
-  importVerifiedActivationCapability,
-  reducePhase1Relay,
-} from "../src/meaningverse/phase1Relay";
 
 const phase1State = createPhase1RelayState({
   memoryFragment: { source: "kerni-orientation", meaning: "leave-one-small-useful-thing" },
@@ -130,12 +130,18 @@ assert.deepEqual(
   JSON.parse(JSON.stringify(activationEvent)),
 );
 assert.equal(decodePhase1ActivationCapability(`${encodedActivation}!`), null);
-assert.equal(encodePhase1ActivationCapability({ oversized: "x".repeat(PHASE1_MAX_EVENT_BYTES) }), null);
+assert.equal(
+  encodePhase1ActivationCapability({ oversized: "x".repeat(PHASE1_MAX_EVENT_BYTES) }),
+  null,
+);
 const activation = verifyPhase1ActivationCapability(activationEvent, now);
 if (!activation) throw new Error("activation verification failed");
 assert.equal(activation.activationId, activationEvent.id);
 assert.equal(activation.creatorPubkey, creatorPubkey);
-assert.equal(verifyPhase1ActivationCapability({ ...activationEvent, content: "published" }, now), null);
+assert.equal(
+  verifyPhase1ActivationCapability({ ...activationEvent, content: "published" }, now),
+  null,
+);
 assert.equal(verifyPhase1ActivationCapability(activationEvent, now + 901), null);
 assert.equal(verifyPhase1ActivationCapability(activationEvent, now - 61), null);
 
@@ -147,6 +153,17 @@ const signedState = reducePhase1Relay(routeOnly, {
   origin: "verified-invite-capability",
 });
 assert.equal(signedState.activation?.source, "verified-invite-capability");
+assert.equal(
+  reducePhase1Relay(signedState, {
+    type: "activation_imported",
+    activationId: activation.activationId,
+    creatorPubkey: activation.creatorPubkey,
+    createdAt: activation.createdAt,
+    origin: "verified-invite-capability",
+  }),
+  signedState,
+  "re-importing the same verified capability preserves state identity",
+);
 const localSignedState = reducePhase1Relay(assembled, {
   type: "activation_signed",
   activationId: activation.activationId,
@@ -172,7 +189,10 @@ const witnessEvidence = verifyAndAuthorizePhase1Event(witnessEvent, {
   guard: witnessGuard,
 });
 assert.equal(witnessEvidence?.action, "touch-relay-witness");
-assert.equal(verifyAndAuthorizePhase1Event(witnessEvent, { state: signedState, now, guard: witnessGuard }), null);
+assert.equal(
+  verifyAndAuthorizePhase1Event(witnessEvent, { state: signedState, now, guard: witnessGuard }),
+  null,
+);
 if (!witnessEvidence) throw new Error("witness verification failed");
 const witnessAcceptedState = reducePhase1Evidence(signedState, witnessEvidence);
 assert.equal(witnessAcceptedState.acceptedWitness?.eventId, witnessEvent.id);
@@ -231,14 +251,26 @@ assert.deepEqual(createPhase1Filter(activationEvent.id, activationEvent.created_
 });
 assert.ok(PHASE1_MAX_EVENT_BYTES >= 4096);
 assert.equal(parsePhase1RelayEvent({ ...activationEvent, extra: true }), null);
-assert.equal(parsePhase1RelayEvent({ ...activationEvent, tags: activationEvent.tags.slice().reverse() }), null);
+assert.equal(
+  parsePhase1RelayEvent({ ...activationEvent, tags: activationEvent.tags.slice().reverse() }),
+  null,
+);
 assert.equal(parsePhase1RelayEvent(JSON.stringify({ ...activationEvent, content: "x" })), null);
 
 const modelSource = readFileSync(new URL("../src/meaningverse/model.ts", import.meta.url), "utf8");
-const relaySource = readFileSync(new URL("../src/meaningverse/phase1Relay.ts", import.meta.url), "utf8");
-const overlaySource = readFileSync(new URL("../src/ui/Phase1RelayOverlay.tsx", import.meta.url), "utf8");
+const relaySource = readFileSync(
+  new URL("../src/meaningverse/phase1Relay.ts", import.meta.url),
+  "utf8",
+);
+const overlaySource = readFileSync(
+  new URL("../src/ui/Phase1RelayOverlay.tsx", import.meta.url),
+  "utf8",
+);
 const sceneSource = readFileSync(new URL("../src/scene/PalaceScene.tsx", import.meta.url), "utf8");
-const transportSource = readFileSync(new URL("../src/net/phase1RelayTransport.ts", import.meta.url), "utf8");
+const transportSource = readFileSync(
+  new URL("../src/net/phase1RelayTransport.ts", import.meta.url),
+  "utf8",
+);
 assert.doesNotMatch(modelSource, /dangerouslySetInnerHTML/);
 assert.doesNotMatch(overlaySource, /dangerouslySetInnerHTML/);
 assert.match(overlaySource, /Copy invite/);
@@ -251,7 +283,10 @@ assert.match(sceneSource, /createPhase1RelaySubscription/);
 assert.match(sceneSource, /beginEvidenceAttempt/);
 assert.match(overlaySource, /SIGNED LIGHT PULSE/);
 assert.match(overlaySource, /ATTACH SIGNAL LENS/);
-assert.match(transportSource, /event\.publish\(undefined, 3000, 1, \{ skipContentTagging: true \}\)/);
+assert.match(
+  transportSource,
+  /event\.publish\(undefined, 3000, 1, \{ skipContentTagging: true \}\)/,
+);
 assert.match(transportSource, /onEose: \(\) => \{\}/);
 assert.doesNotMatch(sceneSource, /from ["'](?:nostr-tools|@nostr-dev-kit\/ndk)/);
 

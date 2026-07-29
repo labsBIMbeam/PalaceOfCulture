@@ -23,19 +23,23 @@ import {
 } from "react";
 import * as THREE from "three";
 import { type BrushSize, homeBuild } from "../builder/buildState";
-import {
-  buildMeaningverseInvite,
-  decodePhase1ActivationCapability,
-  encodePhase1ActivationCapability,
-  isPhase1SignerCapability,
-  type Phase1InviteState,
-} from "../meaningverse/model";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import {
+  type Phase1InviteState,
+  buildMeaningverseInvite,
+  decodePhase1ActivationCapability,
+  encodePhase1ActivationCapability,
+  isPhase1SignerCapability,
+} from "../meaningverse/model";
+import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
+import {
+  type AttentivePresenceState,
   PHASE1_SIGNED_PULSE_MS,
+  type Phase1AcceptedDelta,
+  type RelayHandoffState,
   advancePhase1PulsePresentation,
   createAttentivePresenceState,
   createPhase1AuthorizedEvidenceAction,
@@ -45,11 +49,7 @@ import {
   reduceAttentivePresence,
   reducePhase1Relay,
   reduceRelayHandoff,
-  type AttentivePresenceState,
-  type Phase1AcceptedDelta,
-  type RelayHandoffState,
 } from "../meaningverse/phase1Relay";
-import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
 import {
   type MultiplayerViewState,
   OFFLINE_MULTIPLAYER_STATE,
@@ -59,17 +59,17 @@ import {
   horizontalYawFromQuaternion,
 } from "../net/multiplayer";
 import {
-  createPhase1RelayLifecycleGate,
+  type Phase1RelayTransport,
   createPhase1ActivationTemplate,
   createPhase1LensTemplate,
-  createPhase1RelaySubscription,
   createPhase1LiveEvidenceGate,
+  createPhase1RelayLifecycleGate,
+  createPhase1RelaySubscription,
   createPhase1WitnessTemplate,
   isPhase1Nip07Available,
   publishPhase1Event,
   signPhase1Event,
   verifyPhase1ActivationCapability,
-  type Phase1RelayTransport,
 } from "../net/phase1RelayTransport";
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
@@ -725,7 +725,11 @@ function SignedPulseEffect({
     <Html center position={[-27.5, 1.5, 91.8]}>
       <div
         aria-hidden="true"
-        className={reducedEffects ? "phase1-signed-pulse-path phase1-signed-pulse-path--static" : "phase1-signed-pulse-path"}
+        className={
+          reducedEffects
+            ? "phase1-signed-pulse-path phase1-signed-pulse-path--static"
+            : "phase1-signed-pulse-path"
+        }
         data-phase1-pulse="accepted-witness"
       >
         <span>↯</span>
@@ -822,10 +826,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     () => createPhase1RelayLifecycleGate(phase1RelayTransport),
     [phase1RelayTransport],
   );
-  useEffect(
-    () => () => phase1RelayLifecycle.dispose(),
-    [phase1RelayLifecycle],
-  );
+  useEffect(() => () => phase1RelayLifecycle.dispose(), [phase1RelayLifecycle]);
   useEffect(() => {
     phase1RelayLifecycle.apply(phase1RelayState);
   }, [phase1RelayLifecycle, phase1RelayState]);
@@ -849,7 +850,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     dispatchPhase1Relay({ type: "seat_part", part, cradleId: part, origin: "player-physical" });
   };
   const previewRelayPlacement = () => {
-    dispatchPhase1Relay({ type: "preview_placement", socketId: "z1-relay-socket", origin: "player-physical" });
+    dispatchPhase1Relay({
+      type: "preview_placement",
+      socketId: "z1-relay-socket",
+      origin: "player-physical",
+    });
   };
   const placeRelay = () => {
     dispatchPhase1Relay({
@@ -862,8 +867,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const retryRelayPlacement = () => {
     if (phase1RelayState.placement.status === "failed") placeRelay();
   };
+  const phase1Activation = phase1RelayState.activation;
   useEffect(() => {
-    const activation = phase1RelayState.activation;
+    const activation = phase1Activation;
     if (!activation) return;
     const liveGate = createPhase1LiveEvidenceGate(
       () => phase1RelayStateRef.current,
@@ -881,7 +887,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     // Opening the activation-scoped receive path starts a new observation epoch.
     setRelayReceiveEpoch((epoch) => epoch + 1);
     return () => subscription.stop();
-  }, [phase1RelayState.activation?.activationId, phase1RelayState.activation?.createdAt]);
+  }, [phase1Activation]);
   const beginEvidenceAttempt = async (kind: "witness" | "lens") => {
     const state = phase1RelayStateRef.current;
     const activation = state.activation;
@@ -890,7 +896,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     const tokenRef = isWitness ? witnessAttemptTokenRef : lensAttemptTokenRef;
     if (
       !activation ||
-      (isWitness && (activation.source !== "verified-invite-capability" || state.acceptedWitness)) ||
+      (isWitness &&
+        (activation.source !== "verified-invite-capability" || state.acceptedWitness)) ||
       (!isWitness && (!state.acceptedWitness || state.acceptedLens)) ||
       !isPhase1Nip07Available()
     ) {
@@ -907,7 +914,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       const template = isWitness
         ? createPhase1WitnessTemplate(state, pubkey)
         : createPhase1LensTemplate(state, pubkey);
-      const signed = await signPhase1Event(template, { isCurrent: () => tokenRef.current === token });
+      const signed = await signPhase1Event(template, {
+        isCurrent: () => tokenRef.current === token,
+      });
       if (!signed || tokenRef.current !== token) return;
       const published = await publishPhase1Event(signed);
       if (!published.acknowledged || tokenRef.current !== token) {
@@ -936,7 +945,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       !encoded ||
       url.hash ||
       keys.some((key) => key !== "join" && key !== "activation")
-    ) return;
+    )
+      return;
     const candidate = decodePhase1ActivationCapability(encoded);
     const activation = verifyPhase1ActivationCapability(candidate);
     if (!activation) return;

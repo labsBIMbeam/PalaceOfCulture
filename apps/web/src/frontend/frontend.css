@@ -5685,6 +5685,22 @@ input.compose-input::placeholder {
   cursor: pointer;
 }
 
+:where(dialog).phase1-wire,
+:where(dialog).phase1-kerni-dialogue,
+:where(dialog).phase1-invite {
+  position: static;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
 .phase1-wire {
   position: absolute;
   top: 88px;
@@ -5860,8 +5876,14 @@ input.compose-input::placeholder {
 }
 
 @keyframes phase1-signed-pulse {
-  0% { opacity: 0.72; filter: brightness(1.25); }
-  100% { opacity: 1; filter: none; }
+  0% {
+    opacity: 0.72;
+    filter: brightness(1.25);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+  }
 }
 
 .phase1-attribution {

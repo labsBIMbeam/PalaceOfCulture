@@ -5,11 +5,11 @@ import { fileURLToPath } from "node:url";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  type Phase1RelayAction,
   RELAY_PART_ORDER,
   RELAY_SOCKET_ID,
-  type Phase1RelayAction,
-  type RelayMemoryFragment,
   type RelayInspirationChoice,
+  type RelayMemoryFragment,
   createPhase1RelayState,
   reducePhase1Relay,
   relayAssemblyEligible,
@@ -22,7 +22,8 @@ const memory: RelayMemoryFragment = {
 };
 const inspiration: RelayInspirationChoice = { intent: "connect-with-others" };
 
-const ready = () => createPhase1RelayState({ memoryFragment: memory, inspirationChoice: inspiration });
+const ready = () =>
+  createPhase1RelayState({ memoryFragment: memory, inspirationChoice: inspiration });
 const physical = { origin: "player-physical" as const };
 
 let state = createPhase1RelayState();
@@ -40,7 +41,10 @@ assert.equal(
   memoryOnly,
   "memory alone cannot open physical assembly",
 );
-const inspirationOnly = createPhase1RelayState({ memoryFragment: null, inspirationChoice: inspiration });
+const inspirationOnly = createPhase1RelayState({
+  memoryFragment: null,
+  inspirationChoice: inspiration,
+});
 assert.equal(relayAssemblyEligible(inspirationOnly), false);
 assert.equal(
   reducePhase1Relay(inspirationOnly, { type: "pickup_part", part: "foot", ...physical }),
@@ -106,7 +110,12 @@ assert.deepEqual(state.assembly.seatedParts, ["foot", "coil"]);
 assert.equal(state.assembly.status, "parts_2");
 
 assert.deepEqual(
-  reducePhase1Relay(state, { type: "seat_part", part: "aperture", cradleId: "aperture", ...physical }),
+  reducePhase1Relay(state, {
+    type: "seat_part",
+    part: "aperture",
+    cradleId: "aperture",
+    ...physical,
+  }),
   state,
   "an uncarried part cannot be seated",
 );
@@ -262,7 +271,11 @@ for (const late of [
     ...physical,
   },
 ] as const) {
-  assert.deepEqual(reducePhase1Relay(acceptedA, late as never), acceptedA, "accepted winner is frozen");
+  assert.deepEqual(
+    reducePhase1Relay(acceptedA, late as never),
+    acceptedA,
+    "accepted winner is frozen",
+  );
 }
 
 const pendingForFailure = reducePhase1Relay(

@@ -15,10 +15,7 @@
     "asset validation",
     "Blossom"
   ],
-  "cross_refs": [
-    "HANDOFF.md",
-    "08-tools/600-billion-viewer.html"
-  ],
+  "cross_refs": ["HANDOFF.md", "08-tools/600-billion-viewer.html"],
   "locked": false,
   "precedence": null,
   "notes": ""

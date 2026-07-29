@@ -15,9 +15,7 @@
     "audit streams",
     "arcade adapter"
   ],
-  "cross_refs": [
-    "CITADEL-INTEGRATION.md"
-  ],
+  "cross_refs": ["CITADEL-INTEGRATION.md"],
   "locked": false,
   "precedence": null,
   "notes": ""

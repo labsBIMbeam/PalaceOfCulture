@@ -14,9 +14,7 @@
     "commissioning",
     "Tuesday demo"
   ],
-  "cross_refs": [
-    "enshrouded-building-learning-automation.md"
-  ],
+  "cross_refs": ["enshrouded-building-learning-automation.md"],
   "locked": false,
   "precedence": null,
   "notes": ""

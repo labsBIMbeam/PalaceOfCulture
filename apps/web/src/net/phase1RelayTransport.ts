@@ -1,20 +1,20 @@
 import {
   NDKEvent,
+  type NDKFilter,
   NDKNip07Signer,
   NDKPublishError,
-  type NDKFilter,
   type NDKRelay,
   type NDKSubscription,
 } from "@nostr-dev-kit/ndk";
-import { verifyEvent, type Event as NostrEvent, type EventTemplate } from "nostr-tools";
+import { type EventTemplate, type Event as NostrEvent, verifyEvent } from "nostr-tools";
 import {
   PHASE1_RELAY_ID,
-  acceptPhase1Lens,
-  acceptPhase1Witness,
   type Phase1ActivationCapability,
   type Phase1LensFact,
   type Phase1RelayState,
   type Phase1WitnessFact,
+  acceptPhase1Lens,
+  acceptPhase1Witness,
 } from "../meaningverse/phase1Relay";
 import { getNdk } from "./nostr";
 
@@ -30,10 +30,7 @@ export const PHASE1_RATE_PER_PUBKEY = 4;
 export const PHASE1_RATE_GLOBAL = 16;
 export const PHASE1_DEDUP_MAX = 64;
 
-export type Phase1Action =
-  | "activate-relay-invite"
-  | "touch-relay-witness"
-  | "attach-signal-lens";
+export type Phase1Action = "activate-relay-invite" | "touch-relay-witness" | "attach-signal-lens";
 
 export type Phase1EventTemplate = EventTemplate & { readonly kind: typeof PHASE1_EVENT_KIND };
 
@@ -206,7 +203,10 @@ function readBoundedUnknown(input: unknown): Record<string, unknown> | null {
 /** Structural parser. Signature verification is intentionally a separate later gate. */
 export function parsePhase1RelayEvent(input: unknown): Phase1ParsedEvent | null {
   const value = readBoundedUnknown(input);
-  if (!value || !exactKeys(value, ["id", "pubkey", "created_at", "kind", "tags", "content", "sig"])) {
+  if (
+    !value ||
+    !exactKeys(value, ["id", "pubkey", "created_at", "kind", "tags", "content", "sig"])
+  ) {
     return null;
   }
   if (
@@ -218,15 +218,24 @@ export function parsePhase1RelayEvent(input: unknown): Phase1ParsedEvent | null 
     value.kind !== PHASE1_EVENT_KIND ||
     value.content !== "" ||
     !Array.isArray(value.tags)
-  ) return null;
+  )
+    return null;
   const tags = value.tags as unknown[];
   if (tags.length < 4 || tags.length > 6) return null;
   const boundedTags: string[][] = [];
   for (const tag of tags) {
-    if (!Array.isArray(tag) || tag.length !== 2 || typeof tag[0] !== "string" || typeof tag[1] !== "string") {
+    if (
+      !Array.isArray(tag) ||
+      tag.length !== 2 ||
+      typeof tag[0] !== "string" ||
+      typeof tag[1] !== "string"
+    ) {
       return null;
     }
-    if (utf8Bytes(tag[0]) > PHASE1_MAX_TAG_KEY_BYTES || utf8Bytes(tag[1]) > PHASE1_MAX_TAG_VALUE_BYTES) {
+    if (
+      utf8Bytes(tag[0]) > PHASE1_MAX_TAG_KEY_BYTES ||
+      utf8Bytes(tag[1]) > PHASE1_MAX_TAG_VALUE_BYTES
+    ) {
       return null;
     }
     boundedTags.push([tag[0], tag[1]]);
@@ -245,13 +254,14 @@ export function parsePhase1RelayEvent(input: unknown): Phase1ParsedEvent | null 
   };
 }
 
-function verifyFreshEvent(
-  input: unknown,
-  now: number,
-  maxAge: number,
-): Phase1ParsedEvent | null {
+function verifyFreshEvent(input: unknown, now: number, maxAge: number): Phase1ParsedEvent | null {
   const parsed = parsePhase1RelayEvent(input);
-  if (!parsed || parsed.created_at < now - maxAge || parsed.created_at > now + PHASE1_FUTURE_SKEW_SECONDS) return null;
+  if (
+    !parsed ||
+    parsed.created_at < now - maxAge ||
+    parsed.created_at > now + PHASE1_FUTURE_SKEW_SECONDS
+  )
+    return null;
   return verifyEvent(parsed as NostrEvent) ? parsed : null;
 }
 
@@ -260,7 +270,8 @@ export function verifyPhase1ActivationCapability(
   now = Math.floor(Date.now() / 1000),
 ): Phase1ActivationCapability | null {
   const parsed = verifyFreshEvent(input, now, PHASE1_INVITE_MAX_AGE_SECONDS);
-  if (!parsed || parsed.action !== "activate-relay-invite" || parsed.tags[3]?.[1] !== parsed.pubkey) return null;
+  if (!parsed || parsed.action !== "activate-relay-invite" || parsed.tags[3]?.[1] !== parsed.pubkey)
+    return null;
   return {
     relayId: PHASE1_RELAY_ID,
     activationId: parsed.id,
@@ -282,7 +293,12 @@ export function createPhase1ActivationTemplate(
     kind: PHASE1_EVENT_KIND,
     created_at: createdAt,
     content: "",
-    tags: [["t", "palace-phase-1"], ["action", "activate-relay-invite"], ["relay", PHASE1_RELAY_ID], ["creator", creatorPubkey]],
+    tags: [
+      ["t", "palace-phase-1"],
+      ["action", "activate-relay-invite"],
+      ["relay", PHASE1_RELAY_ID],
+      ["creator", creatorPubkey],
+    ],
   };
 }
 
@@ -299,7 +315,13 @@ export function createPhase1WitnessTemplate(
     kind: PHASE1_EVENT_KIND,
     created_at: createdAt,
     content: "",
-    tags: [["t", "palace-phase-1"], ["action", "touch-relay-witness"], ["relay", PHASE1_RELAY_ID], ["e", activation.activationId], ["p", activation.creatorPubkey]],
+    tags: [
+      ["t", "palace-phase-1"],
+      ["action", "touch-relay-witness"],
+      ["relay", PHASE1_RELAY_ID],
+      ["e", activation.activationId],
+      ["p", activation.creatorPubkey],
+    ],
   };
 }
 
@@ -317,12 +339,27 @@ export function createPhase1LensTemplate(
     kind: PHASE1_EVENT_KIND,
     created_at: createdAt,
     content: "",
-    tags: [["t", "palace-phase-1"], ["action", "attach-signal-lens"], ["relay", PHASE1_RELAY_ID], ["e", activation.activationId], ["p", activation.creatorPubkey], ["w", witness.eventId]],
+    tags: [
+      ["t", "palace-phase-1"],
+      ["action", "attach-signal-lens"],
+      ["relay", PHASE1_RELAY_ID],
+      ["e", activation.activationId],
+      ["p", activation.creatorPubkey],
+      ["w", witness.eventId],
+    ],
   };
 }
 
-export function createPhase1Filter(activationId: string, activationCreatedAt: number): NDKFilter<number> {
-  return { kinds: [PHASE1_EVENT_KIND], "#e": [activationId], since: activationCreatedAt - 60, limit: 16 };
+export function createPhase1Filter(
+  activationId: string,
+  activationCreatedAt: number,
+): NDKFilter<number> {
+  return {
+    kinds: [PHASE1_EVENT_KIND],
+    "#e": [activationId],
+    since: activationCreatedAt - 60,
+    limit: 16,
+  };
 }
 
 export class Phase1RelayEvidenceGuard {
@@ -331,7 +368,8 @@ export class Phase1RelayEvidenceGuard {
 
   canAccept(event: Phase1ParsedEvent, now: number): boolean {
     if (this.seen.has(event.id) || this.seen.size >= PHASE1_DEDUP_MAX) return false;
-    while (this.attempts[0] && this.attempts[0].createdAt < now - PHASE1_RATE_WINDOW_SECONDS) this.attempts.shift();
+    while (this.attempts[0] && this.attempts[0].createdAt < now - PHASE1_RATE_WINDOW_SECONDS)
+      this.attempts.shift();
     const perPubkey = this.attempts.filter((attempt) => attempt.pubkey === event.pubkey).length;
     return perPubkey < PHASE1_RATE_PER_PUBKEY && this.attempts.length < PHASE1_RATE_GLOBAL;
   }
@@ -377,7 +415,8 @@ export function verifyAndAuthorizePhase1Event(
 ): Phase1Evidence | null {
   const now = context.now ?? Math.floor(Date.now() / 1000);
   const event = verifyFreshEvent(input, now, PHASE1_LIVE_MAX_AGE_SECONDS);
-  if (!event || event.action === "activate-relay-invite" || !bindingAllows(event, context.state)) return null;
+  if (!event || event.action === "activate-relay-invite" || !bindingAllows(event, context.state))
+    return null;
   const guard = context.guard ?? new Phase1RelayEvidenceGuard();
   if (!guard.canAccept(event, now)) return null;
   guard.record(event, now);
@@ -385,9 +424,16 @@ export function verifyAndAuthorizePhase1Event(
 }
 
 /** Convert one accepted evidence event into application-owned reducer truth. */
-export function reducePhase1Evidence(state: Phase1RelayState, event: Phase1Evidence): Phase1RelayState {
+export function reducePhase1Evidence(
+  state: Phase1RelayState,
+  event: Phase1Evidence,
+): Phase1RelayState {
   if (event.action === "touch-relay-witness") {
-    const evidence: Phase1WitnessFact = { eventId: event.id, pubkey: event.pubkey, createdAt: event.created_at };
+    const evidence: Phase1WitnessFact = {
+      eventId: event.id,
+      pubkey: event.pubkey,
+      createdAt: event.created_at,
+    };
     return acceptPhase1Witness(state, evidence, state.activation?.creatorPubkey ?? "");
   }
   if (event.action === "attach-signal-lens") {
@@ -460,7 +506,8 @@ export async function publishPhase1Event(signed: Phase1SignedEvent): Promise<Pha
     const relays = await event.publish(undefined, 3000, 1, { skipContentTagging: true });
     return { acknowledged: relays.size > 0, relayCount: relays.size };
   } catch (error) {
-    if (error instanceof NDKPublishError || error instanceof Error) return { acknowledged: false, relayCount: 0 };
+    if (error instanceof NDKPublishError || error instanceof Error)
+      return { acknowledged: false, relayCount: 0 };
     return { acknowledged: false, relayCount: 0 };
   }
 }

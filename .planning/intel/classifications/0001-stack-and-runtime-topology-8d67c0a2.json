@@ -14,12 +14,7 @@
     "Colyseus",
     "Yjs"
   ],
-  "cross_refs": [
-    "01-whitepaper",
-    "02-concept",
-    "05-build-dev/BUILD-BRIEF.md",
-    "CLAUDE.md"
-  ],
+  "cross_refs": ["01-whitepaper", "02-concept", "05-build-dev/BUILD-BRIEF.md", "CLAUDE.md"],
   "locked": true,
   "precedence": null,
   "notes": ""

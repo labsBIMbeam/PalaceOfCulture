@@ -15,9 +15,7 @@
     "private milestones",
     "MVP asset set"
   ],
-  "cross_refs": [
-    "docs/design/fertile-boredom-social-art-loop.md"
-  ],
+  "cross_refs": ["docs/design/fertile-boredom-social-art-loop.md"],
   "locked": false,
   "precedence": null,
   "notes": ""

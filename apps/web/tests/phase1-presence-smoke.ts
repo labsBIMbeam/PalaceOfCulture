@@ -157,16 +157,13 @@ assert.equal(
   0,
 );
 assert.equal(
-  reduceAttentivePresence(
-    createAttentivePresenceState(),
-    {
-      type: "active_frame_sampled",
-      deltaMs: 250,
-      foregroundFocused: true,
-      documentVisible: true,
-      forged: true,
-    } as unknown as AttentivePresenceAction,
-  ).accumulatedMs,
+  reduceAttentivePresence(createAttentivePresenceState(), {
+    type: "active_frame_sampled",
+    deltaMs: 250,
+    foregroundFocused: true,
+    documentVisible: true,
+    forged: true,
+  } as unknown as AttentivePresenceAction).accumulatedMs,
   0,
   "extra elapsed authority fields must be ignored rather than trusted",
 );

@@ -14,9 +14,7 @@
     "SQLite",
     "WebSocket admission"
   ],
-  "cross_refs": [
-    "0001-stack-and-runtime-topology.md"
-  ],
+  "cross_refs": ["0001-stack-and-runtime-topology.md"],
   "locked": false,
   "precedence": 10,
   "notes": ""

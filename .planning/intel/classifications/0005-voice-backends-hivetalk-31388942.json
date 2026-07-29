@@ -5,18 +5,8 @@
   "manifest_override": true,
   "title": "ADR 0005 — Voice/video backends: HiveTalk as a second SFU behind the voice adapter",
   "summary": "Retains the voice adapter while adding HiveTalk beside LiveKit and mock backends, with AGPL services isolated behind a network boundary.",
-  "scope": [
-    "VoiceTransport",
-    "HiveTalk",
-    "LiveKit",
-    "MoQ",
-    "WebRTC SFU",
-    "AGPL license boundary"
-  ],
-  "cross_refs": [
-    "0002-chat-and-voice-transport.md",
-    "infra/hosting.md"
-  ],
+  "scope": ["VoiceTransport", "HiveTalk", "LiveKit", "MoQ", "WebRTC SFU", "AGPL license boundary"],
+  "cross_refs": ["0002-chat-and-voice-transport.md", "infra/hosting.md"],
   "locked": true,
   "precedence": null,
   "notes": ""

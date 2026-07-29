@@ -14,11 +14,7 @@
     "AvatarComposer",
     "trait catalog"
   ],
-  "cross_refs": [
-    "BUILD-BRIEF",
-    "DESIGN-BRIEF",
-    "ADR 0002"
-  ],
+  "cross_refs": ["BUILD-BRIEF", "DESIGN-BRIEF", "ADR 0002"],
   "locked": true,
   "precedence": null,
   "notes": ""

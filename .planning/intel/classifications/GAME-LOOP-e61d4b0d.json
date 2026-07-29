@@ -14,9 +14,7 @@
     "guilds",
     "retention mechanics"
   ],
-  "cross_refs": [
-    "HOME-TOWN.md"
-  ],
+  "cross_refs": ["HOME-TOWN.md"],
   "locked": false,
   "precedence": null,
   "notes": ""

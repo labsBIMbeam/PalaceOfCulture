@@ -150,7 +150,11 @@ type PlacementAction =
 
 /** Compatibility input for the removed Plan-01 generic direct-activation path. It is never valid. */
 export type LegacyDirectActivationAction = {
-  readonly type: "activation_requested" | "activation_accepted" | "activation_failed" | "activation_cancelled";
+  readonly type:
+    | "activation_requested"
+    | "activation_accepted"
+    | "activation_failed"
+    | "activation_cancelled";
   readonly attemptId: string;
 };
 
@@ -292,7 +296,14 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
       );
     case "lens_verified":
       return (
-        exactKeys(candidate, ["type", "eventId", "pubkey", "witnessEventId", "createdAt", "origin"]) &&
+        exactKeys(candidate, [
+          "type",
+          "eventId",
+          "pubkey",
+          "witnessEventId",
+          "createdAt",
+          "origin",
+        ]) &&
         isHex(candidate.eventId, 64) &&
         isHex(candidate.pubkey, 64) &&
         isHex(candidate.witnessEventId, 64) &&
@@ -311,7 +322,14 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
       );
     case "accepted_lens_delta":
       return (
-        exactKeys(candidate, ["type", "eventId", "pubkey", "witnessEventId", "createdAt", "origin"]) &&
+        exactKeys(candidate, [
+          "type",
+          "eventId",
+          "pubkey",
+          "witnessEventId",
+          "createdAt",
+          "origin",
+        ]) &&
         isHex(candidate.eventId, 64) &&
         isHex(candidate.pubkey, 64) &&
         isHex(candidate.witnessEventId, 64) &&
@@ -320,7 +338,11 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
         candidate.origin === "plan-04-authorized"
       );
     case "pickup_part":
-      return exactKeys(candidate, ["type", "part", "origin"]) && isRelayPart(candidate.part) && isPhysicalOrigin(candidate.origin);
+      return (
+        exactKeys(candidate, ["type", "part", "origin"]) &&
+        isRelayPart(candidate.part) &&
+        isPhysicalOrigin(candidate.origin)
+      );
     case "seat_part":
       return (
         exactKeys(candidate, ["type", "part", "cradleId", "origin"]) &&
@@ -329,7 +351,12 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
         isPhysicalOrigin(candidate.origin)
       );
     case "preview_placement":
-      return exactKeys(candidate, ["type", "socketId", "origin"]) && typeof candidate.socketId === "string" && candidate.socketId.length > 0 && isPhysicalOrigin(candidate.origin);
+      return (
+        exactKeys(candidate, ["type", "socketId", "origin"]) &&
+        typeof candidate.socketId === "string" &&
+        candidate.socketId.length > 0 &&
+        isPhysicalOrigin(candidate.origin)
+      );
     case "place_requested":
       return (
         exactKeys(candidate, ["type", "socketId", "attemptId", "origin"]) &&
@@ -361,7 +388,10 @@ const isPhase1RelayAction = (value: unknown): value is Phase1RelayAction => {
  * Reduce bounded Phase-1 physical relay truth. Meshes, timers, DOM, Kerni, and transport callbacks
  * are intentionally not action authorities; accepted truth is created only by these fail-closed guards.
  */
-export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAction): Phase1RelayState {
+export function reducePhase1Relay(
+  state: Phase1RelayState,
+  action: Phase1RelayAction,
+): Phase1RelayState {
   if (!isPhase1RelayAction(action)) return state;
   if (action.type === "activation_signed") {
     return acceptLocalActivation(state, {
@@ -412,7 +442,12 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
   if (!hasAssemblyGate(state)) return state;
 
   if (action.type === "pickup_part") {
-    if (state.assembly.carriedPart !== null || state.assembly.status === "parts_3" || state.assembly.status === "carrying") return state;
+    if (
+      state.assembly.carriedPart !== null ||
+      state.assembly.status === "parts_3" ||
+      state.assembly.status === "carrying"
+    )
+      return state;
     const expected = RELAY_PART_ORDER[state.assembly.seatedParts.length];
     if (action.part !== expected) return state;
     return { ...state, assembly: { ...state.assembly, carriedPart: action.part } };
@@ -442,7 +477,8 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
   if (action.type === "preview_placement") {
     if (state.placement.status === "accepted") return state;
     const canPreview = state.assembly.carriedPart === COMPLETED_RELAY;
-    const status: PlacementStatus = canPreview && action.socketId === RELAY_SOCKET_ID ? "valid" : "invalid";
+    const status: PlacementStatus =
+      canPreview && action.socketId === RELAY_SOCKET_ID ? "valid" : "invalid";
     return withPlacement(state, {
       ...state.placement,
       status,
@@ -477,7 +513,8 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
       state.placement.attemptId !== action.attemptId ||
       state.placement.socketId !== RELAY_SOCKET_ID ||
       state.assembly.carriedPart !== COMPLETED_RELAY
-    ) return state;
+    )
+      return state;
     return {
       ...withPlacement(
         state,
@@ -496,7 +533,8 @@ export function reducePhase1Relay(state: Phase1RelayState, action: Phase1RelayAc
     };
   }
 
-  if (state.placement.status !== "pending" || state.placement.attemptId !== action.attemptId) return state;
+  if (state.placement.status !== "pending" || state.placement.attemptId !== action.attemptId)
+    return state;
   return withPlacement(state, {
     ...state.placement,
     status: "failed",
@@ -517,7 +555,9 @@ function isActivationCapability(value: unknown): value is Phase1ActivationCapabi
   const keys = Object.keys(candidate);
   return (
     keys.length === 5 &&
-    keys.every((key) => ["relayId", "activationId", "creatorPubkey", "createdAt", "source"].includes(key)) &&
+    keys.every((key) =>
+      ["relayId", "activationId", "creatorPubkey", "createdAt", "source"].includes(key),
+    ) &&
     candidate.relayId === PHASE1_RELAY_ID &&
     isHex(candidate.activationId, 64) &&
     isHex(candidate.creatorPubkey, 64) &&
@@ -534,6 +574,14 @@ export function importVerifiedActivationCapability(
 ): Phase1RelayState {
   if (!isActivationCapability(capability)) return state;
   if (state.activation && state.activation.activationId !== capability.activationId) return state;
+  if (
+    state.activation?.source === "verified-invite-capability" &&
+    state.activation.activationId === capability.activationId &&
+    state.activation.creatorPubkey === capability.creatorPubkey &&
+    state.activation.createdAt === capability.createdAt
+  ) {
+    return state;
+  }
   const activation: Phase1ActivationFact = { ...capability };
   return {
     ...state,
@@ -556,7 +604,11 @@ export function acceptLocalActivation(
   state: Phase1RelayState,
   activation: Omit<Phase1ActivationFact, "source" | "relayId">,
 ): Phase1RelayState {
-  if (!isRelayAccepted(state) || !isHex(activation.activationId, 64) || !isHex(activation.creatorPubkey, 64)) {
+  if (
+    !isRelayAccepted(state) ||
+    !isHex(activation.activationId, 64) ||
+    !isHex(activation.creatorPubkey, 64)
+  ) {
     return state;
   }
   if (state.activation && state.activation.activationId !== activation.activationId) return state;
@@ -584,7 +636,8 @@ export function acceptPhase1Witness(
     !isHex(evidence.pubkey, 64) ||
     evidence.pubkey === creatorPubkey ||
     state.acceptedEventIds.includes(evidence.eventId)
-  ) return state;
+  )
+    return state;
   return {
     ...state,
     acceptedWitness: { ...evidence },
@@ -600,7 +653,10 @@ export function acceptPhase1Witness(
   };
 }
 
-export function acceptPhase1Lens(state: Phase1RelayState, evidence: Phase1LensFact): Phase1RelayState {
+export function acceptPhase1Lens(
+  state: Phase1RelayState,
+  evidence: Phase1LensFact,
+): Phase1RelayState {
   if (
     !state.activation ||
     !state.acceptedWitness ||
@@ -609,7 +665,8 @@ export function acceptPhase1Lens(state: Phase1RelayState, evidence: Phase1LensFa
     evidence.pubkey !== state.acceptedWitness.pubkey ||
     !isHex(evidence.eventId, 64) ||
     state.acceptedEventIds.includes(evidence.eventId)
-  ) return state;
+  )
+    return state;
   return {
     ...state,
     acceptedLens: { ...evidence },
@@ -688,8 +745,15 @@ export function diffPhase1AcceptedEvidence(
   if (baseline.lensEventId && baseline.lensEventId !== previous.lensEventId && state.acceptedLens) {
     return { baseline, delta: state.acceptedDelta?.kind === "lens" ? state.acceptedDelta : null };
   }
-  if (baseline.witnessEventId && baseline.witnessEventId !== previous.witnessEventId && state.acceptedWitness) {
-    return { baseline, delta: state.acceptedDelta?.kind === "witness" ? state.acceptedDelta : null };
+  if (
+    baseline.witnessEventId &&
+    baseline.witnessEventId !== previous.witnessEventId &&
+    state.acceptedWitness
+  ) {
+    return {
+      baseline,
+      delta: state.acceptedDelta?.kind === "witness" ? state.acceptedDelta : null,
+    };
   }
   return { baseline, delta: null };
 }
@@ -790,7 +854,10 @@ const isAttentivePresenceAction = (value: unknown): value is AttentivePresenceAc
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   if (candidate.type === "feed_changed") {
-    return hasExactKeys(candidate, ["type", "feed"]) && ATTENTIVE_FEEDS.has(candidate.feed as AttentiveFeed);
+    return (
+      hasExactKeys(candidate, ["type", "feed"]) &&
+      ATTENTIVE_FEEDS.has(candidate.feed as AttentiveFeed)
+    );
   }
   if (candidate.type !== "active_frame_sampled") return false;
   return (
@@ -914,7 +981,11 @@ const isRelayHandoffState = (value: unknown): value is RelayHandoffState => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
-    hasExactKeys(candidate, ["orientationInteractionAccepted", "memoryFragment", "inspirationChoice"]) &&
+    hasExactKeys(candidate, [
+      "orientationInteractionAccepted",
+      "memoryFragment",
+      "inspirationChoice",
+    ]) &&
     typeof candidate.orientationInteractionAccepted === "boolean" &&
     (candidate.memoryFragment === null || isRelayMemoryFragment(candidate.memoryFragment)) &&
     (candidate.inspirationChoice === null || isRelayInspirationChoice(candidate.inspirationChoice))
@@ -976,7 +1047,9 @@ export function reduceRelayHandoff(
 export function relayAssemblyEligible(
   state: Pick<Phase1RelayState, "memoryFragment" | "inspirationChoice"> | RelayHandoffState,
 ): boolean {
-  return isRelayMemoryFragment(state.memoryFragment) && isRelayInspirationChoice(state.inspirationChoice);
+  return (
+    isRelayMemoryFragment(state.memoryFragment) && isRelayInspirationChoice(state.inspirationChoice)
+  );
 }
 
 export const deriveRelayAssemblyEligible = relayAssemblyEligible;

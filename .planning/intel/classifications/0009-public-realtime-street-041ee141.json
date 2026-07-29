@@ -13,9 +13,7 @@
     "presence",
     "ship modules"
   ],
-  "cross_refs": [
-    "0006-colyseus-authoritative-realtime-boundary.md"
-  ],
+  "cross_refs": ["0006-colyseus-authoritative-realtime-boundary.md"],
   "locked": true,
   "precedence": 0,
   "notes": ""

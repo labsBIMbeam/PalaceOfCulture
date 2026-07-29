@@ -14,10 +14,7 @@
     "guild monuments",
     "revenue loops"
   ],
-  "cross_refs": [
-    "GAME-LOOP.md",
-    "adr/0004-media-value-live-open-standards.md"
-  ],
+  "cross_refs": ["GAME-LOOP.md", "adr/0004-media-value-live-open-standards.md"],
   "locked": false,
   "precedence": null,
   "notes": ""

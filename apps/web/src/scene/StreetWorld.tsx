@@ -10,6 +10,7 @@
 import { useGLTF } from "@react-three/drei";
 import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import type { AssemblyState, PlacementState, SignalLens } from "../meaningverse/phase1Relay";
 import { Enclosure, GATE_ARCH } from "./Enclosure";
 import { KerniFamiliar } from "./KerniFamiliar";
 import { LampPost } from "./LampPost";
@@ -18,7 +19,6 @@ import { Signpost } from "./Signpost";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
 import { mulberry32 } from "./rand";
-import type { AssemblyState, PlacementState, SignalLens } from "../meaningverse/phase1Relay";
 
 /** Keeps a failed asset fetch (404/renamed GLB) from white-screening the whole engine — the street
  *  just renders without that prop. Suspense does not catch fetch errors, so we need this boundary. */
@@ -441,18 +441,36 @@ function RelayWorkbench({
             <torusGeometry args={[0.32, 0.035, 8, 20]} />
             <meshStandardMaterial color={seated.has(part.id) ? "#49c6b2" : "#6f5c4c"} />
           </mesh>
-          <mesh castShadow position={[0, seated.has(part.id) ? 0.22 : 0.58, 0]} visible={!seated.has(part.id) || carried === part.id}>
-            {part.id === "coil" ? <torusGeometry args={[0.24, 0.09, 12, 24]} /> : <cylinderGeometry args={[0.2, 0.26, 0.32, 12]} />}
-            <meshStandardMaterial color={part.color} emissive={part.id === "aperture" ? "#8b4b10" : "#000000"} emissiveIntensity={acceptedPlacement ? 0.8 : 0} />
+          <mesh
+            castShadow
+            position={[0, seated.has(part.id) ? 0.22 : 0.58, 0]}
+            visible={!seated.has(part.id) || carried === part.id}
+          >
+            {part.id === "coil" ? (
+              <torusGeometry args={[0.24, 0.09, 12, 24]} />
+            ) : (
+              <cylinderGeometry args={[0.2, 0.26, 0.32, 12]} />
+            )}
+            <meshStandardMaterial
+              color={part.color}
+              emissive={part.id === "aperture" ? "#8b4b10" : "#000000"}
+              emissiveIntensity={acceptedPlacement ? 0.8 : 0}
+            />
           </mesh>
         </group>
       ))}
       <group name="z1-relay-socket" position={[0, 0.62, 0.62]}>
         <mesh receiveShadow>
           <cylinderGeometry args={[0.42, 0.42, 0.08, 16]} />
-          <meshStandardMaterial color={acceptedPlacement ? "#e7b23c" : "#8f7964"} emissive={acceptedPlacement ? "#8b4b10" : "#000000"} emissiveIntensity={acceptedPlacement ? 1.2 : 0} />
+          <meshStandardMaterial
+            color={acceptedPlacement ? "#e7b23c" : "#8f7964"}
+            emissive={acceptedPlacement ? "#8b4b10" : "#000000"}
+            emissiveIntensity={acceptedPlacement ? 1.2 : 0}
+          />
         </mesh>
-        {acceptedPlacement ? <pointLight color="#ffbf55" distance={1.4} intensity={0.45} position={[0, 0.34, 0]} /> : null}
+        {acceptedPlacement ? (
+          <pointLight color="#ffbf55" distance={1.4} intensity={0.45} position={[0, 0.34, 0]} />
+        ) : null}
       </group>
       {acceptedLens ? (
         <group name="signal-lens" position={[0, 1.18, 0.62]}>
@@ -564,7 +582,12 @@ export function StreetWorld({
         </Suspense>
       </PropBoundary>
 
-      <RelayWorkbench acceptedPlacement={acceptedPlacement} acceptedLens={acceptedLens} assembly={assembly} placement={placement} />
+      <RelayWorkbench
+        acceptedPlacement={acceptedPlacement}
+        acceptedLens={acceptedLens}
+        assembly={assembly}
+        placement={placement}
+      />
 
       {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}
       <PropBoundary>

@@ -16,9 +16,7 @@
     "SQLite",
     "V4V"
   ],
-  "cross_refs": [
-    "apps/web/public/village/CREDITS.md"
-  ],
+  "cross_refs": ["apps/web/public/village/CREDITS.md"],
   "locked": false,
   "precedence": null,
   "notes": ""

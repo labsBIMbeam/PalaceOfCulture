@@ -14,9 +14,7 @@
     "animatable parts",
     "GLB validation"
   ],
-  "cross_refs": [
-    "BUILD-BRIEF.md"
-  ],
+  "cross_refs": ["BUILD-BRIEF.md"],
   "locked": false,
   "precedence": null,
   "notes": ""
