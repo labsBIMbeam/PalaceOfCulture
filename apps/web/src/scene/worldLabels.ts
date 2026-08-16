@@ -4,7 +4,7 @@ import type { EngineTarget } from "../frontend/types";
 export const WORLD_NAME: Record<EngineTarget, string> = {
   hq: "Palace of Culture",
   home: "Home",
-  street: "Locktard Street",
+  street: "Zapburg",
 };
 
 export const WORLD_TITLE: Record<EngineTarget, string> = {

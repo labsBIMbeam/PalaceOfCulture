@@ -35,11 +35,11 @@ export const INTRO_SEQUENCE: readonly IntroBeat[] = [
   {
     id: "card_street",
     visualMode: "card",
-    kicker: "LOCKTARD STREET",
+    kicker: "ZAPBURG",
     caption: "Thirty-six sockets. No owner. One unfinished spaceship.",
     line: "\"We're not a cult. We're culture.\" Build one small part. Place it. Invite someone.",
     fallbackText:
-      "Kerni was the raccoon. Locktard Street is culture made together: build, place, and invite.",
+      "Kerni was the raccoon. Zapburg is culture made together: build, place, and invite.",
   },
 ] as const;
 

@@ -1,6 +1,6 @@
 /**
  * Palace of Culture teaser — unfinished landmark, not playable.
- * Visible from Locktard Street / plaza site; no door, no entry. Date remains TBA.
+ * Visible from Zapburg / plaza site; no door, no entry. Date remains TBA.
  */
 
 import { Billboard, Text } from "@react-three/drei";

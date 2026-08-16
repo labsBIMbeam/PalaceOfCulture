@@ -130,7 +130,7 @@ const SPAWN_FOR: Record<EngineTarget, [number, number, number]> = {
   home: HOME_SPAWN,
   street: STREET_SPAWN,
 };
-// The Palace map ("hq") is switched OFF for launch: the game ships with Locktard Street + Home.
+// The Palace map ("hq") is switched OFF for launch: the game ships with Zapburg + Home.
 // Re-adding "hq" here is the single switch that brings the Palace world back.
 const WORLD_ORDER: EngineTarget[] = ["street", "home"];
 // Atmospheric distance fog per world (the Valheim depth trick): distant geometry fades into a
@@ -1084,7 +1084,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           />
           <Suspense fallback={null}>
             <Physics key={world} timeStep={1 / 60}>
-              {/* HQ world is teaser-only: no palace.glb entry. Locktard Street is the playable district. */}
+              {/* HQ world is teaser-only: no palace.glb entry. Zapburg is the playable district. */}
               {world === "hq" ? <PalaceTeaser position={[0, 0, 0]} scale={1.2} /> : null}
               {/* Invisible flat floor at the deck level (y=0): the palace trimesh has gaps/glass the
                   ecctrl ground ray misses, leaving the controller stuck in "fall" so it never walks.

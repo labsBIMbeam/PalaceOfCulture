@@ -1,4 +1,4 @@
-// Original Locktard Street habitat progression.
+// Original Zapburg habitat progression.
 //
 // The design borrows only the general "placed object bundle attracts a role" pattern seen in
 // cozy builders. Names, objects, capability graph, commissioning jobs, and worldbuilding are

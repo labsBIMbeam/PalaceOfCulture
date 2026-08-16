@@ -8,10 +8,10 @@ import {
   WORLD_WALK_SUBTITLE,
 } from "../src/scene/worldLabels";
 
-assert.equal(WORLD_TITLE.street, "Locktard Street", "the playable district keeps its full name");
+assert.equal(WORLD_TITLE.street, "Zapburg", "the playable district keeps its full name");
 assert.equal(
   TRAVEL_LABEL.street,
-  "Travel: Locktard Street",
+  "Travel: Zapburg",
   "travel controls name the playable district explicitly",
 );
 assert.equal(
