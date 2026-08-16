@@ -5,7 +5,7 @@ import { Icon } from "./icons";
 /**
  * Skippable intro video followed by three canonical story cards. A video error — and the Skip
  * button itself — goes to the same cards, so the family-slapstick bite, Kerni reveal, and
- * Locktard Street facts never depend on media and cannot be bypassed by the reflexive first tap.
+ * Zapburg facts never depend on media and cannot be bypassed by the reflexive first tap.
  */
 export function IntroScreen({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);

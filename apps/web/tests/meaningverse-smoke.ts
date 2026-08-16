@@ -152,7 +152,7 @@ assert.deepEqual(
 );
 assert.equal(INTRO_CARDS.length, 3);
 const introFallback = INTRO_CARDS.map((card) => card.fallbackText).join(" ");
-for (const fact of ["raccoon", "blood", "Kerni", "Locktard Street", "culture"]) {
+for (const fact of ["raccoon", "blood", "Kerni", "Zapburg", "culture"]) {
   assert.ok(introFallback.includes(fact), `intro fallback must preserve ${fact}`);
 }
 assert.ok(introFallback.includes("Kerni was the raccoon"), "Kerni and the raccoon are one being");
