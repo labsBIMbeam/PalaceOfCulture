@@ -22,14 +22,18 @@ make_voices.py`). The pipeline is deterministic and idempotent:
 
 ## Voice casting
 
+Casting is authored (FLX, 2026-08-16), not derived:
+
 - **Established speakers keep their TCG intro voices:** michael1011 `en-GB-RyanNeural −8%`,
   rootzoll `en-US-GuyNeural −2%`, sat `en-US-RogerNeural +4%`, flx
   `en-US-ChristopherNeural +6%`, BlackCoffee `en-US-EricNeural −12%`.
-- **Everyone else** draws deterministically (name-hash) from a gender-matched pool —
-  gender is the member's parametric in-game presentation from `ui/members.ts`, not an
-  assumption about the person. Rates vary ±10 % from the same hash.
+- **Pinned:** dni `en-US-AndrewMultilingualNeural` (the greeter is a man); the women of the
+  cast are aj `en-US-AriaNeural`, arbadacarba `en-GB-SoniaNeural`, mhb
+  `en-AU-NatashaNeural`; nind speaks with an Indian accent, `en-IN-PrabhatNeural`.
+- **Everyone else** draws deterministically (name-hash) from the male pool; rates vary
+  ±10 % from the same hash.
 - **Kerni:** `en-US-AnaNeural +8% +18Hz` — the small bright familiar, slightly artificial.
-- Pool picks are validated against the live `list_voices()` catalog with a safe fallback.
+- Picks are validated against the live `list_voices()` catalog with a safe fallback.
 
 ## Terms
 

@@ -1,9 +1,10 @@
 """Generate the street-cast voice lines with edge-tts — free neural voices, no API key.
 
-Same engine and voice casting as TCG600nap/art/video-intro/cinematic/story/make_voices.py:
-the five established speakers keep their exact voices; everyone else draws deterministically
-from a gender-matched pool (the parametric avatar gender is the in-game presentation).
-Kerni gets the small bright familiar voice, pitched up.
+Same engine as TCG600nap/art/video-intro/cinematic/story/make_voices.py. Casting is
+authored: the five established speakers keep their exact TCG intro voices, the PINNED map
+carries FLX's calls (dni male, aj/arbadacarba/mhb the women of the cast, nind with an
+Indian accent), everyone else draws deterministically from the male pool. Kerni gets the
+small bright familiar voice, pitched up.
 
 Run:  python tooling/street-cast-vo/make_voices.py     (after export_lines.ts)
 Writes apps/web/public/vo/cast/<file>.mp3 — idempotent, existing files are kept.
@@ -31,6 +32,16 @@ ESTABLISHED: dict[str, tuple[str, str]] = {
     "blackcoffee": ("en-US-EricNeural", "-12%"),
 }
 
+# Authored casting (FLX, 2026-08-16): dni is a man; aj, arbadacarba and mhb are the women of
+# the cast; nind speaks with an Indian accent. Everyone unlisted draws from the male pool.
+PINNED: dict[str, tuple[str, str]] = {
+    "dni": ("en-US-AndrewMultilingualNeural", "+0%"),  # the greeter — warm, unhurried
+    "nind": ("en-IN-PrabhatNeural", "+0%"),
+    "aj": ("en-US-AriaNeural", "+2%"),
+    "arbadacarba": ("en-GB-SoniaNeural", "-2%"),
+    "mhb": ("en-AU-NatashaNeural", "+6%"),  # the Relay Runner keeps a runner's pace
+}
+
 # Only voices actually served by the Edge endpoint (validated against list_voices() at run time).
 MASCULINE = [
     "en-US-SteffanNeural",
@@ -41,21 +52,8 @@ MASCULINE = [
     "en-US-AndrewMultilingualNeural",
     "en-US-BrianMultilingualNeural",
 ]
-FEMININE = [
-    "en-US-AriaNeural",
-    "en-US-JennyNeural",
-    "en-US-MichelleNeural",
-    "en-GB-SoniaNeural",
-    "en-GB-LibbyNeural",
-    "en-GB-MaisieNeural",
-    "en-AU-NatashaNeural",
-    "en-CA-ClaraNeural",
-    "en-IE-EmilyNeural",
-    "en-US-AvaMultilingualNeural",
-    "en-US-EmmaMultilingualNeural",
-]
 KERNI_VOICE = ("en-US-AnaNeural", "+8%", "+18Hz")  # small, bright, slightly synthetic
-FALLBACK = {"masculine": "en-US-SteffanNeural", "feminine": "en-US-AriaNeural"}
+FALLBACK = {"masculine": "en-US-SteffanNeural"}
 
 RATES = ["-10%", "-6%", "-3%", "+0%", "+3%", "+6%"]
 
@@ -70,18 +68,22 @@ def fnv(value: str) -> int:
 
 
 def cast_voice(speaker: str, gender: str, available: set[str]) -> tuple[str, str, str]:
-    """(voice, rate, pitch) for a speaker — established first, then the gender pool."""
+    """(voice, rate, pitch): the familiar, then established, then pinned, then the male pool."""
     key = speaker.lower()
     if gender == "familiar":
         return KERNI_VOICE
     if key in ESTABLISHED:
         voice, rate = ESTABLISHED[key]
         return (voice, rate, "+0Hz")
-    pool = FEMININE if gender == "feminine" else MASCULINE
+    if key in PINNED:
+        voice, rate = PINNED[key]
+        if available and voice not in available:
+            voice = FALLBACK["masculine"]
+        return (voice, rate, "+0Hz")
     h = fnv(key)
-    voice = pool[h % len(pool)]
+    voice = MASCULINE[h % len(MASCULINE)]
     if available and voice not in available:
-        voice = FALLBACK["feminine" if gender == "feminine" else "masculine"]
+        voice = FALLBACK["masculine"]
     return (voice, RATES[(h >> 8) % len(RATES)], "+0Hz")
 
 
