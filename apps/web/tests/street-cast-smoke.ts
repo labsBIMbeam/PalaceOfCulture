@@ -135,6 +135,13 @@ assert.ok(
 );
 const streetWorldSource = readFileSync(resolve(webRoot, "src/scene/StreetWorld.tsx"), "utf8");
 assert.ok(streetWorldSource.includes("<StreetCastView />"), "the street mounts the cast");
+const castViewSource = readFileSync(resolve(webRoot, "src/scene/StreetCastView.tsx"), "utf8");
+assert.ok(castViewSource.includes("WanderingMember"), "standing crew wanders their station");
+const wanderRadius = castViewSource.match(/WANDER_RADIUS = ([\d.]+)/)?.[1];
+assert.ok(
+  wanderRadius && Number(wanderRadius) <= 2.4,
+  "the wander loop stays inside the interact zone",
+);
 const sceneSource = readFileSync(resolve(webRoot, "src/scene/PalaceScene.tsx"), "utf8");
 assert.ok(sceneSource.includes("advanceDialog"), "the dialog steps through lead lines");
 assert.ok(

@@ -67,6 +67,8 @@ export function AvatarView({
   pose,
   scanning,
   animationOffset,
+  gaitOverride,
+  gaitSpeed,
 }: {
   config: AvatarConfig;
   bodyRef?: RefObject<RapierRigidBody | null>;
@@ -77,6 +79,10 @@ export function AvatarView({
   scanning?: boolean;
   /** Crowd desync: phase-shift the starting clip (see RiggedAvatar). */
   animationOffset?: number;
+  /** NPC drive: force idle/walk instead of reading a physics body (see RiggedAvatar). */
+  gaitOverride?: "idle" | "walk";
+  /** Ground speed (m/s) the forced walk should read as. */
+  gaitSpeed?: number;
 }) {
   const url = config.modelUrl || presetUrl(config);
   if (!url) return <CharacterModel config={config} />;
@@ -91,6 +97,8 @@ export function AvatarView({
           bodyRef={bodyRef}
           clipUrls={clipUrls}
           config={config}
+          gaitOverride={gaitOverride}
+          gaitSpeed={gaitSpeed}
           pose={pose}
           scanning={scanning}
           url={url}

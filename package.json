@@ -18,7 +18,8 @@
     "lint": "biome check .",
     "test": "pnpm -r --if-present test",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "cast:vo": "pnpm --filter @600b/web exec tsx ../../tooling/street-cast-vo/export_lines.ts && python tooling/street-cast-vo/make_voices.py"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
