@@ -87,6 +87,30 @@ not visibly accelerate world progress — it collides with the Timelock law).
    progress into the existing growable loader. (~1 day)
 3. Demo-script update: move-in beat + zap-light beat ("watch the lamps").
 
+## The maxflex: play the TCG inside the RPG (napplet)
+
+FLX, same session: *"am besten waere wenn man das TCG im RPG spielen kann im napplet."*
+Feasibility-checked against `TCG600nap` — this is real, and the architecture shipped today:
+
+- The TCG's **digital table is static web** (`site/arena.html` + `engine.js` 312 KB +
+  `fx.js` 120 KB + `faces.js` 8 KB), and the **NPC opponent runs client-side** (rulebook:
+  practice mode, "no standing, no stake, no signed transcript" — no server needed).
+  → bundles into a single-file napplet (~450 KB) that boots in the sandbox.
+- The **298 card faces (50 MB webp)** stream through the existing `resource.bytes`
+  capability from Blossom (sha256-addressed, like everything else) — lazy per card drawn,
+  ~170 KB each; a match touches a fraction of the pool.
+- **In-world staging:** sit at a plaza table (pose points exist) → the table napplet
+  opens → a practice match **against Kerni**, the street's NPC familiar, as dealer. The
+  lore closes perfectly: the world's collectible game, played inside the world.
+- **PvP later:** two players on facing seats → matchmake via the room; the referee
+  (`server/table.js`, SQLite) reached through a host `tcg` domain — signed transcripts
+  become real matches with standing.
+
+**Scope call:** NOT in the 30.08. demo (the demo is full and the wow-beat is the zap).
+First step is a **1-day spike right after the demo**: bundle arena+engine as a napplet,
+load 10 faces via `resource.bytes`, play one NPC turn in the sandbox. If the spike holds,
+the TCG table is the flagship second napplet and the Palace's first exhibit.
+
 ## Open design threads (next sessions)
 
 - **Visitor zappability**: non-roster players (Builder archetype) can't RECEIVE zaps —
