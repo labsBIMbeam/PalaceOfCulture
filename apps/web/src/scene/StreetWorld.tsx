@@ -420,7 +420,7 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
 
 /** Locktard Street beta sandbox: gate → staged approach → round plaza with Palace teaser,
  *  workshop yard on the west ring, all held by the palisade + forest. */
-export function StreetWorld() {
+export function StreetWorld({ completedRaids = 0 }: { completedRaids?: number }) {
   const dirt = useMemo(dirtTexture, []);
   const path = useMemo(pathTexture, []);
   const rimLamps = useMemo(rimLampPositions, []);
@@ -487,7 +487,7 @@ export function StreetWorld() {
 
       {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}
       <PropBoundary>
-        <Plaza />
+        <Plaza completedRaids={completedRaids} />
       </PropBoundary>
 
       {/* The civic centre now holds the live MoC ship assembly, mounted by PalaceScene. */}

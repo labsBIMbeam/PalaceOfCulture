@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 
 import { createPodcastServer, loadServerConfig } from "./app.js";
 import { AuditStore } from "./db/auditStore.js";
+import { AuditRaidLedger } from "./multiplayer/raidLedger.js";
 import { MultiplayerServer, loadMultiplayerConfig } from "./multiplayer/server.js";
 
 /** Start HTTP, SQLite, and volatile multiplayer as one process lifecycle. */
@@ -19,7 +20,9 @@ async function startServer(): Promise<void> {
     auditStore = runningAuditStore;
     const runningHttpServer = createPodcastServer(config);
     httpServer = runningHttpServer;
-    const runningMultiplayer = new MultiplayerServer(multiplayerConfig);
+    const runningMultiplayer = new MultiplayerServer(multiplayerConfig, {
+      raidLedger: new AuditRaidLedger(runningAuditStore, multiplayerConfig.raidCompletionsSeed),
+    });
     multiplayer = runningMultiplayer;
 
     await runningMultiplayer.listen();

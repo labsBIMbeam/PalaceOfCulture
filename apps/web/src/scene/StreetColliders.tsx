@@ -10,7 +10,7 @@
 import { CuboidCollider, CylinderCollider, RigidBody } from "@react-three/rapier";
 import { buildingWallColliders } from "./Building";
 import { FENCE, GATE_ARCH, GATE_X } from "./Enclosure";
-import { YOUNG_TREE, plazaRing, plazaSolids } from "./Plaza";
+import { YOUNG_TREE, foundationDrumSolids, plazaRing, plazaSolids } from "./Plaza";
 import { depotSolids } from "./StreetWorld";
 import { heroTreePositions } from "./Vegetation";
 import { workshopSolids } from "./Workshop";
@@ -33,10 +33,16 @@ function fenceColliders(): { half: [number, number, number]; pos: [number, numbe
   ];
 }
 
-export function StreetColliders() {
+export function StreetColliders({ completedRaids = 0 }: { completedRaids?: number }) {
   const ring = plazaRing();
   const trees = heroTreePositions();
-  const solids = [...plazaSolids(), ...workshopSolids(), ...depotSolids()];
+  const solids = [
+    ...plazaSolids(),
+    ...workshopSolids(),
+    ...depotSolids(),
+    // the growing foundation drum — solid from the first course on, in lockstep with the visual
+    ...foundationDrumSolids(completedRaids),
+  ];
   return (
     <group>
       {/* the palisade fence — an invisible boundary the player can't cross (gate stays open) */}

@@ -1,6 +1,6 @@
 import { MapSchema, Schema, type } from "@colyseus/schema";
 
-export const MULTIPLAYER_PROTOCOL_VERSION = 3;
+export const MULTIPLAYER_PROTOCOL_VERSION = 4;
 export const PALACE_ROOM_NAME = "palace";
 export const PALACE_WORLD_ID = "street";
 export const PALACE_SPAWN = Object.freeze({ x: 0, y: 3, z: 30 });
@@ -123,6 +123,10 @@ export class PalaceRoomState extends Schema {
 
   @type({ map: ShipModuleState })
   shipModules = new MapSchema<ShipModuleState>();
+
+  /** All-time completed Light-the-Street raid runs; drives the plaza foundation's growth. */
+  @type("uint32")
+  completedRaids = 0;
 }
 
 function asExactRecord(
@@ -307,6 +311,28 @@ export function parseZapFlashBroadcast(value: unknown): ZapFlashBroadcast {
     throw new MultiplayerInputError("sessionId must be a session id");
   }
   return { sessionId };
+}
+
+// --- raid completions (the foundation grows, docs/design/demo-loop-and-zap-light.md) ---
+// A client reports "my Light-the-Street run reached CO-CREATE". The room verifies the
+// observable facts it already owns (the sender placed a ship module AND another live session
+// answered), records the completion in the append-only audit log, and advances the replicated
+// counter. Zap volume never drives this — community work becomes architecture, money does not.
+
+export const RAID_COMPLETE_MESSAGE = "raidComplete";
+/** Completed raid runs until the plaza foundation reaches full growth (progress 1). */
+export const RAID_FULL_GROWTH_COMPLETIONS = 210;
+
+/** The report carries no data — every fact that matters is already server-owned state. */
+export function parseRaidCompleteMessage(value: unknown): Record<string, never> {
+  asExactRecord(value, "raid complete message", []);
+  return {};
+}
+
+/** Foundation growth law: deterministic, replayable from the completion count alone. */
+export function foundationProgress(completedRaids: number): number {
+  if (!Number.isFinite(completedRaids) || completedRaids <= 0) return 0;
+  return Math.min(1, completedRaids / RAID_FULL_GROWTH_COMPLETIONS);
 }
 
 /** Validate a server-authoritative pose correction before the client applies it to local physics. */
