@@ -5925,6 +5925,7 @@ input.compose-input::placeholder {
     animation: none;
     outline: 2px solid #5cd8ff;
   }
+}
 
 /* --- zap napplet shell (the sandboxed 21-sats panel over the street) --- */
 
