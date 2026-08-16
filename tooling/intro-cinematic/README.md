@@ -23,8 +23,16 @@ cp _work/intro.mp4 ../../apps/web/public/intro.mp4
 `build_scene.py` also runs inside an open Blender (it wipes and rebuilds the scene):
 
 ```python
-exec(compile(open(r"G:\Github\PalaceOfCulture\tooling\intro-cinematic\build_scene.py",
-                  encoding="utf-8").read(), "build_scene.py", "exec"))
+exec(
+    compile(
+        open(
+            r"G:\Github\PalaceOfCulture\tooling\intro-cinematic\build_scene.py",
+            encoding="utf-8",
+        ).read(),
+        "build_scene.py",
+        "exec",
+    )
+)
 ```
 
 The Godot intro (`godot/assets/intro.ogv`) intentionally keeps the earlier approved clip —

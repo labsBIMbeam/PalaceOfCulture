@@ -14,6 +14,7 @@ import logging
 import math
 import os
 import random
+from contextlib import suppress
 from pathlib import Path
 
 import bpy
@@ -58,10 +59,14 @@ F_LAMP_FIRST = 403  # 16.8 s, then one lamp every 7.2 f (0.3 s)
 F_TITLE_IN = 454  # 18.9 s
 F_FADE_OUT = 486
 
-sec = lambda s: int(round(s * FPS))  # noqa: E731
+
+def sec(s: float) -> int:
+    """Seconds → frame number."""
+    return round(s * FPS)
 
 
 # ---------------------------------------------------------------- helpers
+
 
 def wipe_scene() -> None:
     """Remove every object/collection/orphan so the build is deterministic."""
@@ -71,16 +76,21 @@ def wipe_scene() -> None:
     for coll in list(bpy.data.collections):
         bpy.data.collections.remove(coll)
     for block_list in (
-        bpy.data.meshes, bpy.data.curves, bpy.data.materials, bpy.data.images,
-        bpy.data.lights, bpy.data.cameras, bpy.data.worlds, bpy.data.fonts,
-        bpy.data.actions, bpy.data.node_groups,
+        bpy.data.meshes,
+        bpy.data.curves,
+        bpy.data.materials,
+        bpy.data.images,
+        bpy.data.lights,
+        bpy.data.cameras,
+        bpy.data.worlds,
+        bpy.data.fonts,
+        bpy.data.actions,
+        bpy.data.node_groups,
     ):
         for block in list(block_list):
             if block.users == 0 or block_list in (bpy.data.worlds,):
-                try:
+                with suppress(RuntimeError):
                     block_list.remove(block)
-                except Exception:
-                    pass
 
 
 def collection(name: str) -> bpy.types.Collection:
@@ -128,6 +138,7 @@ def import_glb(path: Path, name: str) -> bpy.types.Object:
     hi = Vector((max(v.x for v in box), max(v.y for v in box), max(v.z for v in box)))
     centre_bottom = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
     from mathutils import Matrix
+
     merged.data.transform(Matrix.Translation(-centre_bottom))
     merged.location = (0, 0, 0)
     merged.name = name
@@ -180,6 +191,7 @@ def key(obj, path: str, value, frame: int, interp: str = "BEZIER") -> None:
 
 # ---------------------------------------------------------------- stage A: world
 
+
 def setup_render() -> None:
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
@@ -190,17 +202,21 @@ def setup_render() -> None:
     scene.frame_end = FRAME_END
     scene.render.film_transparent = False
     scene.view_settings.view_transform = "AgX"
-    try:
+    with suppress(TypeError):  # look names shift between Blender releases
         scene.view_settings.look = "AgX - Base Contrast"
-    except TypeError:
-        pass
     eevee = scene.eevee
     if hasattr(eevee, "taa_render_samples"):
         eevee.taa_render_samples = 64
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGB"
-    for beat_frame, label in ((1, "tick"), (F_BEAT2, "rooftop"), (F_DISSOLVE_START, "dissolve"),
-                              (F_REFORM_START, "reform"), (F_BEAT5, "zaps"), (F_TITLE_IN, "title")):
+    for beat_frame, label in (
+        (1, "tick"),
+        (F_BEAT2, "rooftop"),
+        (F_DISSOLVE_START, "dissolve"),
+        (F_REFORM_START, "reform"),
+        (F_BEAT5, "zaps"),
+        (F_TITLE_IN, "title"),
+    ):
         scene.timeline_markers.new(label, frame=beat_frame)
 
 
@@ -228,7 +244,12 @@ def build_world() -> None:
     # horizon gradient: deep violet band low, near-black above
     links.new(sep.outputs["Z"], ramp.inputs["Fac"])
     ramp.color_ramp.elements[0].position = 0.0
-    ramp.color_ramp.elements[0].color = (VIOLET[0] * 0.085, VIOLET[1] * 0.05, VIOLET[2] * 0.12, 1)
+    ramp.color_ramp.elements[0].color = (
+        VIOLET[0] * 0.085,
+        VIOLET[1] * 0.05,
+        VIOLET[2] * 0.12,
+        1,
+    )
     ramp.color_ramp.elements[1].position = 0.115
     ramp.color_ramp.elements[1].color = (0.003, 0.003, 0.008, 1)
 
@@ -270,8 +291,12 @@ def build_ground() -> None:
     street.scale = (STREET_HALF_WIDTH, 21.5, 1)
     street.data.materials.append(dark_mat("StreetDark", (0.030, 0.027, 0.026), 0.85))
     link_to(street, "Set")
-    bpy.ops.mesh.primitive_circle_add(vertices=84, radius=PLAZA_RADIUS, fill_type="NGON",
-                                      location=(PLAZA_CENTER.x, PLAZA_CENTER.y, 0.014))
+    bpy.ops.mesh.primitive_circle_add(
+        vertices=84,
+        radius=PLAZA_RADIUS,
+        fill_type="NGON",
+        location=(PLAZA_CENTER.x, PLAZA_CENTER.y, 0.014),
+    )
     plaza = bpy.context.active_object
     plaza.name = "Plaza"
     plaza.data.materials.append(dark_mat("PlazaDark", (0.034, 0.030, 0.028), 0.8))
@@ -297,16 +322,25 @@ HOUSES = [
 ]
 
 TREES = [
-    ("nature/pine.glb", -12.5, 12.0, 7.5), ("nature/oak.glb", 12.8, 9.0, 6.0),
-    ("nature/pine-2.glb", -13.5, 20.0, 8.5), ("nature/birch.glb", 14.5, 27.0, 6.5),
-    ("nature/oak-2.glb", -12.0, 47.0, 7.0), ("nature/pine.glb", 12.0, 44.0, 8.0),
-    ("nature/pine-2.glb", -7.0, 60.5, 7.5), ("nature/oak.glb", 8.0, 61.0, 6.5),
+    ("nature/pine.glb", -12.5, 12.0, 7.5),
+    ("nature/oak.glb", 12.8, 9.0, 6.0),
+    ("nature/pine-2.glb", -13.5, 20.0, 8.5),
+    ("nature/birch.glb", 14.5, 27.0, 6.5),
+    ("nature/oak-2.glb", -12.0, 47.0, 7.0),
+    ("nature/pine.glb", 12.0, 44.0, 8.0),
+    ("nature/pine-2.glb", -7.0, 60.5, 7.5),
+    ("nature/oak.glb", 8.0, 61.0, 6.5),
     # far treeline arc behind the plaza: breaks the empty horizon under the violet band
-    ("nature/pine.glb", -22.0, 70.0, 12.0), ("nature/pine-2.glb", -14.0, 74.0, 13.5),
-    ("nature/oak.glb", -6.0, 78.0, 11.0), ("nature/pine.glb", 2.0, 80.0, 14.0),
-    ("nature/pine-2.glb", 9.0, 77.0, 12.5), ("nature/oak-2.glb", 17.0, 73.0, 11.5),
-    ("nature/pine.glb", 25.0, 69.0, 12.5), ("nature/pine-2.glb", -30.0, 64.0, 11.0),
-    ("nature/pine.glb", -38.0, 60.0, 11.5), ("nature/pine-2.glb", -46.0, 54.0, 10.5),
+    ("nature/pine.glb", -22.0, 70.0, 12.0),
+    ("nature/pine-2.glb", -14.0, 74.0, 13.5),
+    ("nature/oak.glb", -6.0, 78.0, 11.0),
+    ("nature/pine.glb", 2.0, 80.0, 14.0),
+    ("nature/pine-2.glb", 9.0, 77.0, 12.5),
+    ("nature/oak-2.glb", 17.0, 73.0, 11.5),
+    ("nature/pine.glb", 25.0, 69.0, 12.5),
+    ("nature/pine-2.glb", -30.0, 64.0, 11.0),
+    ("nature/pine.glb", -38.0, 60.0, 11.5),
+    ("nature/pine-2.glb", -46.0, 54.0, 10.5),
 ]
 
 
@@ -336,7 +370,12 @@ def build_street_set() -> None:
         bsdf = mat.node_tree.nodes.get("Principled BSDF") if mat else None
         if bsdf is not None:
             c = bsdf.inputs["Base Color"].default_value
-            bsdf.inputs["Base Color"].default_value = (c[0] * 0.22, c[1] * 0.22, c[2] * 0.26, 1.0)
+            bsdf.inputs["Base Color"].default_value = (
+                c[0] * 0.22,
+                c[1] * 0.22,
+                c[2] * 0.26,
+                1.0,
+            )
     # warm windows: the village kit ships a "Windows" material — give it a faint glow
     for mat in bpy.data.materials:
         if mat.name.startswith("Windows") and mat.use_nodes:
@@ -405,8 +444,11 @@ def build_moon() -> None:
 
 # ---------------------------------------------------------------- stage B: raccoon + camera
 
+
 def _sphere(name: str, scale, loc, rot=(0, 0, 0)) -> bpy.types.Object:
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=14, ring_count=10, radius=1.0, location=loc)
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=14, ring_count=10, radius=1.0, location=loc
+    )
     obj = bpy.context.active_object
     obj.name = name
     obj.scale = scale
@@ -414,15 +456,21 @@ def _sphere(name: str, scale, loc, rot=(0, 0, 0)) -> bpy.types.Object:
     return obj
 
 
-def _cone(name: str, radius: float, depth: float, loc, rot=(0, 0, 0)) -> bpy.types.Object:
-    bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=radius, depth=depth, location=loc)
+def _cone(
+    name: str, radius: float, depth: float, loc, rot=(0, 0, 0)
+) -> bpy.types.Object:
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=10, radius1=radius, depth=depth, location=loc
+    )
     obj = bpy.context.active_object
     obj.name = name
     obj.rotation_euler = Euler([math.radians(a) for a in rot])
     return obj
 
 
-def _join(objs: list[bpy.types.Object], name: str, mat: bpy.types.Material) -> bpy.types.Object:
+def _join(
+    objs: list[bpy.types.Object], name: str, mat: bpy.types.Material
+) -> bpy.types.Object:
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objs:
         obj.select_set(True)
@@ -466,8 +514,9 @@ def build_raccoon() -> None:
         _sphere("rb_chest", (0.15, 0.16, 0.15), (0, 0.22, 0.38)),
     ]
     for side in (-1, 1):
-        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.028, depth=0.30,
-                                            location=(side * 0.07, 0.24, 0.15))
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=8, radius=0.028, depth=0.30, location=(side * 0.07, 0.24, 0.15)
+        )
         leg = bpy.context.active_object
         leg.name = f"rb_leg_{side}"
         body_parts.append(leg)
@@ -524,7 +573,9 @@ def build_raccoon() -> None:
     rim_data.spot_blend = 0.6
     rim_data.shadow_soft_size = 0.4
     rim = bpy.data.objects.new("RaccoonRim", rim_data)
-    rim.location = perch + Vector((-2.6, 3.4, 2.3))  # opposite the camera: edge, not key
+    rim.location = perch + Vector(
+        (-2.6, 3.4, 2.3)
+    )  # opposite the camera: edge, not key
     aim = rim.constraints.new("TRACK_TO")
     aim.target = bpy.data.objects["RaccoonRoot"]
     aim.track_axis = "TRACK_NEGATIVE_Z"
@@ -569,15 +620,23 @@ def build_kerni() -> bpy.types.Object:
 
     # the amber lens + tiny cyan diagnostic glint (proxy spheres; the GLB bakes its lens in paint)
     lens_mat = emission_mat("KerniLensGlow", AMBER, 0.0)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.055,
-                                         location=KERNI_HOVER + Vector((0, -0.38, 0.12)))
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=12,
+        ring_count=8,
+        radius=0.055,
+        location=KERNI_HOVER + Vector((0, -0.38, 0.12)),
+    )
     lens = bpy.context.active_object
     lens.name = "KerniLens"
     lens.data.materials.append(lens_mat)
     link_to(lens, "Kerni")
     glint_mat = emission_mat("KerniGlint", CYAN, 0.0)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.018,
-                                         location=KERNI_HOVER + Vector((0.07, -0.40, 0.19)))
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=10,
+        ring_count=6,
+        radius=0.018,
+        location=KERNI_HOVER + Vector((0.07, -0.40, 0.19)),
+    )
     glint = bpy.context.active_object
     glint.name = "KerniGlint"
     glint.data.materials.append(glint_mat)
@@ -639,7 +698,9 @@ def build_particles() -> None:
     Departure order follows the dissolve front (tail → nose, low y first), so each ember
     leaves exactly where the mesh is vanishing.
     """
-    raccoon_objs = [bpy.data.objects[n] for n in ("RaccoonBody", "RaccoonHead", "RaccoonTail")]
+    raccoon_objs = [
+        bpy.data.objects[n] for n in ("RaccoonBody", "RaccoonHead", "RaccoonTail")
+    ]
     bpy.context.view_layer.update()
     origins = _sample_world_verts(raccoon_objs, N_PARTICLES)
     kerni = bpy.data.objects["Kerni"]
@@ -648,12 +709,18 @@ def build_particles() -> None:
     order = sorted(range(N_PARTICLES), key=lambda i: origins[i].y)
 
     mats = []
-    for i, strength in enumerate((1.6, 2.2, 2.9)):  # low: AgX keeps the copper hue, bloom adds glow
-        tint = tuple(COPPER[c] * (1 - i * 0.18) + ORANGE[c] * i * 0.18 for c in range(3))
+    for i, strength in enumerate(
+        (1.6, 2.2, 2.9)
+    ):  # low: AgX keeps the copper hue, bloom adds glow
+        tint = tuple(
+            COPPER[c] * (1 - i * 0.18) + ORANGE[c] * i * 0.18 for c in range(3)
+        )
         mats.append(emission_mat(f"Ember_{i}", tint, strength))
     meshes = []
     for i, mat in enumerate(mats):
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.0, location=(0, 0, -50))
+        bpy.ops.mesh.primitive_ico_sphere_add(
+            subdivisions=1, radius=1.0, location=(0, 0, -50)
+        )
         proto = bpy.context.active_object
         proto.name = f"EmberProto_{i}"
         proto.data.materials.append(mat)
@@ -680,20 +747,36 @@ def build_particles() -> None:
 
         size = RNG.uniform(0.011, 0.018)
         # scale: pop in as the mesh vanishes, absorb on landing
-        for frame, s in ((depart - 1, 0.0), (depart + 4, size), (land - 2, size * 0.8),
-                         (land + 8, 0.0)):
+        for frame, s in (
+            (depart - 1, 0.0),
+            (depart + 4, size),
+            (land - 2, size * 0.8),
+            (land + 8, 0.0),
+        ):
             obj.scale = (s, s, s)
             obj.keyframe_insert("scale", frame=frame)
 
-        drift1 = o + Vector((RNG.uniform(-1.4, 1.4) - o.x * 0.35, RNG.uniform(3.5, 6.5),
-                             RNG.uniform(1.1, 2.1)))
-        mid = Vector((RNG.uniform(-1.6, 1.6), RNG.uniform(24.0, 36.0),
-                      RNG.uniform(5.6, 8.4)))
+        drift1 = o + Vector(
+            (
+                RNG.uniform(-1.4, 1.4) - o.x * 0.35,
+                RNG.uniform(3.5, 6.5),
+                RNG.uniform(1.1, 2.1),
+            )
+        )
+        mid = Vector(
+            (RNG.uniform(-1.6, 1.6), RNG.uniform(24.0, 36.0), RNG.uniform(5.6, 8.4))
+        )
         theta = RNG.uniform(0, 2 * math.pi)
-        ring = KERNI_HOVER + Vector((1.15 * math.cos(theta), 1.15 * math.sin(theta),
-                                     RNG.uniform(-0.35, 0.35)))
-        for frame, loc in ((depart, o), (depart + 26, drift1),
-                           ((depart + arrive) // 2 + 6, mid), (arrive, ring), (land, t)):
+        ring = KERNI_HOVER + Vector(
+            (1.15 * math.cos(theta), 1.15 * math.sin(theta), RNG.uniform(-0.35, 0.35))
+        )
+        for frame, loc in (
+            (depart, o),
+            (depart + 26, drift1),
+            ((depart + arrive) // 2 + 6, mid),
+            (arrive, ring),
+            (land, t),
+        ):
             obj.location = loc
             obj.keyframe_insert("location", frame=frame)
 
@@ -728,7 +811,9 @@ def build_dissolve() -> None:
         mask = obj.modifiers.new("DissolveMask", "MASK")
         mask.vertex_group = "dissolve"
         mask.threshold = -0.01
-        obj.keyframe_insert('modifiers["DissolveMask"].threshold', frame=F_DISSOLVE_START)
+        obj.keyframe_insert(
+            'modifiers["DissolveMask"].threshold', frame=F_DISSOLVE_START
+        )
         mask.threshold = 1.02
         obj.keyframe_insert('modifiers["DissolveMask"].threshold', frame=F_DISSOLVE_END)
     # the rim has nothing left to edge-light once the body is gone
@@ -740,12 +825,20 @@ def build_dissolve() -> None:
 
 def build_lamp_cascade() -> None:
     """Beat 5: seven lamps answer, one every 0.3 s, from Kerni outward (plaza → street start)."""
-    lamps = sorted((obj for obj in bpy.data.collections["Lamps"].objects
-                    if obj.type == "MESH"), key=lambda o: -o.location.y)
+    lamps = sorted(
+        (obj for obj in bpy.data.collections["Lamps"].objects if obj.type == "MESH"),
+        key=lambda o: -o.location.y,
+    )
     for i, lamp in enumerate(lamps):
         frame = int(F_LAMP_FIRST + i * 7.2)
-        glow = next((s.material for s in lamp.material_slots
-                     if s.material and s.material.name.startswith("LampGlow")), None)
+        glow = next(
+            (
+                s.material
+                for s in lamp.material_slots
+                if s.material and s.material.name.startswith("LampGlow")
+            ),
+            None,
+        )
         if glow is not None:
             sock = glow.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"]
             for f, s in ((frame - 1, 0.0), (frame + 2, 13.0), (frame + 7, 8.0)):
@@ -780,27 +873,29 @@ def build_camera() -> None:
     track.up_axis = "UP_Y"
 
     cam_keys = [
-        (1, (1.8, 4.0, 2.45)),           # black; already framed on the rooftop, profile view
-        (F_BEAT2, (1.7, 4.2, 2.5)),      # beat 2 opens
-        (F_DISSOLVE_START, (0.4, 5.8, 3.05)),   # slow push-in ends at the ridge
-        (240, (-0.2, 9.0, 4.1)),         # linger while the unravel runs
-        (F_REFORM_START, (-0.6, 17.0, 6.6)),    # then track the particle stream
-        (F_BEAT5, (0.9, 34.5, 4.6)),     # at the plaza, lantern reformation
-        (FRAME_END, (0.0, 1.5, 11.5)),   # crane up + back: street sweep, sky above
+        (1, (1.8, 4.0, 2.45)),  # black; already framed on the rooftop, profile view
+        (F_BEAT2, (1.7, 4.2, 2.5)),  # beat 2 opens
+        (F_DISSOLVE_START, (0.4, 5.8, 3.05)),  # slow push-in ends at the ridge
+        (240, (-0.2, 9.0, 4.1)),  # linger while the unravel runs
+        (F_REFORM_START, (-0.6, 17.0, 6.6)),  # then track the particle stream
+        (F_BEAT5, (0.9, 34.5, 4.6)),  # at the plaza, lantern reformation
+        (FRAME_END, (0.0, 1.5, 11.5)),  # crane up + back: street sweep, sky above
     ]
     for frame, loc in cam_keys:
         cam.location = loc
         cam.keyframe_insert("location", frame=frame)
 
-    frame_offset = Vector((0.0, 0.9, 0.35))        # gaze room toward the plaza, raccoon left third
+    frame_offset = Vector(
+        (0.0, 0.9, 0.35)
+    )  # gaze room toward the plaza, raccoon left third
     target_keys = [
         (1, head_at + frame_offset),
-        (sec(8.6), head_at + frame_offset),        # hold through the first embers
-        (250, Vector((-2.2, 13.0, 5.8))),          # release along the stream
+        (sec(8.6), head_at + frame_offset),  # hold through the first embers
+        (250, Vector((-2.2, 13.0, 5.8))),  # release along the stream
         (F_REFORM_START, Vector((0.0, 31.0, 6.2))),  # mid-stream
-        (sec(15.4), KERNI_HOVER),                  # settle on the lantern
+        (sec(15.4), KERNI_HOVER),  # settle on the lantern
         (sec(18.0), KERNI_HOVER),
-        (FRAME_END, Vector((0.0, 42.0, 4.0))),     # open up: street, plaza, sky
+        (FRAME_END, Vector((0.0, 42.0, 4.0))),  # open up: street, plaza, sky
     ]
     for frame, loc in target_keys:
         target.location = loc
@@ -811,9 +906,11 @@ def build_title() -> None:
     """Calm end card, parented to the camera: cream small caps, no flare, no logo."""
     cam = bpy.data.objects["IntroCam"]
     try:
-        font = bpy.data.fonts.load(r"C:\Windows\Fonts\bahnschrift.ttf", check_existing=True)
-    except Exception:
-        font = None
+        font = bpy.data.fonts.load(
+            r"C:\Windows\Fonts\bahnschrift.ttf", check_existing=True
+        )
+    except (RuntimeError, OSError):
+        font = None  # Blender's built-in font still reads fine
     mat = emission_mat("TitleCream", CREAM, 0.0)
 
     def text_obj(name: str, body: str, size: float, y_local: float, spacing: float):
@@ -849,11 +946,9 @@ def build_title() -> None:
 def _set_glare(node, name: str, value) -> None:
     sock = node.inputs.get(name) if hasattr(node, "inputs") else None
     if sock is not None and hasattr(sock, "default_value"):
-        try:
+        with suppress(TypeError):
             sock.default_value = value
             return
-        except Exception:
-            pass
     attr = name.lower().replace(" ", "_")
     if hasattr(node, attr):
         setattr(node, attr, value)
@@ -863,7 +958,9 @@ def build_compositor() -> None:
     """Bloom for the embers/lamps + the black fades (in after the tick, out under the title)."""
     scene = bpy.context.scene
     scene.render.use_compositing = True
-    if hasattr(scene, "compositing_node_group"):  # Blender 5.x: the compositor is a node group
+    if hasattr(
+        scene, "compositing_node_group"
+    ):  # Blender 5.x: the compositor is a node group
         tree = scene.compositing_node_group
         if tree is None:
             tree = bpy.data.node_groups.new("IntroComp", "CompositorNodeTree")
@@ -873,23 +970,20 @@ def build_compositor() -> None:
         tree = scene.node_tree
     tree.nodes.clear()
     if hasattr(tree, "interface"):
-        try:
+        with suppress(AttributeError, RuntimeError, TypeError):
             tree.interface.clear()
-            tree.interface.new_socket(name="Image", in_out="OUTPUT",
-                                      socket_type="NodeSocketColor")
-        except Exception:
-            pass
+            tree.interface.new_socket(
+                name="Image", in_out="OUTPUT", socket_type="NodeSocketColor"
+            )
     rl = tree.nodes.new("CompositorNodeRLayers")
     glare = tree.nodes.new("CompositorNodeGlare")
     for name, values in (("Type", ("BLOOM", "Bloom")), ("Quality", ("HIGH", "High"))):
         sock = glare.inputs.get(name)
         if sock is not None:
             for value in values:
-                try:
+                with suppress(TypeError):
                     sock.default_value = value
                     break
-                except Exception:
-                    continue
     _set_glare(glare, "Threshold", 1.0)
     _set_glare(glare, "Strength", 0.5)
     _set_glare(glare, "Size", 0.55)
@@ -897,11 +991,9 @@ def build_compositor() -> None:
 
     mix = None
     for type_name in ("ShaderNodeMix", "CompositorNodeMixRGB"):
-        try:
+        with suppress(RuntimeError):
             mix = tree.nodes.new(type_name)
             break
-        except Exception:
-            continue
 
     glare_in = glare.inputs.get("Image")
     glare_out = glare.outputs.get("Image")
@@ -911,7 +1003,7 @@ def build_compositor() -> None:
         mix.data_type = "RGBA"
         fac = mix.inputs[0]
         mix.inputs[7].default_value = (0, 0, 0, 1)  # B = black
-        tree.links.new(glare_out, mix.inputs[6])    # A = image
+        tree.links.new(glare_out, mix.inputs[6])  # A = image
         out_sock = mix.outputs[2]
     elif mix is not None:  # legacy MixRGB
         fac = mix.inputs["Fac"]
@@ -924,16 +1016,19 @@ def build_compositor() -> None:
 
     comp = None
     for type_name in ("NodeGroupOutput", "CompositorNodeComposite"):
-        try:
+        with suppress(RuntimeError):
             comp = tree.nodes.new(type_name)
             break
-        except Exception:
-            continue
     tree.links.new(out_sock, comp.inputs[0])
 
     if fac is not None:
-        for frame, value in ((1, 1.0), (F_HORIZON_IN, 1.0), (84, 0.0),
-                             (F_FADE_OUT, 0.0), (FRAME_END, 1.0)):
+        for frame, value in (
+            (1, 1.0),
+            (F_HORIZON_IN, 1.0),
+            (84, 0.0),
+            (F_FADE_OUT, 0.0),
+            (FRAME_END, 1.0),
+        ):
             fac.default_value = value
             fac.keyframe_insert("default_value", frame=frame)
 
@@ -959,7 +1054,9 @@ def main() -> None:
 
 main()
 
-if os.environ.get("INTRO_RENDER") == "1":  # headless: blender -b --python build_scene.py
+if (
+    os.environ.get("INTRO_RENDER") == "1"
+):  # headless: blender -b --python build_scene.py
     _scene = bpy.context.scene
     _out = ROOT / "tooling" / "intro-cinematic" / "_work" / "frames"
     _out.mkdir(parents=True, exist_ok=True)

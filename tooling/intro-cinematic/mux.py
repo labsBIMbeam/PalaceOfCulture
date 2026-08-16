@@ -27,26 +27,66 @@ def main() -> None:
         raise SystemExit(f"expected 504 frames, found {len(frames)} in {FRAMES}")
     if not AUDIO.exists():
         raise SystemExit(f"missing {AUDIO} — run make_audio.py first")
-    subprocess.check_call([
-        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-        "-framerate", "24", "-i", str(FRAMES / "%04d.png"),
-        "-i", str(AUDIO),
-        "-c:v", "libx264", "-preset", "slow", "-crf", crf, "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
-        "-shortest", "-movflags", "+faststart", "-map_metadata", "-1",
-        str(OUT),
-    ])
-    probe = json.loads(subprocess.check_output([
-        "ffprobe", "-v", "error", "-print_format", "json",
-        "-show_format", "-show_streams", str(OUT),
-    ]))
+    subprocess.check_call(
+        [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-framerate",
+            "24",
+            "-i",
+            str(FRAMES / "%04d.png"),
+            "-i",
+            str(AUDIO),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            crf,
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-b:a",
+            "192k",
+            "-shortest",
+            "-movflags",
+            "+faststart",
+            "-map_metadata",
+            "-1",
+            str(OUT),
+        ]
+    )
+    probe = json.loads(
+        subprocess.check_output(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                str(OUT),
+            ]
+        )
+    )
     size = int(probe["format"]["size"])
     duration = float(probe["format"]["duration"])
     streams = {s["codec_type"]: s["codec_name"] for s in probe["streams"]}
     print(f"{OUT.name}: {size / 1e6:.2f} MB, {duration:.3f} s, {streams}")
     if size > SIZE_BUDGET:
-        print(f"WARNING: over the 10 MB budget — retry with a higher crf, e.g. "
-              f"python mux.py {int(crf) + 3}")
+        print(
+            f"WARNING: over the 10 MB budget — retry with a higher crf, e.g. "
+            f"python mux.py {int(crf) + 3}"
+        )
 
 
 if __name__ == "__main__":
