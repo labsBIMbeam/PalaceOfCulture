@@ -1,5 +1,5 @@
 import NDK, { type NDKEvent, type NDKFilter, type NDKSigner } from "@nostr-dev-kit/ndk";
-import { RELAYS } from "./nostrConfig";
+import { RELAYS, resolveRuntimeRelayUrls } from "./nostrConfig";
 
 // The shared Nostr client is now NDK (@nostr-dev-kit/ndk) — the higher-level FOSS toolkit — replacing
 // the hand-rolled nostr-tools SimplePool. One NDK instance owns the relay pool + connection lifecycle;
@@ -19,10 +19,24 @@ export function getNdk(): NDK {
   return ndk;
 }
 
-/** Connect once; the promise is memoised so concurrent callers share a single handshake. */
+/**
+ * Connect once; the promise is memoised so concurrent callers share a single handshake.
+ *
+ * Relay resolution happens here rather than at module load because detecting a FIPS mesh relay means
+ * probing a loopback socket, which is async. Deferring the first NDK construction until the probe
+ * settles is what lets one clearnet bundle serve mesh and non-mesh players from the same build.
+ */
 function ready(): Promise<void> {
-  const instance = getNdk();
-  if (!connected) connected = instance.connect(3000).catch(() => {});
+  if (!connected) {
+    connected = resolveRuntimeRelayUrls()
+      .then((relayUrls) => {
+        // First construction wins: a caller that already touched getNdk() holds a pool built from
+        // the public defaults, and swapping it mid-flight would drop live subscriptions.
+        if (!ndk) ndk = new NDK({ explicitRelayUrls: relayUrls });
+        return ndk.connect(3000);
+      })
+      .catch(() => {});
+  }
   return connected;
 }
 
