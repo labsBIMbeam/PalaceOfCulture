@@ -26,6 +26,8 @@ import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
+import { ZapNappletPanel } from "../napplet/ZapNappletPanel";
+import { zapRecipientFor } from "../napplet/zapDirectory";
 import {
   type MultiplayerViewState,
   OFFLINE_MULTIPLAYER_STATE,
@@ -278,6 +280,7 @@ const POSTFX_ENABLED =
   typeof window === "undefined" ||
   new URLSearchParams(window.location.search).get("postfx") !== "0";
 const USE_RADIUS = 2.6; // metres: how close you must be to a chair/bed for the "Sit"/"Sleep" prompt
+const ZAP_RADIUS = 2.8; // metres: how close to another player for the "Zap 21 sats" prompt
 const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the bed's default scale
 
 // Capsule half height (0.5) + radius (0.4) + float (0.3) + slack: how far below the body centre
@@ -293,6 +296,8 @@ function WalkSystems({
   activeWorld,
   onActive,
   onNearPose,
+  remotePlayers,
+  onNearPlayer,
 }: {
   bodyRef: RefObject<RapierRigidBody>;
   poseables: PosePoint[];
@@ -302,11 +307,15 @@ function WalkSystems({
   activeWorld: EngineTarget;
   onActive: (item: Interactable | null) => void;
   onNearPose: (point: PosePoint | null) => void;
+  /** Live remote presence (street only) — a ref because it updates at the wire rate. */
+  remotePlayers?: RefObject<RemotePlayerSnapshot[]>;
+  onNearPlayer?: (player: RemotePlayerSnapshot | null) => void;
 }) {
   const [, getKeys] = useKeyboardControls();
   const { world, rapier } = useRapier();
   const lastId = useRef<string | null>(null);
   const lastPose = useRef<string | null>(null);
+  const lastPlayer = useRef<string | null>(null);
   const jumpPrev = useRef(false);
   const jumpStartedAt = useRef(Number.NEGATIVE_INFINITY);
   useFrame((state) => {
@@ -410,6 +419,25 @@ function WalkSystems({
     if (nearId !== lastPose.current) {
       lastPose.current = nearId;
       onNearPose(near);
+    }
+
+    // Nearest connected remote player within zap range — same edge-triggered pattern.
+    if (onNearPlayer) {
+      let met: RemotePlayerSnapshot | null = null;
+      let metDist = ZAP_RADIUS;
+      for (const player of remotePlayers?.current ?? []) {
+        if (!player.connected) continue;
+        const dist = Math.hypot(pos.x - player.x, pos.z - player.z);
+        if (dist < metDist) {
+          met = player;
+          metDist = dist;
+        }
+      }
+      const metId = met?.sessionId ?? null;
+      if (metId !== lastPlayer.current) {
+        lastPlayer.current = metId;
+        onNearPlayer(met);
+      }
     }
   });
   return null;
@@ -792,6 +820,19 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
 
+  // Zap-on-meet: the nearest remote player in range whose handle maps to a roster lightning
+  // identity (zapDirectory) may be zapped 21 sats. Identity stays out-of-band — the room only
+  // ever supplies the handle (ADR 0009). The panel hosts the sandboxed zap napplet.
+  const [nearPlayer, setNearPlayer] = useState<RemotePlayerSnapshot | null>(null);
+  const [zapHandle, setZapHandle] = useState<string | null>(null);
+  const zappableNeighbor = nearPlayer && zapRecipientFor(nearPlayer.handle) ? nearPlayer : null;
+  const zappableRef = useRef<RemotePlayerSnapshot | null>(null);
+  zappableRef.current = zappableNeighbor;
+  const zapOpenRef = useRef(false);
+  zapOpenRef.current = zapHandle !== null;
+  const remotePlayersRef = useRef<RemotePlayerSnapshot[]>([]);
+  remotePlayersRef.current = multiplayerView.players;
+
   // The MoC creation panel is scene state (not panel-internal) so mode switches never reset it, and
   // the ship dock can open it. `mocFocusNonce` bumps land focus in the panel's "Name your part"
   // field — E at the dock drops you straight into naming, the world object as the loop's entry.
@@ -885,8 +926,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       if (event.code !== "KeyE") return;
       const el = document.activeElement;
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (zapOpenRef.current) return; // the zap panel owns the keyboard until it closes
       if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
+      else if (zappableRef.current) setZapHandle(zappableRef.current.handle);
       else if (activeRef.current) activateInteract(activeRef.current);
     };
     window.addEventListener("keydown", onInteractKey);
@@ -895,6 +938,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setActiveInteract(null);
       setDialog(null);
       setNearPose(null);
+      setNearPlayer(null);
+      setZapHandle(null);
     };
   }, [mode]);
 
@@ -1187,8 +1232,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   activeWorld={world}
                   bodyRef={playerBody}
                   onActive={setActiveInteract}
+                  onNearPlayer={setNearPlayer}
                   onNearPose={setNearPose}
                   poseables={poseables}
+                  remotePlayers={remotePlayersRef}
                   spawn={SPAWN_FOR[world]}
                 />
               ) : null}
@@ -1363,6 +1410,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span className="interact-key">E</span>
           {nearPose.pose === "sleep" ? "Lie down" : "Sit down"}
         </button>
+      ) : mode === "walk" && zappableNeighbor && !zapHandle ? (
+        <button
+          className="interact-prompt interact-prompt-zap"
+          onClick={() => setZapHandle(zappableNeighbor.handle)}
+          type="button"
+        >
+          <span className="interact-key">E</span>⚡ Zap {zappableNeighbor.handle} · 21 sats
+        </button>
       ) : mode === "walk" && activeInteract ? (
         <button
           className="interact-prompt"
@@ -1381,6 +1436,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           </button>
         </div>
       ) : null}
+      {zapHandle ? <ZapNappletPanel handle={zapHandle} onClose={() => setZapHandle(null)} /> : null}
       {mode === "decorate" ? (
         <DecorPicker
           catalog={CATALOG}

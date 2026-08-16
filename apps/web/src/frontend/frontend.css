@@ -5667,3 +5667,55 @@ input.compose-input::placeholder {
     font-size: 18px;
   }
 }
+
+/* --- zap napplet shell (the sandboxed 21-sats panel over the street) --- */
+
+.zap-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(23, 23, 26, 0.55);
+}
+
+.zap-shell-card {
+  width: min(380px, 92vw);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1f1f24;
+  border: 1px solid rgba(247, 147, 26, 0.35);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+
+.zap-shell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  color: #ece7db;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.zap-shell-close {
+  border: none;
+  background: none;
+  color: #b3ac9c;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zap-shell-frame {
+  display: block;
+  width: 100%;
+  height: 380px;
+  border: none;
+  background: #17171a;
+}
+
+.interact-prompt-zap {
+  border-color: rgba(247, 147, 26, 0.7);
+}
