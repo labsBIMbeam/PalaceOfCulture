@@ -11,8 +11,9 @@ import { SHIP_DOCK } from "./streetLayout";
 
 export type InteractKind = "door" | "npc" | "object";
 export type InteractWorld = "hq" | "home" | "street";
-/** Beyond-dialog activations: the ship dock opens the MoC creation panel instead of a message. */
-export type InteractAction = "open-ship-panel";
+/** Beyond-dialog activations: the ship dock opens the MoC creation panel instead of a
+ *  message; Kerni's plaza table opens the TCG practice-table napplet. */
+export type InteractAction = "open-ship-panel" | "open-tcg-table";
 
 export interface Interactable {
   id: string;
@@ -109,5 +110,17 @@ export const INTERACTABLES: Interactable[] = [
     kind: "object",
     label: "Draw water",
     message: "Cold, clear well water. The camp gathers here at dusk.",
+  },
+  {
+    // Kerni's practice table — the TCG played inside the world (demo centerpiece).
+    // The raccoon deals; the napplet opens the real Edition One table vs the NPC.
+    id: "street-kerni-table",
+    world: "street",
+    position: [PLAZA_WELL[0] + 4, 0, PLAZA_WELL[1] + 3],
+    radius: 3,
+    kind: "npc",
+    label: "Sit at Kerni's table — cards",
+    action: "open-tcg-table",
+    message: 'Kerni shuffles. "First match is practice: no standing, no stake, just you and me."',
   },
 ];

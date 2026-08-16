@@ -26,6 +26,7 @@ import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
+import { TcgTablePanel } from "../napplet/TcgTablePanel";
 import { ZapNappletPanel } from "../napplet/ZapNappletPanel";
 import { zapRecipientFor } from "../napplet/zapDirectory";
 import {
@@ -838,12 +839,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // field — E at the dock drops you straight into naming, the world object as the loop's entry.
   const [mocOpen, setMocOpen] = useState(true);
   const [mocFocusNonce, setMocFocusNonce] = useState(0);
+  // Kerni's plaza table: the TCG practice-table napplet (demo centerpiece).
+  const [tcgOpen, setTcgOpen] = useState(false);
   // Uses only stable setters, so the once-bound interact key handler may close over it safely.
   const activateInteract = (item: Interactable) => {
     if (item.action === "open-ship-panel") {
       setDialog(null);
       setMocOpen(true);
       setMocFocusNonce((nonce) => nonce + 1);
+    } else if (item.action === "open-tcg-table") {
+      setDialog(null);
+      setTcgOpen(true);
     } else {
       setDialog(item.message);
     }
@@ -1437,6 +1443,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         </div>
       ) : null}
       {zapHandle ? <ZapNappletPanel handle={zapHandle} onClose={() => setZapHandle(null)} /> : null}
+      {tcgOpen ? <TcgTablePanel onClose={() => setTcgOpen(false)} /> : null}
       {mode === "decorate" ? (
         <DecorPicker
           catalog={CATALOG}
