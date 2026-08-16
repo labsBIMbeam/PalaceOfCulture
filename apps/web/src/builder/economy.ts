@@ -10,6 +10,7 @@ import {
   MATERIALS,
   MATERIAL_CAPS,
   OBJECTS,
+  type ObjectKind,
   clampMaterial,
   getRecipe,
 } from "./catalog";
@@ -25,6 +26,25 @@ const STARTER_INVENTORY: Record<string, number> = { block_stone: 18 };
  *  waiting out month-scale crafts. Production keeps the real economy (drip + queue) untouched. */
 const DEV_INVENTORY_FLOOR = 600;
 
+/**
+ * Demo deployments bake `VITE_DEMO=1` into the build so live visitors can build and craft
+ * immediately (stage demos can't wait out month-scale crafts). A build-time flag, never a
+ * runtime switch — mainnet builds keep the real economy (drip, caps, 21-numerology) untouched.
+ */
+export function isDemoBuild(): boolean {
+  try {
+    return import.meta.env?.VITE_DEMO === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Demo starter kit per object kind: enough blocks for a real build (84 = 4×21), a taste of
+ *  each furniture piece. Applied as a floor on boot — existing progress is never lowered. */
+export function demoInventoryFloor(kind: ObjectKind): number {
+  return kind === "block" ? 84 : 8;
+}
+
 export type EconomyEvent =
   | { kind: "craft_completed"; recipeId: string }
   | { kind: "move_in_arrived"; objectId: string };
@@ -32,13 +52,13 @@ export type EconomyEvent =
 const nowSec = () => Date.now() / 1000;
 
 /**
- * Dev-only acceleration for drip + craft queue: open the app with `?timescale=600` to compress
- * month-long waits while testing. Production is always real time (1.0). The move-in sustain
- * timer stays on the wall clock and is NOT scaled (mirrors `-- --timescale=N` in godot).
+ * Dev/demo acceleration for drip + craft queue: open the app with `?timescale=600` to compress
+ * month-long waits while testing or presenting. Mainnet builds are always real time (1.0). The
+ * move-in sustain timer stays on the wall clock and is NOT scaled (mirrors godot --timescale).
  */
 function readTimeScale(): number {
   try {
-    if (import.meta.env?.DEV !== true) return 1;
+    if (import.meta.env?.DEV !== true && !isDemoBuild()) return 1;
     const raw = new URLSearchParams(window.location.search).get("timescale");
     if (!raw) return 1;
     const value = Number(raw);
@@ -100,6 +120,21 @@ class Economy {
     if (import.meta.env?.DEV === true) {
       for (const [id, def] of Object.entries(OBJECTS)) {
         if (!def.attracts) this.inventory[id] = Math.max(this.getCount(id), DEV_INVENTORY_FLOOR);
+      }
+    }
+    // Demo floor (VITE_DEMO builds): a generous Set 1 kit + full material stores, so a live
+    // demo visitor builds and crafts right away. Floors only — progress is never lowered.
+    if (isDemoBuild()) {
+      for (const [id, def] of Object.entries(OBJECTS)) {
+        if (!def.attracts) {
+          this.inventory[id] = Math.max(this.getCount(id), demoInventoryFloor(def.kind));
+        }
+      }
+      for (const id of Object.keys(MATERIALS)) {
+        this.materials[id] = clampMaterial(
+          id,
+          Math.max(this.materials[id] ?? 0, MATERIAL_CAPS[id] ?? 0),
+        );
       }
     }
     this.ready = true;
