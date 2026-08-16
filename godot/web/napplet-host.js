@@ -229,13 +229,13 @@
         done = true;
         clearTimeout(timer);
         this.subs.delete(subId);
-        relays.forEach((url) => {
+        for (const url of relays) {
           try {
             this.send(url, ["CLOSE", subId]);
           } catch (err) {
             /* socket already gone */
           }
-        });
+        }
         resolve({ events: Array.from(seen.values()), incomplete: incomplete });
       };
       const timer = setTimeout(() => {
@@ -256,9 +256,9 @@
         },
       });
       const frame = ["REQ", subId].concat(Array.isArray(filters) ? filters : [filters]);
-      relays.forEach((url) => {
+      for (const url of relays) {
         this.send(url, frame);
-      });
+      }
     });
   };
 
@@ -276,43 +276,43 @@
       onClosed: () => {},
     });
     const frame = ["REQ", subId].concat(Array.isArray(filters) ? filters : [filters]);
-    relays.forEach((url) => {
+    for (const url of relays) {
       this.send(url, frame);
-    });
+    }
     return () => {
       this.subs.delete(subId);
-      relays.forEach((url) => {
+      for (const url of relays) {
         try {
           this.send(url, ["CLOSE", subId]);
         } catch (err) {
           /* socket already gone */
         }
-      });
+      }
     };
   };
 
   RelayPool.prototype.publish = function (relays, event) {
     const results = {};
-    relays.forEach((url) => {
+    for (const url of relays) {
       try {
         this.send(url, ["EVENT", event]);
         results[url] = true;
       } catch (err) {
         results[url] = false;
       }
-    });
+    }
     return results;
   };
 
   RelayPool.prototype.closeAll = function () {
     this.subs.clear();
-    this.sockets.forEach((ws) => {
+    for (const ws of this.sockets.values()) {
       try {
         ws.close();
       } catch (err) {
         /* already closing */
       }
-    });
+    }
     this.sockets.clear();
   };
 
@@ -360,13 +360,13 @@
       error: error || "",
     };
     const snapshot = this.status;
-    this.statusListeners.forEach((cb) => {
+    for (const cb of this.statusListeners) {
       try {
         cb(snapshot);
       } catch (err) {
         /* listener owns its failures */
       }
-    });
+    }
   };
 
   Host.prototype.onStatus = function (cb) {
@@ -443,9 +443,9 @@
       this.frame.remove();
       this.frame = null;
     }
-    this.streams.forEach((close) => {
+    for (const close of this.streams.values()) {
       close();
-    });
+    }
     this.streams.clear();
     this.pool.closeAll();
     this.entry = null;
