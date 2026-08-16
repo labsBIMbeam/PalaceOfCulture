@@ -17,6 +17,7 @@ import { KerniFamiliar } from "./KerniFamiliar";
 import { LampPost } from "./LampPost";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza, type SolidSpec, YOUNG_TREE } from "./Plaza";
 import { Signpost } from "./Signpost";
+import { StreetCastView } from "./StreetCastView";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
 import { mulberry32 } from "./rand";
@@ -483,6 +484,11 @@ export function StreetWorld({ completedRaids = 0 }: { completedRaids?: number })
         <Suspense fallback={null}>
           <KerniFamiliar position={[-27.5, 0, 93]} rotationY={-2.16} />
         </Suspense>
+      </PropBoundary>
+
+      {/* the mentor crews — all 31 members at the five affinity stations (streetCast.ts) */}
+      <PropBoundary>
+        <StreetCastView />
       </PropBoundary>
 
       {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}

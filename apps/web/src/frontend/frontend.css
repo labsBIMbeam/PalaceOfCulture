@@ -2912,6 +2912,14 @@ input.compose-input::placeholder {
   line-height: 1.45;
 }
 
+/* NPC dialogs: the speaking crew member's name above their line. */
+.interact-speaker {
+  color: var(--gold-soft);
+  font: 700 11px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .interact-close {
   padding: 6px 18px;
   border: 1px solid rgba(231, 178, 60, 0.45);

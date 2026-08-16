@@ -829,9 +829,37 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   };
 
   const [activeInteract, setActiveInteract] = useState<Interactable | null>(null);
-  const [dialog, setDialog] = useState<string | null>(null);
+  // NPC dialogs are line sequences (the crew leads teach in four steps); plain interactables
+  // are the same thing with a single line. E and the button both advance, then close.
+  const [dialog, setDialog] = useState<{
+    speaker: string | null;
+    lines: string[];
+    index: number;
+  } | null>(null);
+  const dialogRef = useRef<typeof dialog>(null);
+  dialogRef.current = dialog;
+  const advanceDialog = () =>
+    setDialog((current) =>
+      current && current.index < current.lines.length - 1
+        ? { ...current, index: current.index + 1 }
+        : null,
+    );
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
+
+  // Voice: each cast line ships as generated speech under /vo/cast (tooling/street-cast-vo).
+  // Media stays decorative — a missing file simply plays nothing, the text is the canon.
+  const dialogSpeaker = dialog?.speaker ?? null;
+  const dialogIndex = dialog?.index ?? 0;
+  useEffect(() => {
+    if (!dialogSpeaker) return;
+    const audio = new Audio(`/vo/cast/${dialogSpeaker.toLowerCase()}-${dialogIndex + 1}.mp3`);
+    audio.volume = 0.9;
+    audio.play().catch(() => {});
+    return () => {
+      audio.pause();
+    };
+  }, [dialogSpeaker, dialogIndex]);
 
   // Zap-on-meet: the nearest remote player in range whose handle maps to a roster lightning
   // identity (zapDirectory) may be zapped 21 sats. Identity stays out-of-band — the room only
@@ -864,7 +892,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setDialog(null);
       setTcgOpen(true);
     } else {
-      setDialog(item.message);
+      const lines = item.lines?.length ? item.lines : [item.message];
+      setDialog({ speaker: item.speaker ?? null, lines, index: 0 });
     }
   };
 
@@ -946,7 +975,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       const el = document.activeElement;
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
       if (zapOpenRef.current) return; // the zap panel owns the keyboard until it closes
-      if (posedRef.current) getUp();
+      if (dialogRef.current)
+        advanceDialog(); // step through the open dialog, then close it
+      else if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
       else if (zappableRef.current) {
         zapSessionRef.current = zappableRef.current.sessionId;
@@ -1456,9 +1487,12 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : null}
       {dialog ? (
         <div className="interact-dialog">
-          <p>{dialog}</p>
-          <button className="interact-close" onClick={() => setDialog(null)} type="button">
-            Close
+          {dialog.speaker ? <strong className="interact-speaker">{dialog.speaker}</strong> : null}
+          <p>{dialog.lines[dialog.index]}</p>
+          <button className="interact-close" onClick={advanceDialog} type="button">
+            {dialog.index < dialog.lines.length - 1
+              ? `Next (${dialog.index + 1}/${dialog.lines.length})`
+              : "Close"}
           </button>
         </div>
       ) : null}

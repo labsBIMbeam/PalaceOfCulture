@@ -25,8 +25,8 @@ for (const [name, role] of Object.entries(EXPECTED_ROLES)) {
   assert.equal(member.role, role, `${name} carries the 600.wtf role ${role}`);
 }
 
-// The four newest members have no rigged model yet — they wear the shared placeholder.
-for (const name of ["tal", "bk", "mtoshi", "cuddy"]) {
+// Three of the newest members have no rigged model yet — they wear the shared placeholder.
+for (const name of ["tal", "bk", "mtoshi"]) {
   const member = MEMBERS.find((m) => m.name === name);
   assert.equal(
     member?.avatar.modelUrl,
@@ -34,6 +34,12 @@ for (const name of ["tal", "bk", "mtoshi", "cuddy"]) {
     `${name} wears the placeholder until the rig pipeline runs`,
   );
 }
+// cuddy's squirrel came off the pipeline (site mesh bound to the shared skeleton).
+assert.equal(
+  MEMBERS.find((m) => m.name === "cuddy")?.avatar.modelUrl,
+  "/avatar/imported/cuddy.glb",
+  "cuddy wears his own squirrel model",
+);
 
 // Kerni is a street NPC, not a pickable member.
 assert.equal(
