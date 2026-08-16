@@ -13,12 +13,17 @@ import {
   pocketObjectIds,
   pocketOf,
 } from "../src/builder/catalog";
-import { economy } from "../src/builder/economy";
+import { demoInventoryFloor, economy, isDemoBuild } from "../src/builder/economy";
 
 const assert = (name: string, cond: boolean) => {
   if (!cond) throw new Error(`FAIL: ${name}`);
   console.log(`ok: ${name}`);
 };
+
+// demo build flag: this Node run has no vite env -> mainnet behaviour; the kit floor is pure
+assert("node run is not a demo build", isDemoBuild() === false);
+assert("demo kit: 84 blocks per type (4x21)", demoInventoryFloor("block") === 84);
+assert("demo kit: 8 of each furniture", demoInventoryFloor("furniture") === 8);
 
 // catalog parity
 assert(
