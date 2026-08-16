@@ -5719,3 +5719,24 @@ input.compose-input::placeholder {
 .interact-prompt-zap {
   border-color: rgba(247, 147, 26, 0.7);
 }
+
+/* --- TCG table napplet: a wide board needs a wide shell --- */
+
+.zap-shell-card:has(.tcg-shell-frame) {
+  width: min(1180px, 96vw);
+}
+
+.tcg-shell-frame {
+  display: block;
+  width: 100%;
+  height: min(760px, 82vh);
+  border: none;
+  background: #09080b;
+}
+
+.tcg-shell-missing {
+  margin: 0;
+  padding: 18px;
+  color: #b3ac9c;
+  font-size: 14px;
+}

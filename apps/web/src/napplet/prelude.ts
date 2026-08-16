@@ -70,6 +70,12 @@ export const WEB_NAPPLET_PRELUDE = `(function () {
       getRelays: function () { return send('identity.getRelays'); }
     },
     link: { open: function (url, o) { return send('link.open', { url: url, options: o || {} }); } },
+    storage: {
+      getItem: function (k) { return send('storage.getItem', { key: k }); },
+      setItem: function (k, v) { return send('storage.setItem', { key: k, value: v }); },
+      removeItem: function (k) { return send('storage.removeItem', { key: k }); },
+      keys: function () { return send('storage.keys'); }
+    },
     theme: {
       get: function () { return send('theme.get'); },
       onChanged: function (cb) { return subscribeTo('theme', cb); }
