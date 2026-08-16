@@ -477,7 +477,7 @@ func _check_world_screens() -> bool:
 			and String(intro.STORY_CARDS[0].line).contains("blood") \
 			and String(intro.STORY_CARDS[1].caption).contains("Kerni") \
 			and String(intro.STORY_CARDS[2].line).contains("not a cult") \
-			and String(intro.STORY_CARDS[2].kicker).contains("ZAPBURG"),
+			and String(intro.STORY_CARDS[2].kicker).contains("LOCKTARD STREET"),
 			"Godot intro cards lost the canonical story order"):
 		return false
 	var done := [false]
