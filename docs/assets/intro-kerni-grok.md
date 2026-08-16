@@ -29,8 +29,11 @@ Reference-to-video guides rather than hard-binds endpoints. The generated final 
 
 ## Runtime files
 
-- Web: `apps/web/public/intro.mp4` — H.264, 1280×720, 24 fps, 5.041667 s, no audio.
-- Godot: `godot/assets/intro.ogv` — Theora, 1280×720, 5.041667 s, no audio.
+- Web: **superseded.** `apps/web/public/intro.mp4` is now the 21 s Blender-rendered
+  cinematic with synthesized audio — see `docs/design/intro-cinematic.md` and
+  `tooling/intro-cinematic/` for its storyboard and fully deterministic production
+  pipeline. The grok clip described here remains the provenance of the Godot asset only.
+- Godot: `godot/assets/intro.ogv` — Theora, 1280×720, 5.041667 s, no audio (unchanged).
 
 Godot conversion:
 

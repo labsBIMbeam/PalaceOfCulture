@@ -72,3 +72,6 @@ Thumbs.db
 
 # Godot web build synced into the site (artifact — rebuild via pnpm game:sync)
 apps/web/public/game/
+
+# Intro cinematic render workspace (frames, wavs, muxes — rebuild via tooling/intro-cinematic)
+tooling/intro-cinematic/_work/
