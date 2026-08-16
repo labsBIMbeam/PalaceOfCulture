@@ -265,6 +265,50 @@ export function parsePlaceShipModuleMessage(value: unknown): PlaceShipModuleMess
   return { moduleId, label, role: role as ShipModuleRole };
 }
 
+// --- zap flash (presence-layer light, docs/design/demo-loop-and-zap-light.md) ---
+// A sender reports "I zapped that player" AFTER a confirmed payment; the server rate-limits
+// and re-broadcasts. This is cosmetic light only — never owned state, never money truth:
+// a spoofed flash could only make the street prettier, which is why it may ride the
+// presence transport without violating ADR 0009's identity boundary.
+
+export const ZAP_FLASH_MESSAGE = "zapFlash";
+/** Flashes follow real payments, not chat cadence — bursts beyond this are misbehaving. */
+export const MAX_ZAP_FLASHES_PER_MINUTE = 6;
+
+const ZAP_FLASH_FIELDS = ["targetSessionId"] as const;
+
+export interface ZapFlashMessage {
+  targetSessionId: string;
+}
+
+/** Colyseus session ids are short url-safe tokens; anything else is rejected. */
+const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+
+/** Validate a sender's flash report before the room rate-limits and re-broadcasts it. */
+export function parseZapFlashMessage(value: unknown): ZapFlashMessage {
+  const input = asExactRecord(value, "zap flash message", ZAP_FLASH_FIELDS);
+  const targetSessionId = input.targetSessionId;
+  if (typeof targetSessionId !== "string" || !SESSION_ID_PATTERN.test(targetSessionId)) {
+    throw new MultiplayerInputError("targetSessionId must be a session id");
+  }
+  return { targetSessionId };
+}
+
+/** The broadcast every client receives: who got zapped (receiver-focused, sender private). */
+export interface ZapFlashBroadcast {
+  sessionId: string;
+}
+
+/** Validate a room broadcast before the client lets it brighten anything. */
+export function parseZapFlashBroadcast(value: unknown): ZapFlashBroadcast {
+  const input = asExactRecord(value, "zap flash broadcast", ["sessionId"] as const);
+  const sessionId = input.sessionId;
+  if (typeof sessionId !== "string" || !SESSION_ID_PATTERN.test(sessionId)) {
+    throw new MultiplayerInputError("sessionId must be a session id");
+  }
+  return { sessionId };
+}
+
 /** Validate a server-authoritative pose correction before the client applies it to local physics. */
 export function parsePositionCorrection(value: unknown): PositionCorrection {
   const input = asExactRecord(value, "position correction", POSITION_CORRECTION_FIELDS);

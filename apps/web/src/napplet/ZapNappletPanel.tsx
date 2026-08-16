@@ -16,7 +16,16 @@ import { zapRecipientFor } from "./zapDirectory";
 
 const ZAP_SATS = 21;
 
-export function ZapNappletPanel({ handle, onClose }: { handle: string; onClose: () => void }) {
+export function ZapNappletPanel({
+  handle,
+  onClose,
+  onZapPaid,
+}: {
+  handle: string;
+  onClose: () => void;
+  /** Fired once after a CONFIRMED (WebLN-paid) zap — lights the street, never money truth. */
+  onZapPaid?: () => void;
+}) {
   const extension = useCallback<NapExtension>(
     (msg, reply, fail) => {
       const { type, id } = msg;
@@ -52,6 +61,7 @@ export function ZapNappletPanel({ handle, onClose }: { handle: string; onClose: 
             comment,
           );
           reply(id, result);
+          if (result.paid) onZapPaid?.();
         })().catch((error: unknown) => {
           fail(id, "zap-failed", error instanceof Error ? error.message : "zap failed");
         });
@@ -59,7 +69,7 @@ export function ZapNappletPanel({ handle, onClose }: { handle: string; onClose: 
       }
       return false;
     },
-    [handle],
+    [handle, onZapPaid],
   );
 
   return (

@@ -5,6 +5,7 @@ import {
   MAX_MOVE_MESSAGES_PER_SECOND,
   MAX_ROOM_CLIENTS,
   MAX_SHIP_MODULES,
+  MAX_ZAP_FLASHES_PER_MINUTE,
   MOVEMENT_TOLERANCE,
   MOVE_MESSAGE,
   type MovementMessage,
@@ -18,9 +19,12 @@ import {
   PlayerPresenceState,
   type PositionCorrection,
   ShipModuleState,
+  ZAP_FLASH_MESSAGE,
+  type ZapFlashBroadcast,
   parseMovementMessage,
   parsePalaceJoinOptions,
   parsePlaceShipModuleMessage,
+  parseZapFlashMessage,
 } from "@600b/multiplayer";
 
 const RECONNECT_WINDOW_SECONDS = 10;
@@ -45,6 +49,8 @@ interface MovementGuard {
   movementTimestamps: number[];
   shipModuleId?: string;
   verticalDistanceBudget: DistanceBudget;
+  /** Sliding-window timestamps of accepted zap flashes (rate limit per sender). */
+  zapFlashTimestamps: number[];
 }
 
 export interface DistanceBudget {
@@ -54,7 +60,10 @@ export interface DistanceBudget {
 
 interface PalaceClientContext {
   auth: PalaceJoinOptions;
-  messages: { [POSITION_CORRECTION_MESSAGE]: PositionCorrection };
+  messages: {
+    [POSITION_CORRECTION_MESSAGE]: PositionCorrection;
+    [ZAP_FLASH_MESSAGE]: ZapFlashBroadcast;
+  };
   userData: MovementGuard;
 }
 
@@ -111,6 +120,9 @@ export class PalaceRoom extends Room<{
     this.onMessage<unknown>(PLACE_SHIP_MODULE_MESSAGE, (client, payload) => {
       this.#handleShipModule(client, payload);
     });
+    this.onMessage<unknown>(ZAP_FLASH_MESSAGE, (client, payload) => {
+      this.#handleZapFlash(client, payload);
+    });
     PalaceRoom.#activeRoomId = this.roomId;
   }
 
@@ -143,7 +155,29 @@ export class PalaceRoom extends Room<{
         distanceRefillAt: now,
         distanceTokens: MOVEMENT_TOLERANCE,
       },
+      zapFlashTimestamps: [],
     };
+  }
+
+  /** Presence-layer light: validate + rate-limit a sender's flash, then re-broadcast the
+   *  receiver to everyone. Cosmetic only — a bad message is dropped, never punished hard. */
+  #handleZapFlash(client: PalaceClient, payload: unknown): void {
+    let message: { targetSessionId: string };
+    try {
+      message = parseZapFlashMessage(payload);
+    } catch {
+      return; // malformed — drop silently, the lamps stay honest
+    }
+    const guard = client.userData;
+    if (!guard || guard.closing) return;
+    const now = performance.now();
+    const oldestAllowed = now - 60_000;
+    guard.zapFlashTimestamps = guard.zapFlashTimestamps.filter((t) => t > oldestAllowed);
+    if (guard.zapFlashTimestamps.length >= MAX_ZAP_FLASHES_PER_MINUTE) return;
+    const target = this.state.players.get(message.targetSessionId);
+    if (!target || !target.connected) return;
+    guard.zapFlashTimestamps.push(now);
+    this.broadcast(ZAP_FLASH_MESSAGE, { sessionId: message.targetSessionId });
   }
 
   override onDrop(client: PalaceClient): void {

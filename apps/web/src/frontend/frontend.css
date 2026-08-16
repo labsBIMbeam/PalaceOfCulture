@@ -5740,3 +5740,10 @@ input.compose-input::placeholder {
   color: #b3ac9c;
   font-size: 14px;
 }
+
+.remote-player-zaps {
+  margin-left: 6px;
+  font-style: normal;
+  color: #f7931a;
+  font-size: 11px;
+}
