@@ -1110,12 +1110,13 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const [builderBrush, setBuilderBrush] = useState<BrushSize>(1);
   const builderTargets = useRef<THREE.Group | null>(null);
 
+  // Mainnet keeps phase 1's deliberate gate: the live street (transport AND its UI — markers,
+  // status, the MoC raid panel, chat) opens once the relay run is accepted. The demo build
+  // (VITE_DEMO=1, the stage configuration) opens all of it immediately — the show needs
+  // "walk in, two online, run the raid" without an onboarding prerequisite.
+  const phase1Complete = phase1RelayState.status === "accepted" || isDemoBuild();
   useEffect(() => {
-    // Mainnet keeps phase 1's deliberate gate: the live room opens once the relay run is
-    // accepted. The demo build (VITE_DEMO=1, the stage configuration) connects immediately —
-    // the show needs "walk in, two online" without an onboarding prerequisite.
-    const streetGatedByPhase1 = phase1RelayState.status !== "accepted" && !isDemoBuild();
-    if (world !== "street" || streetGatedByPhase1) {
+    if (world !== "street" || !phase1Complete) {
       multiplayerTransportRef.current = null;
       setMultiplayerSession({ transport: null });
       return;
@@ -1144,7 +1145,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       if (multiplayerTransportRef.current === transport) multiplayerTransportRef.current = null;
       void transport.leave();
     };
-  }, [avatarAssetId, handle, phase1RelayState.status, world]);
+  }, [avatarAssetId, handle, phase1Complete, world]);
 
   useEffect(() => {
     void homeBuild.setup();
@@ -1723,7 +1724,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   reducedEffects={reducedEffects}
                 />
                 <SignedPulseEffect delta={signedPulseDelta} reducedEffects={reducedEffects} />
-                {phase1RelayState.status === "accepted" ? (
+                {phase1Complete ? (
                   <MeaningShip
                     localSessionId={multiplayerView.localSessionId}
                     modules={multiplayerView.shipModules}
@@ -1732,7 +1733,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 ) : null}
               </>
             ) : null}
-            {world === "street" && phase1RelayState.status === "accepted" ? (
+            {world === "street" && phase1Complete ? (
               <MultiplayerLayer
                 bodyRef={playerBody}
                 transportRef={multiplayerTransportRef}
@@ -1812,9 +1813,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span>{title}</span>
           <small>{subtitle}</small>
         </div>
-        {world === "street" && phase1RelayState.status === "accepted" ? (
-          <MultiplayerStatus view={multiplayerView} />
-        ) : null}
+        {world === "street" && phase1Complete ? <MultiplayerStatus view={multiplayerView} /> : null}
         <div className="engine-actions">
           {mode !== "decorate" && mode !== "build" ? (
             <button className="nav-pill nav-pill--engine" onClick={toggleOverview} type="button">
@@ -1895,7 +1894,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           wireOpen={wireOpen}
         />
       ) : null}
-      {world === "street" && phase1RelayState.status === "accepted" ? (
+      {world === "street" && phase1Complete ? (
         // Kept mounted (only hidden) through Decorate so typed labels and invite progress survive.
         <div hidden={mode === "decorate"}>
           <MeaningPath
@@ -2022,7 +2021,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           system={homeBuild}
         />
       ) : null}
-      {phase1RelayState.status === "accepted" && mode !== "decorate" && mode !== "build" ? (
+      {phase1Complete && mode !== "decorate" && mode !== "build" ? (
         <ChatPanel handle={handle} />
       ) : null}
       {mode !== "decorate" && mode !== "build" ? <MediaPlayer /> : null}

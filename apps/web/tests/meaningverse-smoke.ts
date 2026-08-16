@@ -355,17 +355,29 @@ assert.ok(
   "the creation panel's open state lives in the scene so mode switches never reset it",
 );
 
-// Entering the street no longer connects the old room on sight. The live multiplayer surface is
-// gated on the accepted Phase-1 relay, so solitude before activation is a structural guarantee.
+// Entering the street no longer connects the old room on sight. On mainnet the live multiplayer
+// surface is gated on the accepted Phase-1 relay — solitude before activation stays a structural
+// guarantee. The ONLY sanctioned bypass is the demo build (VITE_DEMO=1, the stage configuration),
+// expressed through exactly one derived flag so the two builds cannot drift apart.
 assert.match(
   palaceScene,
-  /world === "street" && phase1RelayState\.status === "accepted" \? \(\s*<MultiplayerLayer/,
-  "MultiplayerLayer must mount only in the street behind an accepted relay",
+  /const phase1Complete = phase1RelayState\.status === "accepted" \|\| isDemoBuild\(\);/,
+  "the street gate must derive from accepted-relay OR the demo build, nothing else",
+);
+assert.match(
+  palaceScene,
+  /world === "street" && phase1Complete \? \(\s*<MultiplayerLayer/,
+  "MultiplayerLayer must mount only in the street behind the phase-1 gate",
 );
 assert.equal(
   (palaceScene.match(/<MultiplayerLayer/g) ?? []).length,
   1,
-  "one MultiplayerLayer mount site only, so the accepted-relay gate cannot be bypassed",
+  "one MultiplayerLayer mount site only, so the gate cannot be bypassed",
+);
+assert.equal(
+  (palaceScene.match(/phase1Complete/g) ?? []).length >= 6,
+  true,
+  "transport, markers, status, raid panel, chat and ship all share the same derived gate",
 );
 
 const menuBackgrounds = ["title.webp", "home.webp", "market.webp"];
