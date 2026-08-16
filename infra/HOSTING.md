@@ -48,6 +48,9 @@ Werkstattgasse aktiv. Home und Palace HQ bleiben in diesem Slice lokale Flächen
 1. **Build-Maschine (einmalig / CI)** — Node ≥ 22, `corepack enable` (pnpm 9):
    `pnpm install` → `pnpm --filter @600b/web build` → statisches `dist/`.
    Voraussetzung: Avatar-/Feed-Assets liegen unter `apps/web/public/`.
+   **Live-Demo-Build:** `VITE_DEMO=1 pnpm --filter @600b/web build` — backt das
+   Set-1-Starterkit ein (84 Blöcke je Typ, 8 je Möbelstück, volle Materiallager) und erlaubt
+   `?timescale=` auch im Prod-Build. Ohne das Flag (Mainnet) bleibt die Economy unberührt.
 2. **Statisches Hosting (Tier 0/1)** — `dist/` ausliefern. Wegen 1 GB Assets idealerweise mit CDN.
 3. **API-Proxy (Tier 2)** — Node-Prozess `apps/server` (Port via `PORT`) für `/api/podcasts/*`.
    Optional für die Demo; nötig, sobald der Media-Player live Podcasts suchen soll.
