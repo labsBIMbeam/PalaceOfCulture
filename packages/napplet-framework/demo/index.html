@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Palace Prism — napplet framework demo</title>
+<style>
+  :root {
+    --ink: #0a0705; --fg: #efe6d2; --gold: #e7b23c;
+    --line: #2a241c; --surface: #14100c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ink); color: var(--fg);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #shell { height: 100%; display: grid; grid-template-rows: auto 1fr auto auto; }
+  header, .strip { display: flex; gap: 8px; align-items: center; padding: 6px 10px;
+    border-bottom: 1px solid var(--line); }
+  .brand { font-weight: 700; color: var(--gold); letter-spacing: .04em; }
+  .grow { flex: 1; }
+  button { font: inherit; color: inherit; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; min-height: 28px;
+    cursor: pointer; }
+  main { display: grid; grid-template-columns: 172px 208px minmax(0, 1fr) 232px;
+    min-height: 0; }
+  main > div, footer > div { border-right: 1px solid var(--line); min-width: 0; overflow: hidden; }
+  footer { display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+    border-top: 1px solid var(--line); height: 190px; }
+  .label { position: absolute; font-size: 9px; letter-spacing: .1em; color: #6b6459;
+    padding: 2px 4px; pointer-events: none; text-transform: uppercase; }
+  .slot { position: relative; height: 100%; }
+  .strip { border-top: 1px solid var(--line); border-bottom: 0; font-size: 12px; color: #8b8478; }
+  code { color: var(--gold); }
+</style>
+</head>
+<body>
+<div id="shell">
+  <header>
+    <span class="brand">600 BILLION</span>
+    <span id="lens-label">Commons</span>
+    <span class="grow"></span>
+    <button id="theme">Light theme</button>
+    <button id="inbound">Simulate inbound chat</button>
+    <button id="presence">Shuffle presence</button>
+  </header>
+
+  <main>
+    <div class="slot"><span class="label">guild-rail</span><div id="r-guild-rail" style="height:100%"></div></div>
+    <div class="slot"><span class="label">guild-context</span><div id="r-guild-context" style="height:100%"></div></div>
+    <div class="slot"><span class="label">center-stage</span><div id="r-center-stage" style="height:100%"></div></div>
+    <div class="slot"><span class="label">people-and-now</span><div id="r-people-and-now" style="height:100%"></div></div>
+  </main>
+
+  <footer>
+    <div class="slot"><span class="label">session-dock</span><div id="r-session-dock" style="height:100%"></div></div>
+    <div class="slot"><span class="label">chat</span><div id="r-chat" style="height:100%"></div></div>
+  </footer>
+
+  <div class="strip" id="status">booting…</div>
+</div>
+
+<script type="module">
+import { PalaceState, PrismHost } from "../dist/index.js";
+
+/*
+ * Demo shell. Fixtures only — this is the framework, not the game. Everything a
+ * real app would supply (Colyseus presence, the SQLite truth tier, a NIP-29
+ * chat transport, one <audio> element) plugs in behind PalaceState without any
+ * napplet noticing.
+ */
+const state = new PalaceState(
+  { pubkey: "a".repeat(64), handle: "Builder" },
+  {
+    guild: {
+      lens: { kind: "commons" },
+      guilds: [
+        { id: "music", name: "Music", crest: "♪", joined: true, unread: 2 },
+        { id: "builders", name: "Builders", crest: "⌂", joined: true, unread: 0 },
+        { id: "vienna", name: "Vienna", crest: "☗", joined: false, unread: 5 },
+      ],
+    },
+    presence: {
+      peers: [
+        { pubkey: "b".repeat(64), handle: "Wren", status: "here" },
+        { pubkey: "c".repeat(64), handle: "Kerni", status: "in-session" },
+        { pubkey: "d".repeat(64), handle: "Locktard", status: "away" },
+      ],
+      updatedAt: 1,
+    },
+    media: {
+      nowPlaying: null,
+      playing: false,
+      positionSec: 0,
+      durationSec: 0,
+      queue: [
+        { id: "t1", title: "Sats & Strings", author: "Wavlake", kind: "music",
+          valueRecipient: "artist@getalby.com" },
+        { id: "t2", title: "Locktard Street", author: "PC2", kind: "podcast" },
+        { id: "t3", title: "Arcane Night", author: "Palace", kind: "live" },
+      ],
+    },
+    chat: {
+      channels: ["world", "plaza", "session"],
+      activeChannel: "world",
+      messages: [
+        { id: "s1", channel: "world", author: "Wren", body: "the fountain finally moved in",
+          atMs: 0, self: false, system: false },
+      ],
+      unread: { plaza: 1 },
+    },
+  },
+);
+
+const THEMES = {
+  dark: { colors: { background: "#0a0705", text: "#efe6d2", primary: "#e7b23c" } },
+  light: { colors: { background: "#fbf7ee", text: "#241c12", primary: "#a8641a" } },
+};
+let themeName = "dark";
+
+const entries = [
+  { id: "guild-rail", region: "guild-rail", title: "Guild rail",
+    artifactUrl: "../napplets/guild-rail.html", grants: ["guild"] },
+  { id: "guild-context", region: "guild-context", title: "Guild context",
+    artifactUrl: "../napplets/guild-context.html", grants: ["guild", "session"] },
+  { id: "center-stage", region: "center-stage", title: "Center stage",
+    artifactUrl: "../napplets/center-stage.html", grants: ["session"] },
+  { id: "people-and-now", region: "people-and-now", title: "People & Now",
+    artifactUrl: "../napplets/people-and-now.html", grants: ["presence", "session"] },
+  { id: "session-dock", region: "session-dock", title: "Session dock",
+    artifactUrl: "../napplets/session-dock.html", grants: ["media", "session"] },
+  // Granted `chat` only: its presence probe must be refused by the host.
+  { id: "chat", region: "chat", title: "Chat",
+    artifactUrl: "../napplets/chat.html", grants: ["chat"] },
+];
+
+const containers = {};
+for (const entry of entries) containers[entry.region] = document.getElementById("r-" + entry.region);
+
+const host = new PrismHost({ state, entries, containers, theme: THEMES[themeName] });
+await host.start();
+
+const status = document.getElementById("status");
+const lensLabel = document.getElementById("lens-label");
+
+function renderStatus() {
+  const panels = host.status();
+  const ready = panels.filter((p) => p.ready).length;
+  const failed = panels.filter((p) => p.error);
+  status.textContent =
+    `${ready}/${panels.length} napplets ready` +
+    (failed.length ? ` · failed: ${failed.map((f) => f.id + " (" + f.error + ")").join(", ")}` : "") +
+    ` · sandbox="allow-scripts", no allow-same-origin`;
+}
+setInterval(renderStatus, 500);
+
+state.subscribe((domain) => {
+  if (domain !== "guild") return;
+  const guild = state.get("guild");
+  lensLabel.textContent =
+    guild.lens.kind === "guild"
+      ? (guild.guilds.find((g) => g.id === guild.lens.guildId)?.name ?? "Guild")
+      : guild.lens.kind === "union" ? "All joined" : "Commons";
+});
+
+// The shell owns the clock; the dock only renders it.
+setInterval(() => state.tick(0.5), 500);
+
+document.getElementById("theme").addEventListener("click", (event) => {
+  themeName = themeName === "dark" ? "light" : "dark";
+  host.setTheme(THEMES[themeName]);
+  event.target.textContent = themeName === "dark" ? "Light theme" : "Dark theme";
+  document.documentElement.style.setProperty("--ink", THEMES[themeName].colors.background);
+  document.documentElement.style.setProperty("--fg", THEMES[themeName].colors.text);
+});
+
+let inbound = 0;
+document.getElementById("inbound").addEventListener("click", () => {
+  inbound += 1;
+  state.receiveMessage({
+    id: "in" + inbound,
+    channel: inbound % 2 === 0 ? "plaza" : "world",
+    author: "Wren",
+    body: "inbound message " + inbound,
+    atMs: 0,
+    system: false,
+  });
+});
+
+document.getElementById("presence").addEventListener("click", () => {
+  const statuses = ["here", "away", "in-session"];
+  state.setPresence(state.get("presence").peers.map((peer, index) => ({
+    ...peer,
+    status: statuses[(statuses.indexOf(peer.status) + index + 1) % statuses.length],
+  })));
+});
+
+window.__demo = { state, host };
+</script>
+</body>
+</html>

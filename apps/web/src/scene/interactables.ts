@@ -7,12 +7,14 @@
 
 import { PLAZA_CENTRE, PLAZA_WELL, YOUNG_TREE } from "./Plaza";
 import { WORKSHOP_CENTRE } from "./Workshop";
+import { KERNI_BRIDGE_LINES, STREET_CAST } from "./streetCast";
 import { SHIP_DOCK } from "./streetLayout";
 
 export type InteractKind = "door" | "npc" | "object";
 export type InteractWorld = "hq" | "home" | "street";
-/** Beyond-dialog activations: the ship dock opens the MoC creation panel instead of a message. */
-export type InteractAction = "open-ship-panel";
+/** Beyond-dialog activations: the ship dock opens the MoC creation panel instead of a
+ *  message; Kerni's plaza table opens the TCG practice-table napplet. */
+export type InteractAction = "open-ship-panel" | "open-tcg-table";
 
 export interface Interactable {
   id: string;
@@ -29,6 +31,10 @@ export interface Interactable {
   message: string;
   /** When set, activation routes to this app action instead of showing `message`. */
   action?: InteractAction;
+  /** NPC dialog: who is speaking — shown as the dialog header. */
+  speaker?: string;
+  /** NPC dialog: full line sequence (leads step through with Next); wins over `message`. */
+  lines?: string[];
 }
 
 // HQ: spawn is ~[6,4,44]; the growing tree sits at [-7,0,40], the asset shelf at z≈52.
@@ -109,5 +115,47 @@ export const INTERACTABLES: Interactable[] = [
     kind: "object",
     label: "Draw water",
     message: "Cold, clear well water. The camp gathers here at dusk.",
+  },
+  {
+    // Kerni's practice table — the TCG played inside the world (demo centerpiece).
+    // The raccoon deals; the napplet opens the real Edition One table vs the NPC.
+    id: "street-kerni-table",
+    world: "street",
+    position: [PLAZA_WELL[0] + 4, 0, PLAZA_WELL[1] + 3],
+    radius: 3,
+    kind: "npc",
+    label: "Sit at Kerni's table — cards",
+    action: "open-tcg-table",
+    message: 'Kerni shuffles. "First match is practice: no standing, no stake, just you and me."',
+  },
+  // The street cast (docs/design/mentor-dialogues.md): every member of the five crews is
+  // individually talkable. Leads step through their four teaching lines with Next; crew
+  // comments are the same dialog with a single line.
+  ...STREET_CAST.map(
+    (entry): Interactable => ({
+      id: `cast-${entry.member.toLowerCase()}`,
+      world: "street",
+      position: entry.position,
+      radius: 2.6,
+      kind: "npc",
+      label: `Talk to ${entry.member}`,
+      message: entry.lines[0] ?? "",
+      speaker: entry.member,
+      lines: [...entry.lines],
+    }),
+  ),
+  // Kerni's bridge speech at the familiar's workshop perch — it points the player at the
+  // table above; the table interactable itself opens the real match.
+  // (StreetWorld places the familiar at [-27.5, 93]; keep in sync if the perch moves.)
+  {
+    id: "kerni-bridge",
+    world: "street",
+    position: [-27.5, 0, 93],
+    radius: 3.4,
+    kind: "npc",
+    label: "Talk to Kerni",
+    message: KERNI_BRIDGE_LINES[0] ?? "",
+    speaker: "Kerni",
+    lines: [...KERNI_BRIDGE_LINES],
   },
 ];

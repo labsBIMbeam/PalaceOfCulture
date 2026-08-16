@@ -6,6 +6,42 @@ export const PROJECT_SCALE = "x600billion";
 export const SHIP_NAME = "Leviathan";
 export const SHIP_MODULE_CAPACITY = 36;
 export const TUESDAY_CONTRIBUTOR_TARGET = 30;
+export const PHASE1_INVITE_MAX_BYTES = 4096;
+
+export type Phase1InviteState =
+  | "idle"
+  | "consent"
+  | "signer_pending"
+  | "copied"
+  | "manual"
+  | "waiting"
+  | "failed"
+  | "cancelled";
+
+export type Phase1InviteAttempt = {
+  readonly token: string;
+  readonly state: Phase1InviteState;
+};
+
+export type Phase1SignerCapability = {
+  readonly getPublicKey: () => Promise<string> | string;
+  readonly signEvent: (event: unknown) => Promise<unknown> | unknown;
+};
+
+/** Capability detection is deliberately structural and never invokes an extension method. */
+export function isPhase1SignerCapability(value: unknown): value is Phase1SignerCapability {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.getPublicKey === "function" && typeof candidate.signEvent === "function";
+}
+
+let phase1InviteAttemptCounter = 0;
+
+/** Make an app-owned consent token; it is not an event ID, identity, or authorization proof. */
+export function createPhase1InviteAttempt(): Phase1InviteAttempt {
+  phase1InviteAttemptCounter += 1;
+  return { token: `phase1-invite-${phase1InviteAttemptCounter}`, state: "idle" };
+}
 
 export type NostrEventDraft = {
   kind: 30078;
@@ -15,12 +51,41 @@ export type NostrEventDraft = {
 };
 
 /** Build a direct Street invitation without carrying unrelated query state or URL fragments. */
-export function buildMeaningverseInvite(currentHref: string): string {
+export function buildMeaningverseInvite(currentHref: string, activation?: string): string {
   const url = new URL(currentHref);
   url.search = "";
   url.searchParams.set("join", "street");
+  if (activation) url.searchParams.set("activation", activation);
   url.hash = "";
   return url.toString();
+}
+
+export function decodePhase1ActivationCapability(encoded: string): unknown | null {
+  if (!encoded || !/^[A-Za-z0-9_-]+$/.test(encoded) || encoded.length % 4 === 1) return null;
+  try {
+    const padded =
+      encoded.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (encoded.length % 4)) % 4);
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    if (bytes.byteLength > PHASE1_INVITE_MAX_BYTES) return null;
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+export function encodePhase1ActivationCapability(rawEvent: unknown): string | null {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(rawEvent);
+  } catch {
+    return null;
+  }
+  const bytes = new TextEncoder().encode(serialized);
+  if (bytes.byteLength > PHASE1_INVITE_MAX_BYTES) return null;
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
 }
 
 export type ShipPlacementEvent = {

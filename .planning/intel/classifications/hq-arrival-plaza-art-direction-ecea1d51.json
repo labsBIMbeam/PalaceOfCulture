@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/design/hq-arrival-plaza-art-direction.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "HQ Arrival Plaza — Future Palace Art Direction & Delivery Constraints",
+  "summary": "Documents future Palace arrival-plaza composition, platform boundaries, material families, environmental system rules, and initial visual quality gates.",
+  "scope": [
+    "HQ Arrival Plaza",
+    "Palace HQ",
+    "desktop 3D client",
+    "mobile companion interface",
+    "spatial composition",
+    "material families",
+    "quality gates"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 50,
+  "notes": ""
+}

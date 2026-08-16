@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/GUILD-ECONOMY.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Guild economics on Nostr — flow, not pool",
+  "summary": "Specifies non-custodial guild value flows, Nostr and Podcasting primitives, revenue loops, Moon Night events, split payments, and implementation order.",
+  "scope": [
+    "Nostr guilds",
+    "zap splits",
+    "Podcasting 2.0",
+    "Moon Night",
+    "live events",
+    "guild monuments",
+    "revenue loops"
+  ],
+  "cross_refs": ["GAME-LOOP.md", "adr/0004-media-value-live-open-standards.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

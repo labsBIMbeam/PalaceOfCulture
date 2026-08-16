@@ -1,9 +1,12 @@
-# Street — Ringstadt handoff
+# Palace Ringstadt — future spatial handoff
+
+Status: deferred future Palace-district topology and historical implementation context. The current
+first playable world is the linear five-zone Werkstattgasse defined by `docs/STREET-LEVEL-PLAN.md`.
 
 ## Product image
 
-Street is not a linear avenue. It is the inhabited ring around the Palace's two central
-symbols:
+The future Palace Ringstadt is not a linear avenue. It is the inhabited ring around the Palace's two
+central symbols and is separate from the current Werkstattgasse entry world:
 
 - the **young tree** represents time, patience and growth;
 - the **rocket site** represents the future and the 21-year horizon;
@@ -15,7 +18,7 @@ The player enters from the south, immediately sees the centre and may walk eithe
 the whole city. Web and world will later project the same guilds, Activities, Sessions and places;
 this scene establishes their spatial grammar without owning their business state.
 
-## Current implementation snapshot
+## Historical implementation snapshot
 
 Updated after commit `a979a1c` (`feat: add citadel wire politics page`). The handoff remains the
 spatial target, while these shipped web facts now constrain the world projection:
@@ -184,7 +187,8 @@ curation, wallet state or Session truth.
 
 ## Existing code — useful facts
 
-The current scene already contains a good radial base (compacted in the 2026-07 verdichten pass):
+At the time of this handoff, the scene contained a radial base (compacted in the 2026-07 verdichten
+pass). This evidence is historical and must not override the current linear Werkstattgasse contract:
 
 - `PLAZA_CENTRE = [0, 88]`;
 - `PLAZA_RADIUS = 24`;
@@ -204,8 +208,8 @@ The current scene already contains a good radial base (compacted in the 2026-07 
 
 Preserve the shared-layout habit. Extend it rather than adding a second hand-maintained position
 list. The former inconsistencies (unmounted `StreetFacades`/`StreetShops`, stale comments,
-unseeded textures) were resolved in the verdichten pass — the radial layout is the only town
-layout.
+unseeded textures) were resolved in the verdichten pass. The radial layout remains a future Palace
+district reference, not the current entry-world layout.
 
 ## One radial layout source
 

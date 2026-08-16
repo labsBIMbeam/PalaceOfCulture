@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/adr/0001-stack-and-runtime-topology.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR 0001 — Stack language & runtime topology (\"wo rennt was\")",
+  "summary": "Chooses TypeScript for client, realtime, and truth paths, with Python isolated to a suggestion-only world agent.",
+  "scope": [
+    "TypeScript",
+    "Python",
+    "runtime topology",
+    "ownership verification",
+    "world-agent",
+    "Colyseus",
+    "Yjs"
+  ],
+  "cross_refs": ["01-whitepaper", "02-concept", "05-build-dev/BUILD-BRIEF.md", "CLAUDE.md"],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

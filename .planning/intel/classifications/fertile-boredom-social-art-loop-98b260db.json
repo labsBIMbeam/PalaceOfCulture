@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/design/fertile-boredom-social-art-loop.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Fertile Boredom → Social Art Loop",
+  "summary": "Defines a player loop transforming resistance to algorithmic noise into presence, encounters, art artifacts, and shared Palace culture.",
+  "scope": [
+    "human presence",
+    "algorithmic noise",
+    "boredom",
+    "social encounters",
+    "memory fragments",
+    "art artifacts",
+    "Palace placement"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

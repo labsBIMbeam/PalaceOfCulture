@@ -11,6 +11,8 @@ const ChatPanelScript := preload("res://scripts/ui/chat_panel.gd")
 const VoiceDockScript := preload("res://scripts/ui/voice_dock.gd")
 const VoiceTransportScript := preload("res://scripts/net/voice_transport.gd")
 const MediaPlayerScript := preload("res://scripts/ui/media_player.gd")
+const NappletRuntimeScript := preload("res://scripts/net/napplet_runtime.gd")
+const NappletPanelScript := preload("res://scripts/ui/napplet_panel.gd")
 const WorldMapScript := preload("res://scripts/ui/world_map.gd")
 const IntroScreenScript := preload("res://scripts/ui/intro_screen.gd")
 const HomeWorldScript := preload("res://scripts/world/home_world.gd")
@@ -26,6 +28,8 @@ var _chat: ChatPanelScript
 var _voice_transport: VoiceTransportScript
 var _voice_dock: VoiceDockScript
 var _media: MediaPlayerScript
+var _napplet_runtime: NappletRuntimeScript
+var _napplet_panel: NappletPanelScript
 var _map: WorldMapScript
 var _intro: IntroScreenScript
 var _world: Node3D
@@ -66,6 +70,10 @@ func _ready() -> void:
 	_voice_transport.local_handle = PLAYER_HANDLE
 	_voice_dock = VoiceDockScript.new()
 	_media = MediaPlayerScript.new()
+	# The napplet runtime is a transport-shaped seam like voice: main.gd owns it,
+	# the panel only borrows it, so a second surface can host napplets later.
+	_napplet_runtime = NappletRuntimeScript.new()
+	_napplet_panel = NappletPanelScript.new()
 	# Add order sets _unhandled_input priority (reverse tree order): the craft
 	# menu swallows first while open, then the media browse panel, then chat —
 	# so the HUD only acts on Esc/hotbar keys when no overlay owns the input.
@@ -77,10 +85,13 @@ func _ready() -> void:
 	add_child(_voice_dock)
 	add_child(_chat)
 	add_child(_media)
+	add_child(_napplet_runtime)
+	add_child(_napplet_panel)
 	add_child(_craft_menu)
 	add_child(_map)
 	add_child(_intro)
 	_voice_dock.attach_transport(_voice_transport)
+	_napplet_panel.attach_runtime(_napplet_runtime)
 	_main_menu.world_map_requested.connect(_open_map)
 	_map.closed.connect(_on_map_closed)
 	Game.space_changed.connect(_on_space_changed)

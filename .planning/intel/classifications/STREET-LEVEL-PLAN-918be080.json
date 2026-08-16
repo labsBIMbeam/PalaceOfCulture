@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/STREET-LEVEL-PLAN.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Werkstattgasse — level plan v1 (rustic frontier culture-lane)",
+  "summary": "Specifies Werkstattgasse's rustic-to-cyber lane composition, five spatial zones, density and sightline rules, blockout process, art pipeline, and asset mapping.",
+  "scope": [
+    "Werkstattgasse",
+    "street zones",
+    "density rhythm",
+    "sightlines",
+    "Blender blockout",
+    "rustic art pass",
+    "asset mapping"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 0,
+  "notes": ""
+}

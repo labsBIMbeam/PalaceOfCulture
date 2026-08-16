@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/design/habitat-capability-system.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Locktard Street Habitat & Capability System",
+  "summary": "Specifies physical habitat bundles, permanent capability commissioning, progression chains, state separation, data implementation, MVP interface, and acceptance tests.",
+  "scope": [
+    "habitats",
+    "capabilities",
+    "commissioning",
+    "progression graph",
+    "production chains",
+    "Street Ledger",
+    "habitat state"
+  ],
+  "cross_refs": ["private-world-builder-loop.md"],
+  "locked": false,
+  "precedence": 0,
+  "notes": ""
+}

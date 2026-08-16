@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chat</title>
+<style>
+  :root { --palace-bg:#0a0705; --palace-fg:#efe6d2; --palace-primary:#e7b23c;
+    --palace-muted:color-mix(in srgb,var(--palace-fg) 55%,var(--palace-bg));
+    --palace-line:color-mix(in srgb,var(--palace-fg) 20%,var(--palace-bg));
+    --palace-surface:color-mix(in srgb,var(--palace-fg) 7%,var(--palace-bg)); }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--palace-bg);
+    color:var(--palace-fg);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  body{padding:8px;display:flex;flex-direction:column;gap:6px}
+  .tabs{display:flex;gap:4px}
+  button{font:inherit;color:inherit;background:var(--palace-surface);
+    border:1px solid var(--palace-line);border-radius:6px;padding:0 8px;min-height:28px;cursor:pointer}
+  button[data-on="true"]{background:var(--palace-primary);border-color:var(--palace-primary);
+    color:var(--palace-bg);font-weight:600}
+  #log{flex:1;overflow-y:auto;display:grid;gap:3px;align-content:start}
+  .msg .who{color:var(--palace-primary);font-weight:600}
+  .self .who{color:var(--palace-fg)}
+  form{display:flex;gap:6px}
+  input{flex:1;min-width:0;font:inherit;color:inherit;background:var(--palace-surface);
+    border:1px solid var(--palace-line);border-radius:6px;padding:0 8px;min-height:30px}
+  .probe{font-size:11px;color:#e8735a}
+</style>
+</head>
+<body>
+<div class="tabs" id="tabs"></div>
+<div id="log"></div>
+<form id="form"><input id="input" placeholder="Say something" autocomplete="off"><button>Send</button></form>
+<div class="probe" id="probe"></div>
+<script>
+// Chat — a view over the shell's single transport. Message history lives above
+// every renderer, so collapsing this panel or switching surface does not drop it
+// (Round 5, finding 3).
+const tabs = document.getElementById("tabs");
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const probe = document.getElementById("probe");
+
+let active = "world";
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const body = input.value;
+  input.value = "";
+  window.palace.intent({ domain: "chat", action: "send", channel: active, body });
+});
+
+window.palace.on("chat", (chat) => {
+  active = chat.activeChannel;
+  tabs.replaceChildren(...chat.channels.map((channel) => {
+    const button = document.createElement("button");
+    const unread = chat.unread[channel] ?? 0;
+    button.textContent = unread > 0 ? channel + " (" + unread + ")" : channel;
+    button.dataset.on = String(channel === chat.activeChannel);
+    button.addEventListener("click", () => {
+      window.palace.intent({ domain: "chat", action: "setChannel", channel });
+    });
+    return button;
+  }));
+
+  log.replaceChildren(...chat.messages
+    .filter((m) => m.channel === chat.activeChannel)
+    .map((m) => {
+      const line = document.createElement("div");
+      line.className = "msg" + (m.self ? " self" : "");
+      const who = document.createElement("span");
+      who.className = "who";
+      who.textContent = m.author + ": ";
+      line.append(who, document.createTextNode(m.body));
+      return line;
+    }));
+  log.scrollTop = log.scrollHeight;
+});
+
+// Deliberate boundary probe: this napplet was granted `chat` only. Asking for
+// presence must be refused by the host, and the refusal is shown rather than
+// swallowed — least privilege between first-party panels is what makes the same
+// host safe for third-party ones later.
+window.palace.get("presence")
+  .then(() => { probe.textContent = "probe: presence WAS readable — grant check failed"; })
+  .catch((err) => { probe.textContent = "probe: presence refused (" + err.code + ") — correct"; });
+</script>
+</body>
+</html>

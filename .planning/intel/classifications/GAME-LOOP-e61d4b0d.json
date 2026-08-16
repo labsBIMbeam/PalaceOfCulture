@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/GAME-LOOP.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "The Loop — how 600 Billion becomes the next WoW",
+  "summary": "Defines an anticipation-based retention loop spanning sessions, ceremonies, inhabitants, guild monuments, ethical constraints, build phases, and design risks.",
+  "scope": [
+    "cadence pyramid",
+    "building age",
+    "Hearth Report",
+    "inhabitants",
+    "block calendar",
+    "guilds",
+    "retention mechanics"
+  ],
+  "cross_refs": ["HOME-TOWN.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

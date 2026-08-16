@@ -8,12 +8,19 @@
  * lockstep. See memory: street-is-beta-sandbox-plaza.
  */
 
-import { Suspense, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Suspense, useMemo, useRef } from "react";
+import type { Group } from "three";
 import { Building, buildingBayX, buildingDoorX } from "./Building";
 import { Embers } from "./Embers";
 import { GlbModel } from "./GlbModel";
 import { GrowableObject } from "./GrowableObject";
 import { Signpost } from "./Signpost";
+import {
+  FOUNDATION_COURSE_COUNT,
+  foundationCourseSpec,
+  visibleFoundationCourses,
+} from "./foundationGrowth";
 import {
   PLAZA_CENTRE,
   PLAZA_WAYPOST,
@@ -290,15 +297,99 @@ export function plazaSolids(): SolidSpec[] {
   return out;
 }
 
+/** Kept next to the placement data so StreetColliders stays in lockstep with the visuals (same
+ *  contract as plazaSolids). Two crossed boxes approximate the drum's octagon. From the first
+ *  course on, the collider stands at the FULL final drum height: the footprint is never walkable
+ *  anyway, and never resizing a fixed collider under a live player means physics can never
+ *  depenetration-kick someone when a new course lands. */
+export function foundationDrumSolids(completedRaids: number): SolidSpec[] {
+  if (visibleFoundationCourses(completedRaids) < 1) return [];
+  const crest = foundationCourseSpec(FOUNDATION_COURSE_COUNT - 1);
+  const top = crest.y + crest.height / 2;
+  const [cx, cz] = PLAZA_CENTRE;
+  const half: [number, number, number] = [4.05, top / 2, 4.05];
+  return [
+    { pos: [cx, top / 2, cz], half },
+    { pos: [cx, top / 2, cz], half, rotY: Math.PI / 4 },
+  ];
+}
+
+/** The foundation drum itself: one masonry course per ten completed Light-the-Street runs,
+ *  21 courses to the crown. A course that arrives while you watch RISES out of the ring —
+ *  the growth moment is watchable, never a teleport. Courses already standing on arrival
+ *  are history and appear fully grown. */
+function FoundationCourses({ completedRaids }: { completedRaids: number }) {
+  const courses = visibleFoundationCourses(completedRaids);
+  const rigs = useRef<(Group | null)[]>([]);
+  const grown = useRef<number[] | null>(null);
+  if (grown.current === null) {
+    grown.current = Array.from({ length: courses }, () => 1);
+  }
+  useFrame((_, delta) => {
+    const scales = grown.current;
+    if (!scales) return;
+    for (let i = 0; i < courses; i += 1) {
+      const rig = rigs.current[i];
+      if (!rig) continue;
+      const value = Math.min(1, (scales[i] ?? 0) + delta / 1.4);
+      scales[i] = value;
+      rig.scale.y = Math.max(0.001, value * value * (3 - 2 * value));
+    }
+  });
+  return (
+    <group>
+      {Array.from({ length: courses }, (_, i) => {
+        const spec = foundationCourseSpec(i);
+        return (
+          <group
+            key={spec.y}
+            position={[0, spec.y - spec.height / 2, 0]}
+            ref={(node) => {
+              rigs.current[i] = node;
+            }}
+          >
+            <mesh castShadow position={[0, spec.height / 2, 0]} receiveShadow>
+              <cylinderGeometry args={[spec.radius, spec.radius + 0.07, spec.height, 32]} />
+              <meshStandardMaterial color={spec.tone === 0 ? "#a49682" : "#948671"} roughness={1} />
+            </mesh>
+          </group>
+        );
+      })}
+      {courses >= FOUNDATION_COURSE_COUNT ? (
+        /* the crown ring — 210 runs of community work, capped and unmistakably complete */
+        <mesh
+          castShadow
+          position={[0, foundationCourseSpec(FOUNDATION_COURSE_COUNT - 1).y + 0.18, 0]}
+          receiveShadow
+        >
+          <cylinderGeometry args={[4.02, 3.9, 0.13, 32]} />
+          <meshStandardMaterial color="#b5a88f" roughness={0.9} />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
 /** The prepared build site at the plaza centre: a foundation ring + surveyor's stake, now visibly
- *  STAGED — scaffold frame, stacked materials, a tripod — "the build is coming", not built yet. */
-function FoundationSite({ centre }: { centre: [number, number] }) {
+ *  STAGED — scaffold frame, stacked materials, a tripod — and, per completed raid run, the
+ *  foundation drum rising course by course (docs/design/demo-loop-and-zap-light.md, decision 3). */
+function FoundationSite({
+  centre,
+  completedRaids = 0,
+}: {
+  centre: [number, number];
+  completedRaids?: number;
+}) {
   const posts: [number, number][] = [
     [6.6, 6.6],
     [-6.6, 6.6],
     [-6.6, -6.6],
     [6.6, -6.6],
   ];
+  const courses = visibleFoundationCourses(completedRaids);
+  const crest = courses > 0 ? foundationCourseSpec(courses - 1) : null;
+  // The surveyor's stake climbs with the work: it always marks the current top of the build.
+  const stakeLift = crest ? crest.y + crest.height / 2 : 0;
   return (
     <group position={[centre[0], 0, centre[1]]}>
       <mesh position={[0, 0.15, 0]} receiveShadow>
@@ -309,15 +400,18 @@ function FoundationSite({ centre }: { centre: [number, number] }) {
         <cylinderGeometry args={[4.6, 4.6, 0.06, 32]} />
         <meshStandardMaterial color="#8a7355" roughness={1} />
       </mesh>
+      <FoundationCourses completedRaids={completedRaids} />
       {/* surveyor's stake + a small marker flag */}
-      <mesh castShadow position={[0, 1, 0]}>
-        <cylinderGeometry args={[0.05, 0.05, 2, 6]} />
-        <meshStandardMaterial color="#3a2c1c" roughness={0.9} />
-      </mesh>
-      <mesh position={[0.35, 1.75, 0]}>
-        <boxGeometry args={[0.7, 0.4, 0.03]} />
-        <meshStandardMaterial color="#e8563d" roughness={0.8} />
-      </mesh>
+      <group position={[0, stakeLift, 0]}>
+        <mesh castShadow position={[0, 1, 0]}>
+          <cylinderGeometry args={[0.05, 0.05, 2, 6]} />
+          <meshStandardMaterial color="#3a2c1c" roughness={0.9} />
+        </mesh>
+        <mesh position={[0.35, 1.75, 0]}>
+          <boxGeometry args={[0.7, 0.4, 0.03]} />
+          <meshStandardMaterial color="#e8563d" roughness={0.8} />
+        </mesh>
+      </group>
       {/* scaffold frame around the site — four posts + top beams (a build is being prepared) */}
       {posts.map(([px, pz]) => (
         <mesh castShadow key={`${px},${pz}`} position={[px, 1.7, pz]}>
@@ -431,7 +525,13 @@ function FoundationSite({ centre }: { centre: [number, number] }) {
 
 /** The whole plaza: the staged site + the tended young tree, benches + well on the rim, ringed by
  *  walkable buildings. */
-export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
+export function Plaza({
+  treeProgress = 0.42,
+  completedRaids = 0,
+}: {
+  treeProgress?: number;
+  completedRaids?: number;
+}) {
   const ring = useMemo(plazaRing, []);
   const benches = useMemo(benchPlacements, []);
   const stalls = useMemo(stallPlacements, []);
@@ -440,7 +540,7 @@ export function Plaza({ treeProgress = 0.42 }: { treeProgress?: number }) {
 
   return (
     <group>
-      <FoundationSite centre={PLAZA_CENTRE} />
+      <FoundationSite centre={PLAZA_CENTRE} completedRaids={completedRaids} />
       {/* the young tree — a shorter timelock, already growing beside the site, visibly tended */}
       <group position={[YOUNG_TREE[0], 0, YOUNG_TREE[1]]}>
         <GrowableObject

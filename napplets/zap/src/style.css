@@ -1,0 +1,95 @@
+/* Zap napplet — themed through the kit's --p-* tokens, Bitcoin-orange accent on the action. */
+
+.zap-card,
+.zap-done,
+.zap-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px;
+  text-align: center;
+}
+
+.zap-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--p-muted);
+}
+
+.zap-title {
+  margin: 0;
+  font-size: 22px;
+  color: var(--p-fg);
+}
+
+.zap-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--p-muted);
+  overflow-wrap: anywhere;
+}
+
+.zap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.zap-chip {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--p-line);
+  color: var(--p-muted);
+}
+
+.zap-chip-ok {
+  color: var(--p-fg);
+  border-color: #f7931a;
+}
+
+.zap-button {
+  margin-top: 6px;
+  padding: 10px 22px;
+  border: none;
+  border-radius: 10px;
+  background: #f7931a;
+  color: #1b1408;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.zap-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.zap-button-secondary {
+  background: var(--p-surface);
+  color: var(--p-fg);
+  border: 1px solid var(--p-line);
+  font-size: 14px;
+}
+
+.zap-bolt {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.zap-qr {
+  width: min(220px, 70vw);
+  image-rendering: pixelated;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px;
+}
+
+.zap-error {
+  margin: 0;
+  font-size: 12px;
+  color: #e8735a;
+}

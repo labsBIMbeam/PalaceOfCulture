@@ -17,8 +17,10 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import * as THREE from "three";
 import { type BrushSize, homeBuild } from "../builder/buildState";
@@ -27,6 +29,32 @@ import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
 import {
+  type Phase1InviteState,
+  buildMeaningverseInvite,
+  decodePhase1ActivationCapability,
+  encodePhase1ActivationCapability,
+  isPhase1SignerCapability,
+} from "../meaningverse/model";
+import { STREET_GLIMPSE_MS } from "../meaningverse/onboardingStory";
+import {
+  type AttentivePresenceState,
+  PHASE1_SIGNED_PULSE_MS,
+  type Phase1AcceptedDelta,
+  type RelayHandoffState,
+  advancePhase1PulsePresentation,
+  createAttentivePresenceState,
+  createPhase1AuthorizedEvidenceAction,
+  createPhase1PulsePresentation,
+  createPhase1RelayState,
+  createRelayHandoffState,
+  reduceAttentivePresence,
+  reducePhase1Relay,
+  reduceRelayHandoff,
+} from "../meaningverse/phase1Relay";
+import { TcgTablePanel } from "../napplet/TcgTablePanel";
+import { ZapNappletPanel } from "../napplet/ZapNappletPanel";
+import { zapRecipientFor } from "../napplet/zapDirectory";
+import {
   type MultiplayerViewState,
   OFFLINE_MULTIPLAYER_STATE,
   PalaceMultiplayerTransport,
@@ -34,11 +62,26 @@ import {
   getMultiplayerUrl,
   horizontalYawFromQuaternion,
 } from "../net/multiplayer";
+import {
+  type Phase1RelayTransport,
+  createPhase1ActivationTemplate,
+  createPhase1LensTemplate,
+  createPhase1LiveEvidenceGate,
+  createPhase1RelayLifecycleGate,
+  createPhase1RelaySubscription,
+  createPhase1WitnessTemplate,
+  isPhase1Nip07Available,
+  publishPhase1Event,
+  signPhase1Event,
+  verifyPhase1ActivationCapability,
+} from "../net/phase1RelayTransport";
+import { glowStrength, subscribeZapLight, zapCounterLabel, zapLightVersion } from "../net/zapLight";
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
 import { DecorPicker } from "../ui/DecorPicker";
 import { MeaningPath } from "../ui/MeaningPath";
 import { MediaPlayer } from "../ui/MediaPlayer";
+import { Phase1RelayOverlay } from "../ui/Phase1RelayOverlay";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { GrowableObject } from "./GrowableObject";
@@ -145,6 +188,9 @@ const WORLD_FOG: Record<EngineTarget, { color: string; near: number; far: number
 /** How long the travel curtain stays down (world swap happens under it). */
 const TRAVEL_SWAP_MS = 300;
 const TRAVEL_TOTAL_MS = 1500;
+const PHASE1_RELAY_ATTEMPT_ID = "werkstattgasse:z1:relay:attempt-1";
+const KERNI_POSITION: [number, number, number] = [-27.5, 0, 93];
+const KERNI_PROXIMITY_RADIUS = 2.6;
 
 // drei KeyboardControls map — ecctrl reads these named actions. Full WASD; Decorate is on "B".
 const KEYBOARD_MAP = [
@@ -168,6 +214,16 @@ function releaseMovementKeys() {
   for (const code of MOVEMENT_CODES) {
     window.dispatchEvent(new KeyboardEvent("keyup", { code }));
   }
+}
+
+/** Return world ownership to DOM controls instead of letting a key leak into the scene. */
+function domOwnsWorldFocus(): boolean {
+  const active = document.activeElement;
+  return (
+    active instanceof HTMLElement &&
+    (active.matches("button, a[href], input, select, textarea") ||
+      active.closest("[role='dialog'], [data-phase1-wire='open']") !== null)
+  );
 }
 
 /** Orbit/overview camera — resets the rig on entry so toggling back from walk isn't jarring. */
@@ -278,6 +334,7 @@ const POSTFX_ENABLED =
   typeof window === "undefined" ||
   new URLSearchParams(window.location.search).get("postfx") !== "0";
 const USE_RADIUS = 2.6; // metres: how close you must be to a chair/bed for the "Sit"/"Sleep" prompt
+const ZAP_RADIUS = 2.8; // metres: how close to another player for the "Zap 21 sats" prompt
 const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the bed's default scale
 
 // Capsule half height (0.5) + radius (0.4) + float (0.3) + slack: how far below the body centre
@@ -292,7 +349,10 @@ function WalkSystems({
   spawn,
   activeWorld,
   onActive,
+  onKerniProximity,
   onNearPose,
+  remotePlayers,
+  onNearPlayer,
 }: {
   bodyRef: RefObject<RapierRigidBody>;
   poseables: PosePoint[];
@@ -301,12 +361,18 @@ function WalkSystems({
   /** The active engine world — only its own interactables may prompt. */
   activeWorld: EngineTarget;
   onActive: (item: Interactable | null) => void;
+  onKerniProximity: (inRange: boolean) => void;
   onNearPose: (point: PosePoint | null) => void;
+  /** Live remote presence (street only) — a ref because it updates at the wire rate. */
+  remotePlayers?: RefObject<RemotePlayerSnapshot[]>;
+  onNearPlayer?: (player: RemotePlayerSnapshot | null) => void;
 }) {
   const [, getKeys] = useKeyboardControls();
   const { world, rapier } = useRapier();
   const lastId = useRef<string | null>(null);
   const lastPose = useRef<string | null>(null);
+  const lastKerniRange = useRef(false);
+  const lastPlayer = useRef<string | null>(null);
   const jumpPrev = useRef(false);
   const jumpStartedAt = useRef(Number.NEGATIVE_INFINITY);
   useFrame((state) => {
@@ -396,6 +462,14 @@ function WalkSystems({
       onActive(best);
     }
 
+    const kerniInRange =
+      activeWorld === "street" &&
+      Math.hypot(pos.x - KERNI_POSITION[0], pos.z - KERNI_POSITION[2]) <= KERNI_PROXIMITY_RADIUS;
+    if (kerniInRange !== lastKerniRange.current) {
+      lastKerniRange.current = kerniInRange;
+      onKerniProximity(kerniInRange);
+    }
+
     // Nearest usable piece (chair/bed) within range — reported up only when it changes.
     let near: PosePoint | null = null;
     let nearDist = USE_RADIUS;
@@ -410,6 +484,25 @@ function WalkSystems({
     if (nearId !== lastPose.current) {
       lastPose.current = nearId;
       onNearPose(near);
+    }
+
+    // Nearest connected remote player within zap range — same edge-triggered pattern.
+    if (onNearPlayer) {
+      let met: RemotePlayerSnapshot | null = null;
+      let metDist = ZAP_RADIUS;
+      for (const player of remotePlayers?.current ?? []) {
+        if (!player.connected) continue;
+        const dist = Math.hypot(pos.x - player.x, pos.z - player.z);
+        if (dist < metDist) {
+          met = player;
+          metDist = dist;
+        }
+      }
+      const metId = met?.sessionId ?? null;
+      if (metId !== lastPlayer.current) {
+        lastPlayer.current = metId;
+        onNearPlayer(met);
+      }
     }
   });
   return null;
@@ -477,6 +570,9 @@ function RemotePlayerMarker({
   labelStack: number;
 }) {
   const group = useRef<THREE.Group>(null);
+  const glowRef = useRef<THREE.PointLight>(null);
+  // Re-render on zap flashes so the nameplate counter appears even while everyone stands still.
+  useSyncExternalStore(subscribeZapLight, zapLightVersion, zapLightVersion);
   const target = useMemo(
     () => new THREE.Vector3(player.x, player.y - 0.9, player.z),
     [player.x, player.y, player.z],
@@ -498,6 +594,8 @@ function RemotePlayerMarker({
     const alpha = 1 - Math.exp(-10 * Math.min(delta, 0.1));
     node.position.lerp(target, alpha);
     node.rotation.y = dampAngle(node.rotation.y, player.rotationY, alpha);
+    // Zap lantern glow: the receiver visibly carries the light for 21 minutes.
+    if (glowRef.current) glowRef.current.intensity = glowStrength(player.sessionId) * 2.8;
   });
 
   return (
@@ -524,6 +622,8 @@ function RemotePlayerMarker({
         <ringGeometry args={[0.36, 0.48, 24]} />
         <meshBasicMaterial color={color} opacity={opacity * 0.75} transparent />
       </mesh>
+      {/* Received-zap lantern glow (intensity driven per frame; 0 = dark, costs nothing). */}
+      <pointLight color="#f7931a" distance={7} intensity={0} position={[0, 1.7, 0]} ref={glowRef} />
       <Html center position={[0, 2.08 + labelStack * 0.32, 0]} style={{ pointerEvents: "none" }}>
         <span
           className={
@@ -533,6 +633,9 @@ function RemotePlayerMarker({
           }
         >
           {player.handle}
+          {zapCounterLabel(player.sessionId) ? (
+            <em className="remote-player-zaps">{zapCounterLabel(player.sessionId)}</em>
+          ) : null}
         </span>
       </Html>
     </group>
@@ -651,6 +754,31 @@ function MultiplayerStatus({ view }: { view: MultiplayerViewState }) {
   );
 }
 
+function SignedPulseEffect({
+  delta,
+  reducedEffects,
+}: {
+  delta: Phase1AcceptedDelta | null;
+  reducedEffects: boolean;
+}) {
+  if (!delta || delta.kind !== "witness") return null;
+  return (
+    <Html center position={[-27.5, 1.5, 91.8]}>
+      <div
+        aria-hidden="true"
+        className={
+          reducedEffects
+            ? "phase1-signed-pulse-path phase1-signed-pulse-path--static"
+            : "phase1-signed-pulse-path"
+        }
+        data-phase1-pulse="accepted-witness"
+      >
+        <span>↯</span>
+      </div>
+    </Html>
+  );
+}
+
 /** The 3D game view, launched from the frontend UI. */
 export function PalaceScene({ target, onExit, character, startInBuild }: PalaceSceneProps) {
   const [mode, setMode] = useState<ViewMode>(startInBuild && target === "home" ? "build" : "walk");
@@ -679,6 +807,296 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // Public Palace = plain decorate placement only (B), capped against spam — no magnet there.
   const [world, setWorld] = useState<EngineTarget>(target);
   const canBuild = world === "home";
+  const [phase1RelayState, dispatchPhase1Relay] = useReducer(
+    reducePhase1Relay,
+    undefined,
+    createPhase1RelayState,
+  );
+  const [inviteState, setInviteState] = useState<Phase1InviteState>("idle");
+  const [activationInviteUrl, setActivationInviteUrl] = useState<string | null>(null);
+  const [witnessState, setWitnessState] = useState<Phase1InviteState>("idle");
+  const [lensState, setLensState] = useState<Phase1InviteState>("idle");
+  const inviteAttemptTokenRef = useRef<string | null>(null);
+  const phase1RelayStateRef = useRef(phase1RelayState);
+  phase1RelayStateRef.current = phase1RelayState;
+  const witnessAttemptTokenRef = useRef<string | null>(null);
+  const lensAttemptTokenRef = useRef<string | null>(null);
+  const [signedPulseDelta, setSignedPulseDelta] = useState<Phase1AcceptedDelta | null>(null);
+  // Presentation baseline for the accepted-witness pulse. Every (re)opened receive path is a new
+  // epoch: it re-baselines silently instead of replaying accepted history.
+  const pulsePresentationRef = useRef(createPhase1PulsePresentation());
+  const [relayReceiveEpoch, setRelayReceiveEpoch] = useState(0);
+  const [wireOpen, setWireOpen] = useState(false);
+  const [attentivePresence, dispatchAttentivePresence] = useReducer(
+    reduceAttentivePresence,
+    undefined,
+    createAttentivePresenceState,
+  );
+  const [relayHandoff, dispatchRelayHandoff] = useReducer(
+    reduceRelayHandoff,
+    undefined,
+    createRelayHandoffState,
+  );
+  const [kerniDialogueOpen, setKerniDialogueOpen] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [reducedEffects, setReducedEffects] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
+  );
+  // The OS preference is a live input, not a mount-time snapshot: a mid-session change reaches the
+  // running experience. Between OS changes the in-experience toggle owns the setting, so the
+  // control still works when the OS expresses no preference at all.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!query?.addEventListener) return;
+    const follow = (event: MediaQueryListEvent) => setReducedEffects(event.matches);
+    query.addEventListener("change", follow);
+    return () => query.removeEventListener("change", follow);
+  }, []);
+  const [kerniInRange, setKerniInRange] = useState(false);
+  const phase1RelayTransport = useMemo<Phase1RelayTransport>(
+    () => ({
+      openRelay: () => {},
+      dispose: () => {},
+    }),
+    [],
+  );
+  const phase1RelayLifecycle = useMemo(
+    () => createPhase1RelayLifecycleGate(phase1RelayTransport),
+    [phase1RelayTransport],
+  );
+  useEffect(() => () => phase1RelayLifecycle.dispose(), [phase1RelayLifecycle]);
+  useEffect(() => {
+    phase1RelayLifecycle.apply(phase1RelayState);
+  }, [phase1RelayLifecycle, phase1RelayState]);
+  useEffect(() => {
+    const previous = pulsePresentationRef.current;
+    const next = advancePhase1PulsePresentation(previous, phase1RelayState, relayReceiveEpoch);
+    pulsePresentationRef.current = next;
+    if (next.pulse !== previous.pulse) setSignedPulseDelta(next.pulse);
+  }, [phase1RelayState, relayReceiveEpoch]);
+  // Keyed on the presented pulse alone: a later relay message (a lens delta, a duplicate) can
+  // neither restart nor cancel the bounded interval, so the pulse always settles back to amber.
+  useEffect(() => {
+    if (!signedPulseDelta) return;
+    const timer = window.setTimeout(() => setSignedPulseDelta(null), PHASE1_SIGNED_PULSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [signedPulseDelta]);
+  const pickupRelayPart = (part: "foot" | "coil" | "aperture") => {
+    dispatchPhase1Relay({ type: "pickup_part", part, origin: "player-physical" });
+  };
+  const seatRelayPart = (part: "foot" | "coil" | "aperture") => {
+    dispatchPhase1Relay({ type: "seat_part", part, cradleId: part, origin: "player-physical" });
+  };
+  const previewRelayPlacement = () => {
+    dispatchPhase1Relay({
+      type: "preview_placement",
+      socketId: "z1-relay-socket",
+      origin: "player-physical",
+    });
+  };
+  const placeRelay = () => {
+    dispatchPhase1Relay({
+      type: "place_requested",
+      socketId: "z1-relay-socket",
+      attemptId: PHASE1_RELAY_ATTEMPT_ID,
+      origin: "player-physical",
+    });
+  };
+  const retryRelayPlacement = () => {
+    if (phase1RelayState.placement.status === "failed") placeRelay();
+  };
+  const phase1Activation = phase1RelayState.activation;
+  useEffect(() => {
+    const activation = phase1Activation;
+    if (!activation) return;
+    const liveGate = createPhase1LiveEvidenceGate(
+      () => phase1RelayStateRef.current,
+      () => undefined,
+      (event) => {
+        const authorizedAction = createPhase1AuthorizedEvidenceAction(event);
+        if (authorizedAction) dispatchPhase1Relay(authorizedAction);
+      },
+    );
+    const subscription = createPhase1RelaySubscription(
+      activation.activationId,
+      activation.createdAt,
+      liveGate,
+    );
+    // Opening the activation-scoped receive path starts a new observation epoch.
+    setRelayReceiveEpoch((epoch) => epoch + 1);
+    return () => subscription.stop();
+  }, [phase1Activation]);
+  const beginEvidenceAttempt = async (kind: "witness" | "lens") => {
+    const state = phase1RelayStateRef.current;
+    const activation = state.activation;
+    const isWitness = kind === "witness";
+    const setter = isWitness ? setWitnessState : setLensState;
+    const tokenRef = isWitness ? witnessAttemptTokenRef : lensAttemptTokenRef;
+    if (
+      !activation ||
+      (isWitness &&
+        (activation.source !== "verified-invite-capability" || state.acceptedWitness)) ||
+      (!isWitness && (!state.acceptedWitness || state.acceptedLens)) ||
+      !isPhase1Nip07Available()
+    ) {
+      setter("failed");
+      return;
+    }
+    const token = `${kind}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    tokenRef.current = token;
+    setter("signer_pending");
+    try {
+      const nostr = (window as Window & { nostr: { getPublicKey: () => Promise<string> } }).nostr;
+      const pubkey = await nostr.getPublicKey();
+      if (tokenRef.current !== token) return;
+      const template = isWitness
+        ? createPhase1WitnessTemplate(state, pubkey)
+        : createPhase1LensTemplate(state, pubkey);
+      const signed = await signPhase1Event(template, {
+        isCurrent: () => tokenRef.current === token,
+      });
+      if (!signed || tokenRef.current !== token) return;
+      const published = await publishPhase1Event(signed);
+      if (!published.acknowledged || tokenRef.current !== token) {
+        setter("failed");
+        return;
+      }
+      setter("waiting");
+    } catch {
+      if (tokenRef.current === token) setter("failed");
+    }
+  };
+  const cancelEvidenceAttempt = (kind: "witness" | "lens") => {
+    (kind === "witness" ? witnessAttemptTokenRef : lensAttemptTokenRef).current = null;
+    (kind === "witness" ? setWitnessState : setLensState)("cancelled");
+  };
+  const keepHoldingRelay = () => undefined;
+  useEffect(() => {
+    if (world !== "street" || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const keys = [...url.searchParams.keys()];
+    const encoded = url.searchParams.get("activation");
+    if (
+      url.searchParams.getAll("join").length !== 1 ||
+      url.searchParams.getAll("activation").length !== 1 ||
+      url.searchParams.get("join") !== "street" ||
+      !encoded ||
+      url.hash ||
+      keys.some((key) => key !== "join" && key !== "activation")
+    )
+      return;
+    const candidate = decodePhase1ActivationCapability(encoded);
+    const activation = verifyPhase1ActivationCapability(candidate);
+    if (!activation) return;
+    dispatchPhase1Relay({
+      type: "activation_imported",
+      activationId: activation.activationId,
+      creatorPubkey: activation.creatorPubkey,
+      createdAt: activation.createdAt,
+      origin: "verified-invite-capability",
+    });
+  }, [world]);
+  const cancelInvite = () => {
+    inviteAttemptTokenRef.current = null;
+    setInviteState("cancelled");
+  };
+  const consentInvite = async () => {
+    if (typeof window === "undefined") return;
+    const candidate = (window as Window & { nostr?: unknown }).nostr;
+    if (!isPhase1SignerCapability(candidate)) {
+      setInviteState("failed");
+      return;
+    }
+    const token = `phase1-invite-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    inviteAttemptTokenRef.current = token;
+    setInviteState("signer_pending");
+    try {
+      const creatorPubkey = await candidate.getPublicKey();
+      if (inviteAttemptTokenRef.current !== token || typeof creatorPubkey !== "string") return;
+      const template = createPhase1ActivationTemplate(phase1RelayState, creatorPubkey);
+      const signed = await signPhase1Event(template, {
+        isCurrent: () => inviteAttemptTokenRef.current === token,
+      });
+      if (!signed || inviteAttemptTokenRef.current !== token) return;
+      const activation = verifyPhase1ActivationCapability(signed.raw);
+      if (!activation) {
+        setInviteState("failed");
+        return;
+      }
+      dispatchPhase1Relay({
+        type: "activation_signed",
+        activationId: activation.activationId,
+        creatorPubkey: activation.creatorPubkey,
+        createdAt: activation.createdAt,
+        origin: "verified-local-signature",
+      });
+      const { action: _action, ...rawEvent } = signed.raw;
+      const encoded = encodePhase1ActivationCapability(rawEvent);
+      if (!encoded) {
+        setInviteState("failed");
+        return;
+      }
+      setActivationInviteUrl(buildMeaningverseInvite(window.location.href, encoded));
+      setInviteState("manual");
+    } catch {
+      if (inviteAttemptTokenRef.current === token) setInviteState("failed");
+    }
+  };
+  useEffect(() => {
+    if (world !== "street") {
+      setWireOpen(false);
+      setKerniInRange(false);
+      setKerniDialogueOpen(false);
+      return;
+    }
+    setWireOpen(false);
+    const glimpseTimer = window.setTimeout(() => setWireOpen(true), STREET_GLIMPSE_MS);
+    return () => window.clearTimeout(glimpseTimer);
+  }, [world]);
+  useEffect(() => {
+    dispatchAttentivePresence({
+      type: "feed_changed",
+      feed: world !== "street" ? "glimpse" : wireOpen ? "foreground" : "away",
+    });
+  }, [wireOpen, world]);
+  useEffect(() => {
+    if (world !== "street" || (mode !== "walk" && mode !== "decorate") || wireOpen) return;
+
+    let frameId = 0;
+    let previousTimestamp: number | null = null;
+    const resetSamplingBaseline = () => {
+      previousTimestamp = null;
+    };
+    const sampleActiveFrame = (timestamp: number) => {
+      const foregroundFocused = document.hasFocus();
+      const documentVisible = document.visibilityState === "visible";
+      if (!foregroundFocused || !documentVisible || domOwnsWorldFocus()) {
+        resetSamplingBaseline();
+      } else if (previousTimestamp !== null) {
+        dispatchAttentivePresence({
+          type: "active_frame_sampled",
+          deltaMs: timestamp - previousTimestamp,
+          foregroundFocused: true,
+          documentVisible: true,
+        });
+      }
+      previousTimestamp = foregroundFocused && documentVisible ? timestamp : null;
+      frameId = window.requestAnimationFrame(sampleActiveFrame);
+    };
+    frameId = window.requestAnimationFrame(sampleActiveFrame);
+    document.addEventListener("visibilitychange", resetSamplingBaseline);
+    window.addEventListener("blur", resetSamplingBaseline);
+    window.addEventListener("focus", resetSamplingBaseline);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      document.removeEventListener("visibilitychange", resetSamplingBaseline);
+      window.removeEventListener("blur", resetSamplingBaseline);
+      window.removeEventListener("focus", resetSamplingBaseline);
+    };
+  }, [mode, wireOpen, world]);
   const multiplayerTransportRef = useRef<PalaceMultiplayerTransport | null>(null);
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession>({
     transport: null,
@@ -692,7 +1110,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const builderTargets = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
-    if (world !== "street") {
+    if (world !== "street" || phase1RelayState.status !== "accepted") {
       multiplayerTransportRef.current = null;
       setMultiplayerSession({ transport: null });
       return;
@@ -721,7 +1139,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       if (multiplayerTransportRef.current === transport) multiplayerTransportRef.current = null;
       void transport.leave();
     };
-  }, [avatarAssetId, handle, world]);
+  }, [avatarAssetId, handle, phase1RelayState.status, world]);
 
   useEffect(() => {
     void homeBuild.setup();
@@ -788,23 +1206,91 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   };
 
   const [activeInteract, setActiveInteract] = useState<Interactable | null>(null);
-  const [dialog, setDialog] = useState<string | null>(null);
+  // NPC dialogs are line sequences (the crew leads teach in four steps); plain interactables
+  // are the same thing with a single line. E and the button both advance, then close.
+  const [dialog, setDialog] = useState<{
+    speaker: string | null;
+    lines: string[];
+    index: number;
+  } | null>(null);
+  const dialogRef = useRef<typeof dialog>(null);
+  dialogRef.current = dialog;
+  const advanceDialog = () =>
+    setDialog((current) =>
+      current && current.index < current.lines.length - 1
+        ? { ...current, index: current.index + 1 }
+        : null,
+    );
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
+
+  const openKerniDialogue = () => {
+    if (!kerniInRange || relayHandoff.memoryFragment) return;
+    dispatchRelayHandoff({
+      type: "kerni_interaction_requested",
+      origin: "player",
+      proximity: true,
+      worldFocusOwned: true,
+    });
+    setKerniDialogueOpen(true);
+  };
+  const acknowledgeKerniOrientation = () => {
+    dispatchRelayHandoff({ type: "kerni_orientation_acknowledged", origin: "player" });
+  };
+  const beginRelay = () => {
+    dispatchRelayHandoff({
+      type: "workbench_choice_requested",
+      intent: "connect-with-others",
+      origin: "player",
+    });
+  };
+  // Voice: each cast line ships as generated speech under /vo/cast (tooling/street-cast-vo).
+  // Media stays decorative — a missing file simply plays nothing, the text is the canon.
+  const dialogSpeaker = dialog?.speaker ?? null;
+  const dialogIndex = dialog?.index ?? 0;
+  useEffect(() => {
+    if (!dialogSpeaker) return;
+    const audio = new Audio(`/vo/cast/${dialogSpeaker.toLowerCase()}-${dialogIndex + 1}.mp3`);
+    audio.volume = 0.9;
+    audio.play().catch(() => {});
+    return () => {
+      audio.pause();
+    };
+  }, [dialogSpeaker, dialogIndex]);
+
+  // Zap-on-meet: the nearest remote player in range whose handle maps to a roster lightning
+  // identity (zapDirectory) may be zapped 21 sats. Identity stays out-of-band — the room only
+  // ever supplies the handle (ADR 0009). The panel hosts the sandboxed zap napplet.
+  const [nearPlayer, setNearPlayer] = useState<RemotePlayerSnapshot | null>(null);
+  const [zapHandle, setZapHandle] = useState<string | null>(null);
+  const zapSessionRef = useRef<string | null>(null);
+  const zappableNeighbor = nearPlayer && zapRecipientFor(nearPlayer.handle) ? nearPlayer : null;
+  const zappableRef = useRef<RemotePlayerSnapshot | null>(null);
+  zappableRef.current = zappableNeighbor;
+  const zapOpenRef = useRef(false);
+  zapOpenRef.current = zapHandle !== null;
+  const remotePlayersRef = useRef<RemotePlayerSnapshot[]>([]);
+  remotePlayersRef.current = multiplayerView.players;
 
   // The MoC creation panel is scene state (not panel-internal) so mode switches never reset it, and
   // the ship dock can open it. `mocFocusNonce` bumps land focus in the panel's "Name your part"
   // field — E at the dock drops you straight into naming, the world object as the loop's entry.
   const [mocOpen, setMocOpen] = useState(true);
   const [mocFocusNonce, setMocFocusNonce] = useState(0);
+  // Kerni's plaza table: the TCG practice-table napplet (demo centerpiece).
+  const [tcgOpen, setTcgOpen] = useState(false);
   // Uses only stable setters, so the once-bound interact key handler may close over it safely.
   const activateInteract = (item: Interactable) => {
     if (item.action === "open-ship-panel") {
       setDialog(null);
       setMocOpen(true);
       setMocFocusNonce((nonce) => nonce + 1);
+    } else if (item.action === "open-tcg-table") {
+      setDialog(null);
+      setTcgOpen(true);
     } else {
-      setDialog(item.message);
+      const lines = item.lines?.length ? item.lines : [item.message];
+      setDialog({ speaker: item.speaker ?? null, lines, index: 0 });
     }
   };
 
@@ -878,16 +1364,27 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
 
   // Interact (E key, or the on-screen button): get up if posed, else sit/sleep if near a piece, else
   // fire the nearest interactable's action.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: listener is bound once per mode; enterPose/getUp read live state via refs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: enterPose/getUp/activateInteract read live state via refs
   useEffect(() => {
     if (mode !== "walk") return;
     const onInteractKey = (event: KeyboardEvent) => {
       if (event.code !== "KeyE") return;
       const el = document.activeElement;
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
-      if (posedRef.current) getUp();
+      if (domOwnsWorldFocus()) return;
+      if (zapOpenRef.current) return; // the zap panel owns the keyboard until it closes
+      if (kerniInRange && !relayHandoff.memoryFragment) {
+        openKerniDialogue();
+        return;
+      }
+      if (dialogRef.current)
+        advanceDialog(); // step through the open dialog, then close it
+      else if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
-      else if (activeRef.current) activateInteract(activeRef.current);
+      else if (zappableRef.current) {
+        zapSessionRef.current = zappableRef.current.sessionId;
+        setZapHandle(zappableRef.current.handle);
+      } else if (activeRef.current) activateInteract(activeRef.current);
     };
     window.addEventListener("keydown", onInteractKey);
     return () => {
@@ -895,8 +1392,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setActiveInteract(null);
       setDialog(null);
       setNearPose(null);
+      setNearPlayer(null);
+      setZapHandle(null);
     };
-  }, [mode]);
+  }, [kerniInRange, mode, relayHandoff.memoryFragment]);
 
   // Decorate mode: F places the pending piece at the ghost; Q/E rotate it before dropping. (Buttons
   // in the picker do the same.)
@@ -904,8 +1403,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   useEffect(() => {
     if (mode !== "decorate") return;
     const onDecorateKey = (event: KeyboardEvent) => {
-      const el = document.activeElement;
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (domOwnsWorldFocus()) return;
       if (event.code === "KeyF") placeAtGhost();
       else if (event.code === "KeyQ") setGhostYaw((yaw) => yaw - Math.PI / 4);
       else if (event.code === "KeyE") setGhostYaw((yaw) => yaw + Math.PI / 4);
@@ -950,7 +1448,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   useEffect(() => {
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      if (
+        target instanceof HTMLElement &&
+        (target.matches("button, a[href], input, select, textarea") ||
+          target.closest("[role='dialog'], [data-phase1-wire='open']") !== null)
+      ) {
         releaseMovementKeys();
       }
     };
@@ -1105,7 +1607,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 />
               </RigidBody>
               {/* solid collision for the street's buildings + tree trunks (visuals are outside Physics) */}
-              {world === "street" ? <StreetColliders /> : null}
+              {world === "street" ? (
+                <StreetColliders completedRaids={multiplayerView.completedRaids} />
+              ) : null}
               {world === "home" ? (
                 <>
                   <mesh receiveShadow rotation-x={-Math.PI / 2}>
@@ -1187,8 +1691,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   activeWorld={world}
                   bodyRef={playerBody}
                   onActive={setActiveInteract}
+                  onKerniProximity={(inRange) => {
+                    setKerniInRange(inRange);
+                    if (!inRange) setKerniDialogueOpen(false);
+                  }}
+                  onNearPlayer={setNearPlayer}
                   onNearPose={setNearPose}
                   poseables={poseables}
+                  remotePlayers={remotePlayersRef}
                   spawn={SPAWN_FOR[world]}
                 />
               ) : null}
@@ -1198,15 +1708,26 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 street ground collider inside Physics above). */}
             {world === "street" ? (
               <>
-                <StreetWorld />
-                <MeaningShip
-                  localSessionId={multiplayerView.localSessionId}
-                  modules={multiplayerView.shipModules}
-                  status={multiplayerView.status}
+                <StreetWorld
+                  acceptedLens={phase1RelayState.acceptedLens}
+                  acceptedPlacement={phase1RelayState.status === "accepted"}
+                  assembly={phase1RelayState.assembly}
+                  completedRaids={multiplayerView.completedRaids}
+                  placement={phase1RelayState.placement}
+                  presenceAccepted={attentivePresence.presenceAccepted}
+                  reducedEffects={reducedEffects}
                 />
+                <SignedPulseEffect delta={signedPulseDelta} reducedEffects={reducedEffects} />
+                {phase1RelayState.status === "accepted" ? (
+                  <MeaningShip
+                    localSessionId={multiplayerView.localSessionId}
+                    modules={multiplayerView.shipModules}
+                    status={multiplayerView.status}
+                  />
+                ) : null}
               </>
             ) : null}
-            {world === "street" ? (
+            {world === "street" && phase1RelayState.status === "accepted" ? (
               <MultiplayerLayer
                 bodyRef={playerBody}
                 transportRef={multiplayerTransportRef}
@@ -1286,7 +1807,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span>{title}</span>
           <small>{subtitle}</small>
         </div>
-        {world === "street" ? <MultiplayerStatus view={multiplayerView} /> : null}
+        {world === "street" && phase1RelayState.status === "accepted" ? (
+          <MultiplayerStatus view={multiplayerView} />
+        ) : null}
         <div className="engine-actions">
           {mode !== "decorate" && mode !== "build" ? (
             <button className="nav-pill nav-pill--engine" onClick={toggleOverview} type="button">
@@ -1326,6 +1849,48 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
         </div>
       </div>
       {world === "street" ? (
+        <Phase1RelayOverlay
+          attentivePresence={attentivePresence}
+          handoffState={relayHandoff}
+          kerniDialogueOpen={kerniDialogueOpen}
+          kerniInRange={kerniInRange}
+          activationInviteUrl={activationInviteUrl}
+          inviteState={inviteState}
+          onInviteCancel={cancelInvite}
+          onInviteConsent={consentInvite}
+          witnessState={witnessState}
+          lensState={lensState}
+          onWitnessConsent={() => void beginEvidenceAttempt("witness")}
+          onLensConsent={() => void beginEvidenceAttempt("lens")}
+          onWitnessCancel={() => cancelEvidenceAttempt("witness")}
+          onLensCancel={() => cancelEvidenceAttempt("lens")}
+          onBeginRelay={beginRelay}
+          onKeepHolding={keepHoldingRelay}
+          onPlaceRelay={placeRelay}
+          onPickupPart={pickupRelayPart}
+          onPreviewPlacement={previewRelayPlacement}
+          onRetryPlacement={retryRelayPlacement}
+          onSeatPart={seatRelayPart}
+          onKerniAcknowledge={acknowledgeKerniOrientation}
+          onKerniClose={() => setKerniDialogueOpen(false)}
+          onKerniInteract={openKerniDialogue}
+          muted={muted}
+          reducedEffects={reducedEffects}
+          onToggleMuted={() => setMuted((value) => !value)}
+          onToggleReducedEffects={() => setReducedEffects((value) => !value)}
+          onWireDismiss={() => {
+            releaseMovementKeys();
+            setWireOpen(false);
+          }}
+          onWireReopen={() => {
+            releaseMovementKeys();
+            setWireOpen(true);
+          }}
+          state={phase1RelayState}
+          wireOpen={wireOpen}
+        />
+      ) : null}
+      {world === "street" && phase1RelayState.status === "accepted" ? (
         // Kept mounted (only hidden) through Decorate so typed labels and invite progress survive.
         <div hidden={mode === "decorate"}>
           <MeaningPath
@@ -1363,6 +1928,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span className="interact-key">E</span>
           {nearPose.pose === "sleep" ? "Lie down" : "Sit down"}
         </button>
+      ) : mode === "walk" && zappableNeighbor && !zapHandle ? (
+        <button
+          className="interact-prompt interact-prompt-zap"
+          onClick={() => {
+            zapSessionRef.current = zappableNeighbor.sessionId;
+            setZapHandle(zappableNeighbor.handle);
+          }}
+          type="button"
+        >
+          <span className="interact-key">E</span>⚡ Zap {zappableNeighbor.handle} · 21 sats
+        </button>
       ) : mode === "walk" && activeInteract ? (
         <button
           className="interact-prompt"
@@ -1375,12 +1951,26 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : null}
       {dialog ? (
         <div className="interact-dialog">
-          <p>{dialog}</p>
-          <button className="interact-close" onClick={() => setDialog(null)} type="button">
-            Close
+          {dialog.speaker ? <strong className="interact-speaker">{dialog.speaker}</strong> : null}
+          <p>{dialog.lines[dialog.index]}</p>
+          <button className="interact-close" onClick={advanceDialog} type="button">
+            {dialog.index < dialog.lines.length - 1
+              ? `Next (${dialog.index + 1}/${dialog.lines.length})`
+              : "Close"}
           </button>
         </div>
       ) : null}
+      {zapHandle ? (
+        <ZapNappletPanel
+          handle={zapHandle}
+          onClose={() => setZapHandle(null)}
+          onZapPaid={() => {
+            const session = zapSessionRef.current;
+            if (session) multiplayerTransportRef.current?.sendZapFlash(session);
+          }}
+        />
+      ) : null}
+      {tcgOpen ? <TcgTablePanel onClose={() => setTcgOpen(false)} /> : null}
       {mode === "decorate" ? (
         <DecorPicker
           catalog={CATALOG}
@@ -1427,7 +2017,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           system={homeBuild}
         />
       ) : null}
-      {mode !== "decorate" && mode !== "build" ? <ChatPanel handle={handle} /> : null}
+      {phase1RelayState.status === "accepted" && mode !== "decorate" && mode !== "build" ? (
+        <ChatPanel handle={handle} />
+      ) : null}
       {mode !== "decorate" && mode !== "build" ? <MediaPlayer /> : null}
     </div>
   );

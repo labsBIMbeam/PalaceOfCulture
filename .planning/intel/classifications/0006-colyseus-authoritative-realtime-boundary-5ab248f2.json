@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/adr/0006-colyseus-authoritative-realtime-boundary.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR 0006 — Colyseus authoritative realtime boundary",
+  "summary": "Defines Colyseus as authority for ephemeral movement and presence while durable ownership, construction, economy, and world changes remain behind SQLite commands.",
+  "scope": [
+    "Colyseus",
+    "realtime authority",
+    "movement",
+    "presence",
+    "room schema",
+    "SQLite",
+    "WebSocket admission"
+  ],
+  "cross_refs": ["0001-stack-and-runtime-topology.md"],
+  "locked": false,
+  "precedence": 10,
+  "notes": ""
+}

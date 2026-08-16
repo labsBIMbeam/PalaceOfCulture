@@ -5,6 +5,7 @@ import {
   MAX_MOVE_MESSAGES_PER_SECOND,
   MAX_ROOM_CLIENTS,
   MAX_SHIP_MODULES,
+  MAX_ZAP_FLASHES_PER_MINUTE,
   MOVEMENT_TOLERANCE,
   MOVE_MESSAGE,
   type MovementMessage,
@@ -17,11 +18,18 @@ import {
   type PlaceShipModuleMessage,
   PlayerPresenceState,
   type PositionCorrection,
+  RAID_COMPLETE_MESSAGE,
   ShipModuleState,
+  ZAP_FLASH_MESSAGE,
+  type ZapFlashBroadcast,
   parseMovementMessage,
   parsePalaceJoinOptions,
   parsePlaceShipModuleMessage,
+  parseRaidCompleteMessage,
+  parseZapFlashMessage,
 } from "@600b/multiplayer";
+
+import { InMemoryRaidLedger, type RaidLedger } from "./raidLedger.js";
 
 const RECONNECT_WINDOW_SECONDS = 10;
 const ABSOLUTE_MESSAGES_PER_SECOND = 40;
@@ -43,8 +51,12 @@ interface MovementGuard {
   invalidWindowStartedAt: number;
   lastSequence: number;
   movementTimestamps: number[];
+  /** Set once this session's completed raid run has been counted (one run per session). */
+  raidCounted: boolean;
   shipModuleId?: string;
   verticalDistanceBudget: DistanceBudget;
+  /** Sliding-window timestamps of accepted zap flashes (rate limit per sender). */
+  zapFlashTimestamps: number[];
 }
 
 export interface DistanceBudget {
@@ -54,7 +66,10 @@ export interface DistanceBudget {
 
 interface PalaceClientContext {
   auth: PalaceJoinOptions;
-  messages: { [POSITION_CORRECTION_MESSAGE]: PositionCorrection };
+  messages: {
+    [POSITION_CORRECTION_MESSAGE]: PositionCorrection;
+    [ZAP_FLASH_MESSAGE]: ZapFlashBroadcast;
+  };
   userData: MovementGuard;
 }
 
@@ -68,10 +83,16 @@ export class PalaceRoom extends Room<{
 }> {
   static #activeRoomId: string | undefined;
   static #allowedOrigins: ReadonlySet<string> = new Set();
+  static #raidLedger: RaidLedger = new InMemoryRaidLedger();
 
   /** Configure the exact browser-origin allowlist before registering this room. */
   static configureAllowedOrigins(origins: ReadonlySet<string>): void {
     PalaceRoom.#allowedOrigins = new Set(origins);
+  }
+
+  /** Configure the durable raid-completion ledger before registering this room. */
+  static configureRaidLedger(ledger: RaidLedger): void {
+    PalaceRoom.#raidLedger = ledger;
   }
 
   /** Validate public join options and browser origin before a room can be created or reserved. */
@@ -111,6 +132,13 @@ export class PalaceRoom extends Room<{
     this.onMessage<unknown>(PLACE_SHIP_MODULE_MESSAGE, (client, payload) => {
       this.#handleShipModule(client, payload);
     });
+    this.onMessage<unknown>(ZAP_FLASH_MESSAGE, (client, payload) => {
+      this.#handleZapFlash(client, payload);
+    });
+    this.onMessage<unknown>(RAID_COMPLETE_MESSAGE, (client, payload) => {
+      this.#handleRaidComplete(client, payload);
+    });
+    this.state.completedRaids = PalaceRoom.#raidLedger.total();
     PalaceRoom.#activeRoomId = this.roomId;
   }
 
@@ -139,11 +167,73 @@ export class PalaceRoom extends Room<{
       invalidWindowStartedAt: now,
       lastSequence: player.sequence,
       movementTimestamps: [],
+      raidCounted: false,
       verticalDistanceBudget: {
         distanceRefillAt: now,
         distanceTokens: MOVEMENT_TOLERANCE,
       },
+      zapFlashTimestamps: [],
     };
+  }
+
+  /** Count one completed Light-the-Street run. The client only claims; every fact that matters is
+   *  verified against server-owned state: the sender placed a module this session AND another
+   *  session's module exists (CO-CREATE). Recorded durably, then replicated via room state. */
+  #handleRaidComplete(client: PalaceClient, payload: unknown): void {
+    const guard = client.userData;
+    const player = this.state.players.get(client.sessionId);
+    if (!guard || !player || guard.closing) return;
+
+    try {
+      parseRaidCompleteMessage(payload);
+    } catch {
+      this.#recordInvalidMessage(client, guard, performance.now());
+      return;
+    }
+
+    if (guard.raidCounted) return;
+    if (!guard.shipModuleId) return;
+    const authors = new Set<string>();
+    for (const module of this.state.shipModules.values()) {
+      authors.add(module.authorSessionId);
+    }
+    if (!authors.has(client.sessionId) || authors.size < 2) return;
+
+    guard.raidCounted = true;
+    try {
+      this.state.completedRaids = PalaceRoom.#raidLedger.record({
+        coAuthorCount: authors.size,
+        handle: player.handle,
+        sessionId: client.sessionId,
+        shipModuleCount: this.state.shipModules.size,
+      });
+    } catch (error) {
+      // The run stays counted for this session (no retry spam), but the world total is only
+      // allowed to advance through the ledger — a failed append must never mint growth.
+      const message = error instanceof Error ? error.message : "unknown ledger error";
+      process.stderr.write(`[600b] raid ledger append failed: ${message}\n`);
+    }
+  }
+
+  /** Presence-layer light: validate + rate-limit a sender's flash, then re-broadcast the
+   *  receiver to everyone. Cosmetic only — a bad message is dropped, never punished hard. */
+  #handleZapFlash(client: PalaceClient, payload: unknown): void {
+    let message: { targetSessionId: string };
+    try {
+      message = parseZapFlashMessage(payload);
+    } catch {
+      return; // malformed — drop silently, the lamps stay honest
+    }
+    const guard = client.userData;
+    if (!guard || guard.closing) return;
+    const now = performance.now();
+    const oldestAllowed = now - 60_000;
+    guard.zapFlashTimestamps = guard.zapFlashTimestamps.filter((t) => t > oldestAllowed);
+    if (guard.zapFlashTimestamps.length >= MAX_ZAP_FLASHES_PER_MINUTE) return;
+    const target = this.state.players.get(message.targetSessionId);
+    if (!target || !target.connected) return;
+    guard.zapFlashTimestamps.push(now);
+    this.broadcast(ZAP_FLASH_MESSAGE, { sessionId: message.targetSessionId });
   }
 
   override onDrop(client: PalaceClient): void {

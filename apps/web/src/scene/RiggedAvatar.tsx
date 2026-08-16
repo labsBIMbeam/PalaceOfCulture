@@ -148,6 +148,10 @@ export function RiggedAvatar({
   bodyRef,
   pose,
   scanning = false,
+  animationOffset = 0,
+  gaitOverride,
+  gaitSpeed,
+  speedRef,
 }: {
   url: string;
   config: AvatarConfig;
@@ -157,6 +161,15 @@ export function RiggedAvatar({
   pose?: "sit" | "sleep";
   /** Build/scan context: show the eye-bone scan beams (rigs without eye bones simply show none). */
   scanning?: boolean;
+  /** Seconds to offset the starting clip (+ a subtle rate shift derived from it) so a crowd of
+   *  avatars sharing one idle clip never breathes in lockstep. */
+  animationOffset?: number;
+  /** NPC drive: force this gait instead of reading a physics body (wandering cast members). */
+  gaitOverride?: "idle" | "walk";
+  /** Ground speed (m/s) the forced walk should read as — scales the clip so feet don't slide. */
+  gaitSpeed?: number;
+  /** Live speed (m/s) for the forced walk — a ref so accel/decel ramps never re-render. */
+  speedRef?: RefObject<number>;
 }) {
   const group = useRef<THREE.Group>(null);
   const anisotropy = useThree((state) => Math.min(8, state.gl.capabilities.getMaxAnisotropy()));
@@ -256,12 +269,36 @@ export function RiggedAvatar({
   useEffect(() => {
     current.current = null;
     playGait(pose ?? "idle");
-  }, [playGait, pose]);
+    // Crowd desync: phase-shift the clip and nudge its rate (±6 %) from the same seed.
+    const action = current.current as THREE.AnimationAction | null;
+    if (action && animationOffset > 0) {
+      const duration = (action as THREE.AnimationAction).getClip().duration || 1;
+      action.time = animationOffset % duration;
+      action.setEffectiveTimeScale(0.94 + (animationOffset % 1) * 0.12);
+    }
+  }, [playGait, pose, animationOffset]);
 
   const hipLock = useRef<THREE.Vector3 | null>(null);
   useFrame(() => {
     // While holding a pose (sit/sleep) stay on its clip; otherwise pick the gait from speed.
     if (!pose) {
+      if (gaitOverride) {
+        // NPC drive: the wander system owns position and gait; walk pace follows its speed.
+        // Idle keeps the desync timescale set from animationOffset, so no reset here.
+        if (gaitOverride !== gait.current) playGait(gaitOverride);
+        const action = current.current;
+        if (action && gaitOverride === "walk") {
+          const speed = speedRef?.current ?? gaitSpeed ?? 2.2;
+          action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 2.2, 0.5, 1.6));
+        }
+        // Same foot-plant as below: the wander system owns the body position, so the clip's
+        // hip translation must stay pinned or the mesh fights the drive.
+        if (hips) {
+          if (!hipLock.current) hipLock.current = hips.position.clone();
+          else hips.position.copy(hipLock.current);
+        }
+        return;
+      }
       const body = bodyRef?.current;
       if (body) {
         const v = body.linvel();

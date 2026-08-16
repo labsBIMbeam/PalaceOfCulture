@@ -1,0 +1,20 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/design/locktard-street-playable.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Locktard Street — First Playable District",
+  "summary": "Specifies Locktard Street as the current playable entry, its spatial flow, Palace teaser boundary, engine target, and mobile limitation.",
+  "scope": [
+    "Locktard Street",
+    "StreetWorld",
+    "PalaceTeaser",
+    "engine target",
+    "Palace HQ",
+    "mobile companion web"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 0,
+  "notes": ""
+}

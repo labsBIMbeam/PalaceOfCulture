@@ -14,6 +14,8 @@ const VoiceTransportScript := preload("res://scripts/net/voice_transport.gd")
 const VoiceDockScript := preload("res://scripts/ui/voice_dock.gd")
 const MediaCatalogScript := preload("res://scripts/net/media_catalog.gd")
 const MediaPlayerScript := preload("res://scripts/ui/media_player.gd")
+const NappletRuntimeScript := preload("res://scripts/net/napplet_runtime.gd")
+const NappletPanelScript := preload("res://scripts/ui/napplet_panel.gd")
 const CraftMenuScript := preload("res://scripts/ui/craft_menu.gd")
 const PlayerScript := preload("res://scripts/player.gd")
 const MagnetScript := preload("res://scripts/magnet_controller.gd")
@@ -777,6 +779,88 @@ func _check_social() -> bool:
 	magnet.queue_free()
 	for node: Node in [panel, dock, player, craft, chat_t, voice_t, catalog]:
 		node.queue_free()
+	await get_tree().process_frame
+	if not await _check_napplet_seam():
+		return false
+	return true
+
+
+## Napplet runtime seam: the allowlist is enforced, a non-web build degrades to
+## `unavailable` instead of failing, and the panel builds headless.
+func _check_napplet_seam() -> bool:
+	var runtime := NappletRuntimeScript.new()
+	add_child(runtime)
+	await get_tree().process_frame
+
+	for m: String in ["available", "signer_available", "open", "close", "set_rect",
+			"set_theme", "get_state"]:
+		if not _check(runtime.has_method(m), "NappletRuntime.%s missing" % m):
+			return false
+	if not _check(runtime.has_signal("state_changed"), "NappletRuntime signal state_changed missing"):
+		return false
+
+	var items: Array[Dictionary] = runtime.catalog.load_items()
+	if not _check(not items.is_empty(), "napplet catalog is empty"):
+		return false
+	for entry: Dictionary in items:
+		for key: String in ["id", "title", "artifact_url", "sha256", "relays"]:
+			if not _check(entry.has(key), "napplet entry missing '%s'" % key):
+				return false
+	if not _check(runtime.catalog.allows("plebeian-storefront"), "storefront not allowlisted"):
+		return false
+
+	# Anything not pinned must be refused before a single byte is fetched.
+	if not _check(not runtime.catalog.allows("evil-napplet"), "catalog allowed an unpinned id"):
+		return false
+	if not _check(not runtime.open("evil-napplet", Rect2i(0, 0, 100, 100)),
+			"runtime opened an unpinned napplet"):
+		return false
+	if not _check(String(runtime.get_state().status) == "error",
+			"unpinned open did not report an error"):
+		return false
+
+	# Headless/desktop has no browser to sandbox an iframe: say so, do not crash.
+	if not _check(not runtime.available(), "runtime claimed web hosting off the web export"):
+		return false
+	if not _check(not runtime.open("plebeian-storefront", Rect2i(0, 0, 640, 480)),
+			"runtime claimed to open a napplet without a browser"):
+		return false
+	if not _check(String(runtime.get_state().status) == "unavailable",
+			"non-web open did not report 'unavailable'"):
+		return false
+	# These must be inert rather than fatal off-web.
+	runtime.set_rect(Rect2i(0, 0, 10, 10))
+	runtime.set_theme(Color.BLACK, Color.WHITE, Color.ORANGE)
+	runtime.close()
+
+	var panel := NappletPanelScript.new()
+	add_child(panel)
+	await get_tree().process_frame
+	panel.attach_runtime(runtime)
+	if not _check(not panel.visible, "napplet panel starts visible"):
+		return false
+
+	# Opening headless must reserve a real rectangle, report `unavailable` through
+	# the panel, and hand world input back on close.
+	panel.open_napplet("plebeian-storefront")
+	await get_tree().process_frame
+	if not _check(panel.visible, "napplet panel did not open"):
+		return false
+	if not _check(Game.world_input_blocked(), "open napplet panel left world input live"):
+		return false
+	var frame_rect: Rect2i = panel._frame_rect()
+	if not _check(frame_rect.size.x > 0 and frame_rect.size.y > 0,
+			"napplet panel reserved an empty frame rect"):
+		return false
+	panel.close_napplet()
+	await get_tree().process_frame
+	if not _check(not panel.visible, "napplet panel stayed open after close"):
+		return false
+	if not _check(not Game.world_input_blocked(), "closed napplet panel kept world input blocked"):
+		return false
+
+	panel.queue_free()
+	runtime.queue_free()
 	await get_tree().process_frame
 	return true
 

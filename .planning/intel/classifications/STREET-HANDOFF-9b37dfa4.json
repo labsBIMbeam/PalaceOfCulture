@@ -1,0 +1,22 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/STREET-HANDOFF.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Palace Ringstadt — future spatial handoff",
+  "summary": "Documents the deferred Palace Ringstadt topology, visual language, spatial hierarchy, shared layout data, interaction grammar, Politics projection, budgets, and acceptance checks.",
+  "scope": [
+    "Palace Ringstadt",
+    "Inner Plaza",
+    "Street Ring",
+    "guild quarters",
+    "Citadel Wire Board",
+    "radial layout",
+    "world proxies",
+    "walkability"
+  ],
+  "cross_refs": ["docs/STREET-LEVEL-PLAN.md"],
+  "locked": false,
+  "precedence": 50,
+  "notes": ""
+}

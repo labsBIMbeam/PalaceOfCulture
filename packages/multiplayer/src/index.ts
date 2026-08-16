@@ -1,6 +1,6 @@
 import { MapSchema, Schema, type } from "@colyseus/schema";
 
-export const MULTIPLAYER_PROTOCOL_VERSION = 3;
+export const MULTIPLAYER_PROTOCOL_VERSION = 4;
 export const PALACE_ROOM_NAME = "palace";
 export const PALACE_WORLD_ID = "street";
 export const PALACE_SPAWN = Object.freeze({ x: 0, y: 3, z: 30 });
@@ -123,6 +123,10 @@ export class PalaceRoomState extends Schema {
 
   @type({ map: ShipModuleState })
   shipModules = new MapSchema<ShipModuleState>();
+
+  /** All-time completed Light-the-Street raid runs; drives the plaza foundation's growth. */
+  @type("uint32")
+  completedRaids = 0;
 }
 
 function asExactRecord(
@@ -263,6 +267,72 @@ export function parsePlaceShipModuleMessage(value: unknown): PlaceShipModuleMess
     throw new MultiplayerInputError("role is not supported");
   }
   return { moduleId, label, role: role as ShipModuleRole };
+}
+
+// --- zap flash (presence-layer light, docs/design/demo-loop-and-zap-light.md) ---
+// A sender reports "I zapped that player" AFTER a confirmed payment; the server rate-limits
+// and re-broadcasts. This is cosmetic light only — never owned state, never money truth:
+// a spoofed flash could only make the street prettier, which is why it may ride the
+// presence transport without violating ADR 0009's identity boundary.
+
+export const ZAP_FLASH_MESSAGE = "zapFlash";
+/** Flashes follow real payments, not chat cadence — bursts beyond this are misbehaving. */
+export const MAX_ZAP_FLASHES_PER_MINUTE = 6;
+
+const ZAP_FLASH_FIELDS = ["targetSessionId"] as const;
+
+export interface ZapFlashMessage {
+  targetSessionId: string;
+}
+
+/** Colyseus session ids are short url-safe tokens; anything else is rejected. */
+const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+
+/** Validate a sender's flash report before the room rate-limits and re-broadcasts it. */
+export function parseZapFlashMessage(value: unknown): ZapFlashMessage {
+  const input = asExactRecord(value, "zap flash message", ZAP_FLASH_FIELDS);
+  const targetSessionId = input.targetSessionId;
+  if (typeof targetSessionId !== "string" || !SESSION_ID_PATTERN.test(targetSessionId)) {
+    throw new MultiplayerInputError("targetSessionId must be a session id");
+  }
+  return { targetSessionId };
+}
+
+/** The broadcast every client receives: who got zapped (receiver-focused, sender private). */
+export interface ZapFlashBroadcast {
+  sessionId: string;
+}
+
+/** Validate a room broadcast before the client lets it brighten anything. */
+export function parseZapFlashBroadcast(value: unknown): ZapFlashBroadcast {
+  const input = asExactRecord(value, "zap flash broadcast", ["sessionId"] as const);
+  const sessionId = input.sessionId;
+  if (typeof sessionId !== "string" || !SESSION_ID_PATTERN.test(sessionId)) {
+    throw new MultiplayerInputError("sessionId must be a session id");
+  }
+  return { sessionId };
+}
+
+// --- raid completions (the foundation grows, docs/design/demo-loop-and-zap-light.md) ---
+// A client reports "my Light-the-Street run reached CO-CREATE". The room verifies the
+// observable facts it already owns (the sender placed a ship module AND another live session
+// answered), records the completion in the append-only audit log, and advances the replicated
+// counter. Zap volume never drives this — community work becomes architecture, money does not.
+
+export const RAID_COMPLETE_MESSAGE = "raidComplete";
+/** Completed raid runs until the plaza foundation reaches full growth (progress 1). */
+export const RAID_FULL_GROWTH_COMPLETIONS = 210;
+
+/** The report carries no data — every fact that matters is already server-owned state. */
+export function parseRaidCompleteMessage(value: unknown): Record<string, never> {
+  asExactRecord(value, "raid complete message", []);
+  return {};
+}
+
+/** Foundation growth law: deterministic, replayable from the completion count alone. */
+export function foundationProgress(completedRaids: number): number {
+  if (!Number.isFinite(completedRaids) || completedRaids <= 0) return 0;
+  return Math.min(1, completedRaids / RAID_FULL_GROWTH_COMPLETIONS);
 }
 
 /** Validate a server-authoritative pose correction before the client applies it to local physics. */
