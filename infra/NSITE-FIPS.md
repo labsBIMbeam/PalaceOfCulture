@@ -1,7 +1,8 @@
 # Option B — Auslieferung über nsite + FIPS-Mesh
 
-Stand 2026-08-16. Ergänzt [`HOSTING.md`](HOSTING.md) §3: **Weg A** (Default) ist zapburg.com
-auf der Hetzner-Box (`G:\projekte\HetzerDeploy\zapburg\RUNBOOK.md`). **Weg B** liefert dieselbe
+Stand 2026-08-16, LIVE. Ergänzt [`HOSTING.md`](HOSTING.md) §3: **Weg A** (Default) ist
+**https://poc.zapburg.com** auf der Hetzner-Box (Runbook `G:\projekte\HetzerDeploy\README.md`;
+Apex + www leiten dorthin um). **Weg B** liefert dieselbe
 statische Web-App über [nsite](https://nsite.run/) aus (Nostr kind-34128-Pfad-Mapping + Blobs
 auf Blossom) und erreicht den Spielserver wahlweise über das Internet oder das FIPS-Mesh.
 
@@ -21,13 +22,14 @@ Branch ein Laufzeit-Seam (`apps/web/src/net/multiplayer.ts`):
    Ein ungültiger oder feindlicher Wert wird verworfen und fällt auf den Default zurück —
    ein kaputter Link ist nie ein Denial-of-Service. Die Wahl steht sichtbar in der
    Adresszeile und wird nirgends persistiert.
-2. **Gebackener Default** (`VITE_MULTIPLAYER_URL`) — für den nsite-Build immer
-   `https://zapburg.com` setzen, damit die Seite ohne Parameter einfach funktioniert.
+2. **Gebackener Default** (`VITE_MULTIPLAYER_URL`) — der zapburg-Build lässt ihn bewusst
+   LEER (same-origin, ein Build für alle Domains hinter Caddy). Nur der nsite-Build backt
+   `https://poc.zapburg.com` ein, damit die Seite auch ohne Parameter funktioniert.
 3. Dev-Fallback `http://127.0.0.1:2567`, Produktion hinter Caddy: Same-Origin.
 
 Beispiele:
 
-- `https://npub1….nsite.lol/` → spielt gegen zapburg.com (Default).
+- `https://npub1….nsite.lol/` → spielt gegen poc.zapburg.com (Default).
 - `https://npub1….nsite.lol/?server=http://localhost:2567` → Spielserver durch einen lokalen
   FIPS-Forward (`fips fwd 2567 <mesh-host>` o. Ä.); Nostr geht ohnehin schon per Mesh-Probe
   über `ws://localhost:7777` (PR #16, `nostrConfig.ts`).
@@ -40,7 +42,7 @@ Einmalig auf deiner Maschine (`npx`/deno, Key bleibt bei dir — nie ins Repo, n
 
 ```bash
 cd apps/web
-VITE_MULTIPLAYER_URL=https://zapburg.com VITE_DEMO=1 pnpm build
+VITE_MULTIPLAYER_URL=https://poc.zapburg.com VITE_DEMO=1 pnpm build
 npx -y nsyte init   # interaktiv: Key/NIP-46-Bunker, Relays, Blossom-Server
 ```
 
@@ -58,12 +60,12 @@ ausnehmen, dann fehlen sie aber auch auf dem nsite-Weg — nicht empfohlen.
 
 ## Server-Seite: die Gateway-Origin freischalten
 
-Beide Allowlists sind deny-by-default. Auf der Box (`600b-server.service`) muss die exakte
+Beide Allowlists sind deny-by-default. Auf der Box (`palace-server.service`) muss die exakte
 nsite-Origin zusätzlich hinein, sonst endet jeder Join in `origin_not_allowed`:
 
 ```ini
-Environment=MULTIPLAYER_ORIGINS=https://zapburg.com,https://palace.fips.network,https://npub1<dein-pubkey>.nsite.lol
-Environment=CORS_ORIGINS=https://zapburg.com,https://palace.fips.network,https://npub1<dein-pubkey>.nsite.lol
+Environment=MULTIPLAYER_ORIGINS=https://poc.zapburg.com,https://palace.fips.network,https://npub1<dein-pubkey>.nsite.lol
+Environment=CORS_ORIGINS=https://poc.zapburg.com,https://palace.fips.network,https://npub1<dein-pubkey>.nsite.lol
 ```
 
 `palace.fips.network` ist die bereits vorbereitete Zweitdomain derselben Box
@@ -76,7 +78,7 @@ nsite-Resolver auf einem FIPS-Host — dann dessen Origin eintragen. Clients ohn
 
 ## Was Weg B bewusst NICHT ändert
 
-- Kein zweiter Spielserver, kein State-Fork: FIPS-Clients und zapburg-Clients treffen sich
+- Kein zweiter Spielserver, kein State-Fork: FIPS-Clients und poc.zapburg-Clients treffen sich
   im selben Room, derselbe Raid-Zähler wächst.
 - Keine stille Endpoint-Wahl: nur der sichtbare `?server=`-Parameter, kein Storage.
 - Sats kaufen weiterhin nichts; die Transportfrage berührt keine Design-Gesetze.
