@@ -8,17 +8,13 @@
     "wss://relay.nostr.band",
     "wss://relay.damus.io"
   ],
-  "blossomServers": [
-    "https://blossom.bimcvp.com"
-  ],
+  "blossomServers": ["https://blossom.bimcvp.com"],
   "defaultTarget": "named",
   "_comment_named": "With --all, `named` is a FILTER over discovered folders, not a name: each napplet deploys under its own folder name as the d tag. Keep it empty to deploy all of them. Note that `metadata.name` OVERRIDES this list entirely (config.ts resolves `named` as `metadata.name ? [metadata.name] : named`), so metadata.name must stay unset here or it silently filters every folder out and the deploy plan comes back empty.",
   "named": [],
   "discover": {
     "enabled": true,
-    "roots": [
-      "napplets"
-    ]
+    "roots": ["napplets"]
   },
   "signing": {
     "mode": "interactive"

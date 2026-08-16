@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Session dock</title>
+<style>
+  :root { --palace-bg:#0a0705; --palace-fg:#efe6d2; --palace-primary:#e7b23c;
+    --palace-muted:color-mix(in srgb,var(--palace-fg) 55%,var(--palace-bg));
+    --palace-line:color-mix(in srgb,var(--palace-fg) 20%,var(--palace-bg));
+    --palace-surface:color-mix(in srgb,var(--palace-fg) 7%,var(--palace-bg)); }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--palace-bg);
+    color:var(--palace-fg);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  body{padding:8px;display:flex;gap:10px;align-items:center}
+  button{font:inherit;color:inherit;background:var(--palace-surface);
+    border:1px solid var(--palace-line);border-radius:6px;padding:0 10px;min-height:30px;cursor:pointer}
+  .track{flex:1;min-width:0}
+  .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .muted{color:var(--palace-muted);font-size:12px}
+  .bar{height:4px;border-radius:2px;background:var(--palace-line);margin-top:4px;overflow:hidden}
+  .fill{height:100%;background:var(--palace-primary);width:0%}
+</style>
+</head>
+<body>
+<button id="toggle">Play</button>
+<button id="next">Next</button>
+<div class="track">
+  <div class="title" id="title">Nothing queued</div>
+  <div class="muted" id="meta"></div>
+  <div class="bar"><div class="fill" id="fill"></div></div>
+</div>
+<button id="leave">Leave</button>
+<script>
+// Session dock — a control surface over the shell's single media controller.
+// It owns no <audio> element and no playback state, which is exactly why
+// playback survives a web<->world switch (Round 5, finding 2).
+const toggle = document.getElementById("toggle");
+const nextButton = document.getElementById("next");
+const leave = document.getElementById("leave");
+const title = document.getElementById("title");
+const meta = document.getElementById("meta");
+const fill = document.getElementById("fill");
+
+let playing = false;
+
+toggle.addEventListener("click", () => {
+  window.palace.intent({ domain: "media", action: playing ? "pause" : "play" });
+});
+nextButton.addEventListener("click", () => {
+  window.palace.intent({ domain: "media", action: "next" });
+});
+leave.addEventListener("click", () => {
+  window.palace.intent({ domain: "session", action: "leave" });
+});
+
+window.palace.on("media", (media) => {
+  playing = media.playing;
+  toggle.textContent = playing ? "Pause" : "Play";
+  if (media.nowPlaying) {
+    title.textContent = media.nowPlaying.title;
+    const parts = [media.nowPlaying.author, media.nowPlaying.kind];
+    if (media.nowPlaying.valueRecipient) parts.push("⚡ " + media.nowPlaying.valueRecipient);
+    meta.textContent = parts.join(" · ");
+  } else {
+    title.textContent = "Nothing queued";
+    meta.textContent = "";
+  }
+  const pct = media.durationSec > 0 ? (media.positionSec / media.durationSec) * 100 : 0;
+  fill.style.width = pct.toFixed(1) + "%";
+});
+
+window.palace.on("session", (session) => {
+  leave.disabled = session.sessionId === null;
+});
+</script>
+</body>
+</html>
