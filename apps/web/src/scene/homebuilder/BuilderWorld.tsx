@@ -97,6 +97,35 @@ function createWedgeGeometry(): THREE.BufferGeometry {
 }
 const WEDGE = createWedgeGeometry();
 
+/** Merges axis-aligned boxes ([sx, sy, sz, tx, ty, tz] each) into one flat-shaded geometry. */
+function mergeBoxes(parts: Array<[number, number, number, number, number, number]>) {
+  const positions: number[] = [];
+  for (const [sx, sy, sz, tx, ty, tz] of parts) {
+    const box = new THREE.BoxGeometry(sx, sy, sz).translate(tx, ty, tz).toNonIndexed();
+    positions.push(...Array.from(box.getAttribute("position").array));
+    box.dispose();
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/** Half-height block filling the bottom of the cell — floors, ledges, wide steps. */
+const SLAB = mergeBoxes([[1, 0.5, 1, 0, -0.25, 0]]);
+/** Two-step stairs rising toward +z (same orientation as the roof wedge, same rot semantics). */
+const STAIRS = mergeBoxes([
+  [1, 0.5, 1, 0, -0.25, 0],
+  [1, 0.5, 0.5, 0, 0.25, 0.25],
+]);
+/** Two posts + two rails spanning the cell along x; thin along z, rot turns it. */
+const FENCE = mergeBoxes([
+  [0.12, 1, 0.12, -0.44, 0, 0],
+  [0.12, 1, 0.12, 0.44, 0, 0],
+  [1, 0.1, 0.08, 0, 0.35, 0],
+  [1, 0.1, 0.08, 0, 0.8, 0],
+]);
+
 /** Roof material renders both faces so the wedge never shows through from below. */
 const roofCache = new Map<string, THREE.MeshStandardMaterial>();
 function roofMaterial(color: string): THREE.MeshStandardMaterial {
@@ -183,6 +212,12 @@ function shapeParts(blockId: string): { geometry: THREE.BufferGeometry; material
       return { geometry: DOOR_PANEL, material: flatMaterial(color) };
     case "roof":
       return { geometry: WEDGE, material: roofMaterial(color) };
+    case "slab":
+      return { geometry: SLAB, material: flatMaterial(color) };
+    case "stairs":
+      return { geometry: STAIRS, material: flatMaterial(color) };
+    case "fence":
+      return { geometry: FENCE, material: flatMaterial(color) };
     default:
       return { geometry: UNIT_BOX, material: flatMaterial(color) };
   }
@@ -293,22 +328,37 @@ export function BuilderWorld({
     return map;
   }, [entries]);
 
-  // Physics: solid cells (cubes + windows) greedy-merge into slabs; doors are open (no collider);
-  // roof wedges get a walkable ramp slab each.
+  // Physics: full cells (cubes + windows) greedy-merge into slabs; doors are open (no collider);
+  // roof wedges + stairs share the walkable ramp; slabs merge half-height; fences are thin walls.
   const solidRects = useMemo(
     () =>
       mergeCellsToRects(
         entries
           .filter((entry) => {
-            const shape = getObject(entry.id)?.shape;
-            return shape !== "door" && shape !== "roof";
+            const shape = getObject(entry.id)?.shape ?? "cube";
+            return shape === "cube" || shape === "window";
           })
           .map((entry) => entry.cell),
       ),
     [entries],
   );
-  const roofEntries = useMemo(
-    () => entries.filter((entry) => getObject(entry.id)?.shape === "roof"),
+  const slabRects = useMemo(
+    () =>
+      mergeCellsToRects(
+        entries.filter((entry) => getObject(entry.id)?.shape === "slab").map((entry) => entry.cell),
+      ),
+    [entries],
+  );
+  const rampEntries = useMemo(
+    () =>
+      entries.filter((entry) => {
+        const shape = getObject(entry.id)?.shape;
+        return shape === "roof" || shape === "stairs";
+      }),
+    [entries],
+  );
+  const fenceEntries = useMemo(
+    () => entries.filter((entry) => getObject(entry.id)?.shape === "fence"),
     [entries],
   );
 
@@ -369,17 +419,29 @@ export function BuilderWorld({
           <DecorPiece id={item.id} key={item.uid} pos={item.pos} rotY={item.rotY} uid={item.uid} />
         ))}
       </group>
-      {/* Roof wedges: one thin ramp slab per cell, oriented by the wedge's quarter-turn. The outer
-          RigidBody carries the yaw so the inner x-tilt composes cleanly. */}
-      {roofEntries.map(({ cell, rot }) => (
+      {/* Ramp shapes (roof wedges + stairs): one thin ramp slab per cell, oriented by the
+          quarter-turn. The outer RigidBody carries the yaw so the inner x-tilt composes cleanly. */}
+      {rampEntries.map(({ cell, rot }) => (
         <RigidBody
           colliders={false}
-          key={`roof-${cell.join(",")}`}
+          key={`ramp-${cell.join(",")}`}
           position={[cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5]}
           rotation={[0, (rot * Math.PI) / 2, 0]}
           type="fixed"
         >
           <CuboidCollider args={[0.5, 0.04, 0.72]} rotation={[-Math.PI / 4, 0, 0]} />
+        </RigidBody>
+      ))}
+      {/* Fences: a thin solid wall per cell, turned with the fence. */}
+      {fenceEntries.map(({ cell, rot }) => (
+        <RigidBody
+          colliders={false}
+          key={`fence-${cell.join(",")}`}
+          position={[cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5]}
+          rotation={[0, (rot * Math.PI) / 2, 0]}
+          type="fixed"
+        >
+          <CuboidCollider args={[0.5, 0.5, 0.08]} />
         </RigidBody>
       ))}
       {/* Physics: the avatar walks on placed blocks + furniture (blocks greedy-merged into slabs). */}
@@ -389,6 +451,13 @@ export function BuilderWorld({
             args={[rect.w / 2, 0.5, rect.d / 2]}
             key={`${rect.x},${rect.y},${rect.z}`}
             position={[rect.x + rect.w / 2, rect.y + 0.5, rect.z + rect.d / 2]}
+          />
+        ))}
+        {slabRects.map((rect) => (
+          <CuboidCollider
+            args={[rect.w / 2, 0.25, rect.d / 2]}
+            key={`slab-${rect.x},${rect.y},${rect.z}`}
+            position={[rect.x + rect.w / 2, rect.y + 0.25, rect.z + rect.d / 2]}
           />
         ))}
         {decor.map((item) => {

@@ -2,6 +2,7 @@
 // Godot-parity smoke test for the ported builder logic (run in Node, storage is a silent no-op).
 import { homeBuild as buildSystem, palaceBuild } from "../src/builder/buildState";
 import {
+  MATERIALS,
   MATERIAL_CAPS,
   OBJECTS,
   POCKETS,
@@ -22,7 +23,10 @@ const assert = (name: string, cond: boolean) => {
 // catalog parity
 assert(
   "hotbar order blocks first",
-  blockIds().join(",") === "block_stone,block_boards,block_window,block_door,block_roof",
+  blockIds().join(",") ===
+    "block_stone,block_boards,block_brick,block_steel," +
+      "slab_stone,slab_boards,slab_brick,stairs_stone,stairs_boards,stairs_brick," +
+      "fence_boards,fence_steel,block_window,block_door,block_gate,block_roof,block_roof_slate",
 );
 assert(
   "lantern costs 2 boards + 2 stone",
@@ -39,6 +43,44 @@ assert("negative stock clamps to zero", clampMaterial("stone", -1) === 0);
 assert("window is a shaped block", OBJECTS.block_window?.shape === "window");
 assert("door is a shaped block", OBJECTS.block_door?.shape === "door");
 assert("roof is a shaped block", OBJECTS.block_roof?.shape === "roof");
+assert("slab is a shaped block", OBJECTS.slab_stone?.shape === "slab");
+assert("stairs is a shaped block", OBJECTS.stairs_boards?.shape === "stairs");
+assert("fence is a shaped block", OBJECTS.fence_steel?.shape === "fence");
+assert("gate reuses the door shape", OBJECTS.block_gate?.shape === "door");
+
+// set 1 "Foundation" roster: 8 materials + 42 objects = 50 items, every entry stamped set 1
+assert("8 materials", Object.keys(MATERIALS).length === 8);
+assert("42 objects", Object.keys(OBJECTS).length === 42);
+assert("50 items total", Object.keys(MATERIALS).length + Object.keys(OBJECTS).length === 50);
+assert(
+  "every object is set 1",
+  Object.values(OBJECTS).every((def) => def.set === 1),
+);
+assert(
+  "every material is set 1",
+  Object.values(MATERIALS).every((def) => def.set === 1),
+);
+assert(
+  "every material has a cap entry",
+  Object.keys(MATERIALS).every((id) => Number.isFinite(MATERIAL_CAPS[id])),
+);
+assert(
+  "every recipe output exists",
+  Object.values(RECIPES).every((recipe) => OBJECTS[recipe.outputId] || MATERIALS[recipe.outputId]),
+);
+assert(
+  "every recipe cost is a known material",
+  Object.values(RECIPES).every((recipe) => Object.keys(recipe.cost).every((mat) => MATERIALS[mat])),
+);
+assert(
+  "every non-attracted object is craftable",
+  Object.entries(OBJECTS).every(
+    ([id, def]) => def.attracts || Object.values(RECIPES).some((r) => r.outputId === id),
+  ),
+);
+assert("bricks fire from clay", JSON.stringify(RECIPES.fire_bricks?.cost) === '{"clay":10}');
+assert("glass melts from stone x24", RECIPES.melt_glass?.outputCount === 24);
+assert("parts press from scrap", RECIPES.press_parts?.outputId === "parts");
 
 // pockets (Pokémon sorting): every object lands in exactly one pocket, pockets stay ordered
 assert(
@@ -47,7 +89,12 @@ assert(
 );
 assert("window sorts into openings", pocketOf("block_window") === "openings");
 assert("door sorts into openings", pocketOf("block_door") === "openings");
+assert("gate sorts into openings", pocketOf("block_gate") === "openings");
 assert("roof sorts into roofs", pocketOf("block_roof") === "roofs");
+assert("slate roof sorts into roofs", pocketOf("block_roof_slate") === "roofs");
+assert("stairs sort into blocks", pocketOf("stairs_stone") === "blocks");
+assert("slab sorts into blocks", pocketOf("slab_brick") === "blocks");
+assert("fence sorts into blocks", pocketOf("fence_boards") === "blocks");
 assert("stool sorts into furniture", pocketOf("stool") === "furniture");
 const pocketed = POCKETS.flatMap((pocket) => pocketObjectIds(pocket.id)).sort();
 assert(
