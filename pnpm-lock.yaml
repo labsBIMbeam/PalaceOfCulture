@@ -112,6 +112,9 @@ importers:
         specifier: ^0.169.0
         version: 0.169.0
     devDependencies:
+      '@600b/napplet-zap':
+        specifier: workspace:*
+        version: link:../../napplets/zap
       '@types/geojson':
         specifier: ^7946.0.16
         version: 7946.0.16
@@ -189,6 +192,31 @@ importers:
       playwright:
         specifier: ^1.59.1
         version: 1.62.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.4.2
+        version: 6.4.3(@types/node@20.19.43)(tsx@4.22.4)
+      vite-plugin-singlefile:
+        specifier: ^2.3.3
+        version: 2.3.3(rollup@4.62.2)(vite@6.4.3(@types/node@20.19.43)(tsx@4.22.4))
+
+  napplets/zap:
+    dependencies:
+      '@600b/napplet-kit':
+        specifier: workspace:*
+        version: link:../../packages/napplet-kit
+      qrcode-generator:
+        specifier: ^1.5.0
+        version: 1.5.2
+    devDependencies:
+      '@napplet/conformance-cli':
+        specifier: ^0.2.15
+        version: 0.2.15
+      '@napplet/vite-plugin':
+        specifier: ^0.11.3
+        version: 0.11.3(typescript@5.9.3)(vite@6.4.3(@types/node@20.19.43)(tsx@4.22.4))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -2259,6 +2287,9 @@ packages:
 
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
+
+  qrcode-generator@1.5.2:
+    resolution: {integrity: sha512-pItrW0Z9HnDBnFmgiNrY1uxRdri32Uh9EjNYLPVC2zZ3ZRIIEqBoDgm4DkvDwNNDHTK7FNkmr8zAa77BYc9xNw==}
 
   qs@6.15.3:
     resolution: {integrity: sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==}
@@ -4703,6 +4734,8 @@ snapshots:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
+
+  qrcode-generator@1.5.2: {}
 
   qs@6.15.3:
     dependencies:

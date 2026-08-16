@@ -97,6 +97,22 @@ function ObjectSwatch({ id, size = 22 }: { id: string; size?: number }) {
     style.height = 0;
     style.borderRadius = 0;
   }
+  if (shape === "slab") {
+    style.height = Math.round(size * 0.5);
+    style.marginTop = Math.round(size * 0.5);
+    style.borderRadius = 2;
+  }
+  if (shape === "stairs") {
+    style.clipPath = "polygon(0 50%, 50% 50%, 50% 0, 100% 0, 100% 100%, 0 100%)";
+    style.borderRadius = 0;
+  }
+  if (shape === "fence") {
+    const c = def.color;
+    style.background = `linear-gradient(to bottom, transparent 18%, ${c} 18%, ${c} 34%, transparent 34%, transparent 58%, ${c} 58%, ${c} 74%, transparent 74%)`;
+    style.borderLeft = `3px solid ${c}`;
+    style.borderRight = `3px solid ${c}`;
+    style.borderRadius = 0;
+  }
   return <span className="builder-slot-icon" style={style} />;
 }
 

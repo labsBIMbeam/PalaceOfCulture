@@ -8,14 +8,17 @@
  */
 
 import { useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { AssemblyState, PlacementState, SignalLens } from "../meaningverse/phase1Relay";
+import { lampBoost } from "../net/zapLight";
 import { Enclosure, GATE_ARCH } from "./Enclosure";
 import { KerniFamiliar } from "./KerniFamiliar";
 import { LampPost } from "./LampPost";
 import { PLAZA_CENTRE, PLAZA_RADIUS, Plaza, type SolidSpec, YOUNG_TREE } from "./Plaza";
 import { Signpost } from "./Signpost";
+import { StreetCastView } from "./StreetCastView";
 import { Vegetation } from "./Vegetation";
 import { Workshop } from "./Workshop";
 import { mulberry32 } from "./rand";
@@ -362,6 +365,12 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
       }),
     [],
   );
+  // Zaps light the street — literally: recent zap activity brightens every lantern in the
+  // string (deterministic 21-min window, design lock in demo-loop-and-zap-light.md).
+  // NOTHING else may drive this value.
+  useFrame(() => {
+    lanternMat.emissiveIntensity = 1.6 * (1 + lampBoost() * 1.4);
+  });
   useLayoutEffect(() => {
     const cable = cableRef.current;
     const lantern = lanternRef.current;
@@ -498,6 +507,7 @@ export function StreetWorld({
   placement = { status: "idle", socketId: null, attemptId: null, acceptedSocketId: null },
   presenceAccepted = false,
   reducedEffects = false,
+  completedRaids = 0,
 }: {
   /** Presentation-only: the app-owned placement fact has been accepted. */
   acceptedPlacement?: boolean;
@@ -511,6 +521,8 @@ export function StreetWorld({
   presenceAccepted?: boolean;
   /** Presentation-only effects preference. */
   reducedEffects?: boolean;
+  /** All-time completed raid runs (server-counted) — drives the plaza foundation drum. */
+  completedRaids?: number;
 }) {
   const dirt = useMemo(dirtTexture, []);
   const path = useMemo(pathTexture, []);
@@ -588,10 +600,14 @@ export function StreetWorld({
         assembly={assembly}
         placement={placement}
       />
+      {/* the mentor crews — all 31 members at the five affinity stations (streetCast.ts) */}
+      <PropBoundary>
+        <StreetCastView />
+      </PropBoundary>
 
       {/* the plaza: staged site + the young tree, benches + well, ringed by walkable buildings */}
       <PropBoundary>
-        <Plaza />
+        <Plaza completedRaids={completedRaids} />
       </PropBoundary>
 
       {/* The civic centre now holds the live MoC ship assembly, mounted by PalaceScene. */}

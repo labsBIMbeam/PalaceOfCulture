@@ -20,6 +20,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import * as THREE from "three";
 import { type BrushSize, homeBuild } from "../builder/buildState";
@@ -27,6 +28,9 @@ import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
+import { TcgTablePanel } from "../napplet/TcgTablePanel";
+import { ZapNappletPanel } from "../napplet/ZapNappletPanel";
+import { zapRecipientFor } from "../napplet/zapDirectory";
 import {
   type Phase1InviteState,
   buildMeaningverseInvite,
@@ -71,6 +75,7 @@ import {
   signPhase1Event,
   verifyPhase1ActivationCapability,
 } from "../net/phase1RelayTransport";
+import { glowStrength, subscribeZapLight, zapCounterLabel, zapLightVersion } from "../net/zapLight";
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
 import { DecorPicker } from "../ui/DecorPicker";
@@ -329,6 +334,7 @@ const POSTFX_ENABLED =
   typeof window === "undefined" ||
   new URLSearchParams(window.location.search).get("postfx") !== "0";
 const USE_RADIUS = 2.6; // metres: how close you must be to a chair/bed for the "Sit"/"Sleep" prompt
+const ZAP_RADIUS = 2.8; // metres: how close to another player for the "Zap 21 sats" prompt
 const SLEEP_SURFACE = 0.4; // metres: mattress height a sleeper rests on, at the bed's default scale
 
 // Capsule half height (0.5) + radius (0.4) + float (0.3) + slack: how far below the body centre
@@ -345,6 +351,8 @@ function WalkSystems({
   onActive,
   onKerniProximity,
   onNearPose,
+  remotePlayers,
+  onNearPlayer,
 }: {
   bodyRef: RefObject<RapierRigidBody>;
   poseables: PosePoint[];
@@ -355,12 +363,16 @@ function WalkSystems({
   onActive: (item: Interactable | null) => void;
   onKerniProximity: (inRange: boolean) => void;
   onNearPose: (point: PosePoint | null) => void;
+  /** Live remote presence (street only) — a ref because it updates at the wire rate. */
+  remotePlayers?: RefObject<RemotePlayerSnapshot[]>;
+  onNearPlayer?: (player: RemotePlayerSnapshot | null) => void;
 }) {
   const [, getKeys] = useKeyboardControls();
   const { world, rapier } = useRapier();
   const lastId = useRef<string | null>(null);
   const lastPose = useRef<string | null>(null);
   const lastKerniRange = useRef(false);
+  const lastPlayer = useRef<string | null>(null);
   const jumpPrev = useRef(false);
   const jumpStartedAt = useRef(Number.NEGATIVE_INFINITY);
   useFrame((state) => {
@@ -473,6 +485,25 @@ function WalkSystems({
       lastPose.current = nearId;
       onNearPose(near);
     }
+
+    // Nearest connected remote player within zap range — same edge-triggered pattern.
+    if (onNearPlayer) {
+      let met: RemotePlayerSnapshot | null = null;
+      let metDist = ZAP_RADIUS;
+      for (const player of remotePlayers?.current ?? []) {
+        if (!player.connected) continue;
+        const dist = Math.hypot(pos.x - player.x, pos.z - player.z);
+        if (dist < metDist) {
+          met = player;
+          metDist = dist;
+        }
+      }
+      const metId = met?.sessionId ?? null;
+      if (metId !== lastPlayer.current) {
+        lastPlayer.current = metId;
+        onNearPlayer(met);
+      }
+    }
   });
   return null;
 }
@@ -539,6 +570,9 @@ function RemotePlayerMarker({
   labelStack: number;
 }) {
   const group = useRef<THREE.Group>(null);
+  const glowRef = useRef<THREE.PointLight>(null);
+  // Re-render on zap flashes so the nameplate counter appears even while everyone stands still.
+  useSyncExternalStore(subscribeZapLight, zapLightVersion, zapLightVersion);
   const target = useMemo(
     () => new THREE.Vector3(player.x, player.y - 0.9, player.z),
     [player.x, player.y, player.z],
@@ -560,6 +594,8 @@ function RemotePlayerMarker({
     const alpha = 1 - Math.exp(-10 * Math.min(delta, 0.1));
     node.position.lerp(target, alpha);
     node.rotation.y = dampAngle(node.rotation.y, player.rotationY, alpha);
+    // Zap lantern glow: the receiver visibly carries the light for 21 minutes.
+    if (glowRef.current) glowRef.current.intensity = glowStrength(player.sessionId) * 2.8;
   });
 
   return (
@@ -586,6 +622,8 @@ function RemotePlayerMarker({
         <ringGeometry args={[0.36, 0.48, 24]} />
         <meshBasicMaterial color={color} opacity={opacity * 0.75} transparent />
       </mesh>
+      {/* Received-zap lantern glow (intensity driven per frame; 0 = dark, costs nothing). */}
+      <pointLight color="#f7931a" distance={7} intensity={0} position={[0, 1.7, 0]} ref={glowRef} />
       <Html center position={[0, 2.08 + labelStack * 0.32, 0]} style={{ pointerEvents: "none" }}>
         <span
           className={
@@ -595,6 +633,9 @@ function RemotePlayerMarker({
           }
         >
           {player.handle}
+          {zapCounterLabel(player.sessionId) ? (
+            <em className="remote-player-zaps">{zapCounterLabel(player.sessionId)}</em>
+          ) : null}
         </span>
       </Html>
     </group>
@@ -1165,7 +1206,21 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   };
 
   const [activeInteract, setActiveInteract] = useState<Interactable | null>(null);
-  const [dialog, setDialog] = useState<string | null>(null);
+  // NPC dialogs are line sequences (the crew leads teach in four steps); plain interactables
+  // are the same thing with a single line. E and the button both advance, then close.
+  const [dialog, setDialog] = useState<{
+    speaker: string | null;
+    lines: string[];
+    index: number;
+  } | null>(null);
+  const dialogRef = useRef<typeof dialog>(null);
+  dialogRef.current = dialog;
+  const advanceDialog = () =>
+    setDialog((current) =>
+      current && current.index < current.lines.length - 1
+        ? { ...current, index: current.index + 1 }
+        : null,
+    );
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
 
@@ -1189,20 +1244,53 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       origin: "player",
     });
   };
+  // Voice: each cast line ships as generated speech under /vo/cast (tooling/street-cast-vo).
+  // Media stays decorative — a missing file simply plays nothing, the text is the canon.
+  const dialogSpeaker = dialog?.speaker ?? null;
+  const dialogIndex = dialog?.index ?? 0;
+  useEffect(() => {
+    if (!dialogSpeaker) return;
+    const audio = new Audio(`/vo/cast/${dialogSpeaker.toLowerCase()}-${dialogIndex + 1}.mp3`);
+    audio.volume = 0.9;
+    audio.play().catch(() => {});
+    return () => {
+      audio.pause();
+    };
+  }, [dialogSpeaker, dialogIndex]);
+
+  // Zap-on-meet: the nearest remote player in range whose handle maps to a roster lightning
+  // identity (zapDirectory) may be zapped 21 sats. Identity stays out-of-band — the room only
+  // ever supplies the handle (ADR 0009). The panel hosts the sandboxed zap napplet.
+  const [nearPlayer, setNearPlayer] = useState<RemotePlayerSnapshot | null>(null);
+  const [zapHandle, setZapHandle] = useState<string | null>(null);
+  const zapSessionRef = useRef<string | null>(null);
+  const zappableNeighbor = nearPlayer && zapRecipientFor(nearPlayer.handle) ? nearPlayer : null;
+  const zappableRef = useRef<RemotePlayerSnapshot | null>(null);
+  zappableRef.current = zappableNeighbor;
+  const zapOpenRef = useRef(false);
+  zapOpenRef.current = zapHandle !== null;
+  const remotePlayersRef = useRef<RemotePlayerSnapshot[]>([]);
+  remotePlayersRef.current = multiplayerView.players;
 
   // The MoC creation panel is scene state (not panel-internal) so mode switches never reset it, and
   // the ship dock can open it. `mocFocusNonce` bumps land focus in the panel's "Name your part"
   // field — E at the dock drops you straight into naming, the world object as the loop's entry.
   const [mocOpen, setMocOpen] = useState(true);
   const [mocFocusNonce, setMocFocusNonce] = useState(0);
+  // Kerni's plaza table: the TCG practice-table napplet (demo centerpiece).
+  const [tcgOpen, setTcgOpen] = useState(false);
   // Uses only stable setters, so the once-bound interact key handler may close over it safely.
   const activateInteract = (item: Interactable) => {
     if (item.action === "open-ship-panel") {
       setDialog(null);
       setMocOpen(true);
       setMocFocusNonce((nonce) => nonce + 1);
+    } else if (item.action === "open-tcg-table") {
+      setDialog(null);
+      setTcgOpen(true);
     } else {
-      setDialog(item.message);
+      const lines = item.lines?.length ? item.lines : [item.message];
+      setDialog({ speaker: item.speaker ?? null, lines, index: 0 });
     }
   };
 
@@ -1281,14 +1369,22 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     if (mode !== "walk") return;
     const onInteractKey = (event: KeyboardEvent) => {
       if (event.code !== "KeyE") return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
       if (domOwnsWorldFocus()) return;
+      if (zapOpenRef.current) return; // the zap panel owns the keyboard until it closes
       if (kerniInRange && !relayHandoff.memoryFragment) {
         openKerniDialogue();
         return;
       }
-      if (posedRef.current) getUp();
+      if (dialogRef.current)
+        advanceDialog(); // step through the open dialog, then close it
+      else if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
-      else if (activeRef.current) activateInteract(activeRef.current);
+      else if (zappableRef.current) {
+        zapSessionRef.current = zappableRef.current.sessionId;
+        setZapHandle(zappableRef.current.handle);
+      } else if (activeRef.current) activateInteract(activeRef.current);
     };
     window.addEventListener("keydown", onInteractKey);
     return () => {
@@ -1296,6 +1392,8 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setActiveInteract(null);
       setDialog(null);
       setNearPose(null);
+      setNearPlayer(null);
+      setZapHandle(null);
     };
   }, [kerniInRange, mode, relayHandoff.memoryFragment]);
 
@@ -1509,7 +1607,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 />
               </RigidBody>
               {/* solid collision for the street's buildings + tree trunks (visuals are outside Physics) */}
-              {world === "street" ? <StreetColliders /> : null}
+              {world === "street" ? (
+                <StreetColliders completedRaids={multiplayerView.completedRaids} />
+              ) : null}
               {world === "home" ? (
                 <>
                   <mesh receiveShadow rotation-x={-Math.PI / 2}>
@@ -1595,8 +1695,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                     setKerniInRange(inRange);
                     if (!inRange) setKerniDialogueOpen(false);
                   }}
+                  onNearPlayer={setNearPlayer}
                   onNearPose={setNearPose}
                   poseables={poseables}
+                  remotePlayers={remotePlayersRef}
                   spawn={SPAWN_FOR[world]}
                 />
               ) : null}
@@ -1610,6 +1712,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   acceptedLens={phase1RelayState.acceptedLens}
                   acceptedPlacement={phase1RelayState.status === "accepted"}
                   assembly={phase1RelayState.assembly}
+                  completedRaids={multiplayerView.completedRaids}
                   placement={phase1RelayState.placement}
                   presenceAccepted={attentivePresence.presenceAccepted}
                   reducedEffects={reducedEffects}
@@ -1825,6 +1928,17 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           <span className="interact-key">E</span>
           {nearPose.pose === "sleep" ? "Lie down" : "Sit down"}
         </button>
+      ) : mode === "walk" && zappableNeighbor && !zapHandle ? (
+        <button
+          className="interact-prompt interact-prompt-zap"
+          onClick={() => {
+            zapSessionRef.current = zappableNeighbor.sessionId;
+            setZapHandle(zappableNeighbor.handle);
+          }}
+          type="button"
+        >
+          <span className="interact-key">E</span>⚡ Zap {zappableNeighbor.handle} · 21 sats
+        </button>
       ) : mode === "walk" && activeInteract ? (
         <button
           className="interact-prompt"
@@ -1837,12 +1951,26 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : null}
       {dialog ? (
         <div className="interact-dialog">
-          <p>{dialog}</p>
-          <button className="interact-close" onClick={() => setDialog(null)} type="button">
-            Close
+          {dialog.speaker ? <strong className="interact-speaker">{dialog.speaker}</strong> : null}
+          <p>{dialog.lines[dialog.index]}</p>
+          <button className="interact-close" onClick={advanceDialog} type="button">
+            {dialog.index < dialog.lines.length - 1
+              ? `Next (${dialog.index + 1}/${dialog.lines.length})`
+              : "Close"}
           </button>
         </div>
       ) : null}
+      {zapHandle ? (
+        <ZapNappletPanel
+          handle={zapHandle}
+          onClose={() => setZapHandle(null)}
+          onZapPaid={() => {
+            const session = zapSessionRef.current;
+            if (session) multiplayerTransportRef.current?.sendZapFlash(session);
+          }}
+        />
+      ) : null}
+      {tcgOpen ? <TcgTablePanel onClose={() => setTcgOpen(false)} /> : null}
       {mode === "decorate" ? (
         <DecorPicker
           catalog={CATALOG}

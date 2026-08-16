@@ -72,3 +72,8 @@ Thumbs.db
 
 # Godot web build synced into the site (artifact — rebuild via pnpm game:sync)
 apps/web/public/game/
+
+# Street-cast VO working data (regenerate via tooling/street-cast-vo/export_lines.ts)
+tooling/street-cast-vo/lines.json
+# Intro cinematic render workspace (frames, wavs, muxes — rebuild via tooling/intro-cinematic)
+tooling/intro-cinematic/_work/

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Center stage</title>
+<style>
+  :root { --palace-bg:#0a0705; --palace-fg:#efe6d2; --palace-primary:#e7b23c;
+    --palace-muted:color-mix(in srgb,var(--palace-fg) 55%,var(--palace-bg));
+    --palace-line:color-mix(in srgb,var(--palace-fg) 20%,var(--palace-bg));
+    --palace-surface:color-mix(in srgb,var(--palace-fg) 7%,var(--palace-bg)); }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--palace-bg);
+    color:var(--palace-fg);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  body{padding:12px;display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;gap:6px;align-items:center}
+  button{font:inherit;color:inherit;background:var(--palace-surface);
+    border:1px solid var(--palace-line);border-radius:6px;padding:0 10px;min-height:30px;cursor:pointer}
+  button[data-on="true"]{background:var(--palace-primary);border-color:var(--palace-primary);
+    color:var(--palace-bg);font-weight:600}
+  .stage{flex:1;display:grid;place-items:center;border:1px dashed var(--palace-line);
+    border-radius:10px;text-align:center;padding:16px}
+  .title{font-size:20px;font-weight:600}
+  .muted{color:var(--palace-muted)}
+</style>
+</head>
+<body>
+<div class="row">
+  <button id="web">Web</button>
+  <button id="world">World</button>
+  <span class="muted" id="hint"></span>
+</div>
+<div class="stage">
+  <div>
+    <div class="title" id="title">Nothing playing</div>
+    <div class="muted" id="sub">Join something from the guild context panel.</div>
+  </div>
+</div>
+<script>
+// Center stage — the surface toggle is the whole reason the shell exists: it
+// swaps the renderer and nothing else. Chat, media and session survive it
+// because none of them live here (Round 5, findings 1-3).
+const webButton = document.getElementById("web");
+const worldButton = document.getElementById("world");
+const title = document.getElementById("title");
+const sub = document.getElementById("sub");
+const hint = document.getElementById("hint");
+
+const setSurface = (surface) =>
+  window.palace.intent({ domain: "session", action: "setSurface", surface });
+
+webButton.addEventListener("click", () => setSurface("web"));
+worldButton.addEventListener("click", () => setSurface("world"));
+
+window.palace.on("session", (session) => {
+  webButton.dataset.on = String(session.surface === "web");
+  worldButton.dataset.on = String(session.surface === "world");
+  hint.textContent =
+    session.surface === "world" ? "world renderer would mount here" : "web projection";
+  if (session.sessionId) {
+    title.textContent = session.title;
+    sub.textContent =
+      session.participants.length + " participant(s) · " + session.surface;
+  } else {
+    title.textContent = "Nothing playing";
+    sub.textContent = "Join something from the guild context panel.";
+  }
+});
+</script>
+</body>
+</html>

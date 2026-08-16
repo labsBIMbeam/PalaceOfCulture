@@ -6,6 +6,8 @@ import { Icon } from "./icons";
  * Skippable intro video followed by three canonical story cards. A video error — and the Skip
  * button itself — goes to the same cards, so the family-slapstick bite, Kerni reveal, and
  * Locktard Street facts never depend on media and cannot be bypassed by the reflexive first tap.
+ * The video carries sound: it plays only after the "Enter MoC" click, so unmuted autoplay is
+ * within policy; where a browser still blocks it, clicking the video starts playback.
  */
 export function IntroScreen({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -17,7 +19,7 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
     if (showCards) cardRef.current?.focus();
   }, [showCards]);
 
-  // Fallback: if a browser blocks autoplay, clicking the silent video starts it.
+  // Fallback: if a browser blocks unmuted autoplay, clicking the video starts it.
   const resume = () => videoRef.current?.play().catch(() => {});
 
   const openCards = () => {
@@ -57,10 +59,9 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
       ) : (
         // biome-ignore lint/a11y/useKeyWithClickEvents: the Skip button is the keyboard path
         <video
-          aria-label="Decorative Kerni intro. The canonical bite and reveal continue in the story cards. Skip to continue."
+          aria-label="Decorative Kerni intro with sound. The canonical bite and reveal continue in the story cards. Skip to continue."
           autoPlay
           className="intro-video"
-          muted
           onClick={resume}
           onEnded={openCards}
           onError={openCards}
@@ -68,7 +69,10 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
           preload="metadata"
           ref={videoRef}
           src="/intro.mp4"
-        />
+        >
+          {/* The film has no dialogue; the captions transcribe its sound design (design doc §Sound). */}
+          <track default kind="captions" label="English" src="/intro.vtt" srcLang="en" />
+        </video>
       )}
       {!showCards ? (
         <div className="intro-controls">

@@ -49,6 +49,9 @@ const MEMBER_MODEL_IDS = [
   "bam",
   "benarc",
   "blackcoffee",
+  // cuddy: the join.600.wtf squirrel mesh, bound to the shared skeleton in-session
+  // (nearest-bone + smoothed weights; the site mesh ships unrigged) — see PR notes.
+  "cuddy",
   "darren",
   "dni",
   "essex",

@@ -97,8 +97,9 @@ const SEEDS: ReadonlyArray<MemberSeed> = [
   { name: "morgs", role: "CFR", nostr: "morgs@600.wtf" },
   { name: "proton", role: "Council", nostr: "proton@600.wtf" },
   { name: "tonichina", role: "CCN", nostr: "tonychina@600.wtf" },
-  // The newest join.600.wtf characters — they wear the shared placeholder until their rigged
-  // models come out of the Meshy → rig → retarget pipeline (raw meshes exist on the site).
+  // The newest join.600.wtf characters — tal/bk/mtoshi wear the shared placeholder until their
+  // rigged models come out of the Meshy → rig → retarget pipeline (raw meshes exist on the
+  // site). cuddy's squirrel is already bound to the shared skeleton (avatarImports).
   { name: "tal", role: "CNO", nostr: "tal@600.wtf" },
   { name: "bk", role: "CUO", nostr: "bk@600.wtf" },
   { name: "mtoshi", role: "CHR", nostr: "mtoshi@600.wtf" },

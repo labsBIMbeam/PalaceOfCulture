@@ -2913,6 +2913,14 @@ input.compose-input::placeholder {
   line-height: 1.45;
 }
 
+/* NPC dialogs: the speaking crew member's name above their line. */
+.interact-speaker {
+  color: var(--gold-soft);
+  font: 700 11px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .interact-close {
   padding: 6px 18px;
   border: 1px solid rgba(231, 178, 60, 0.45);
@@ -5379,6 +5387,17 @@ input.compose-input::placeholder {
   line-height: 1.35;
 }
 
+/* The live foundation counter — community work becoming architecture, in gold. */
+.moc-raid small.moc-foundation {
+  margin-top: 4px;
+  color: #e8c56a;
+}
+
+.moc-raid small.moc-foundation b {
+  color: #ffd98a;
+  font-variant-numeric: tabular-nums;
+}
+
 .moc-raid > strong {
   color: #ffe9c4;
   font-size: 10px;
@@ -5906,4 +5925,83 @@ input.compose-input::placeholder {
     animation: none;
     outline: 2px solid #5cd8ff;
   }
+
+/* --- zap napplet shell (the sandboxed 21-sats panel over the street) --- */
+
+.zap-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(23, 23, 26, 0.55);
+}
+
+.zap-shell-card {
+  width: min(380px, 92vw);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1f1f24;
+  border: 1px solid rgba(247, 147, 26, 0.35);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+
+.zap-shell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  color: #ece7db;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.zap-shell-close {
+  border: none;
+  background: none;
+  color: #b3ac9c;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zap-shell-frame {
+  display: block;
+  width: 100%;
+  height: 380px;
+  border: none;
+  background: #17171a;
+}
+
+.interact-prompt-zap {
+  border-color: rgba(247, 147, 26, 0.7);
+}
+
+/* --- TCG table napplet: a wide board needs a wide shell --- */
+
+.zap-shell-card:has(.tcg-shell-frame) {
+  width: min(1180px, 96vw);
+}
+
+.tcg-shell-frame {
+  display: block;
+  width: 100%;
+  height: min(760px, 82vh);
+  border: none;
+  background: #09080b;
+}
+
+.tcg-shell-missing {
+  margin: 0;
+  padding: 18px;
+  color: #b3ac9c;
+  font-size: 14px;
+}
+
+.remote-player-zaps {
+  margin-left: 6px;
+  font-style: normal;
+  color: #f7931a;
+  font-size: 11px;
 }

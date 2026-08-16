@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Guild context</title>
+<style>
+  :root { --palace-bg:#0a0705; --palace-fg:#efe6d2; --palace-primary:#e7b23c;
+    --palace-muted:color-mix(in srgb,var(--palace-fg) 55%,var(--palace-bg));
+    --palace-line:color-mix(in srgb,var(--palace-fg) 20%,var(--palace-bg));
+    --palace-surface:color-mix(in srgb,var(--palace-fg) 7%,var(--palace-bg)); }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--palace-bg);
+    color:var(--palace-fg);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  body{padding:8px} h2{margin:0 0 6px;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--palace-muted)}
+  h3{margin:10px 0 4px;font-size:12px}
+  ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+  button{font:inherit;color:inherit;background:var(--palace-surface);
+    border:1px solid var(--palace-line);border-radius:6px;padding:0 8px;min-height:30px;
+    cursor:pointer;width:100%;text-align:left}
+  .muted{color:var(--palace-muted)}
+</style>
+</head>
+<body>
+<h2 id="lens">Commons</h2>
+<h3>Now</h3>
+<ul id="now"></ul>
+<p class="muted" id="note"></p>
+<script>
+// Guild context — Now/Next/Anytime first, activity families second. Joining is
+// an intent: this panel does not know what a Session is, only how to ask for one.
+const lensLabel = document.getElementById("lens");
+const now = document.getElementById("now");
+const note = document.getElementById("note");
+
+const ACTIVITIES = [
+  { id: "wavlake-warmup", label: "Wavlake warm-up" },
+  { id: "guild-gathering", label: "Guild gathering" },
+  { id: "arcane-challenge", label: "Arcane Game challenge" },
+];
+
+window.palace.on("guild", (state) => {
+  lensLabel.textContent =
+    state.lens.kind === "guild"
+      ? (state.guilds.find((g) => g.id === state.lens.guildId)?.name ?? "Guild")
+      : state.lens.kind === "union" ? "All joined" : "Commons";
+});
+
+window.palace.on("session", (session) => {
+  note.textContent = session.sessionId
+    ? "In session: " + session.title
+    : "Nothing joined.";
+});
+
+now.replaceChildren(...ACTIVITIES.map((activity) => {
+  const li = document.createElement("li");
+  const button = document.createElement("button");
+  button.textContent = activity.label;
+  button.addEventListener("click", async () => {
+    const result = await window.palace.intent({
+      domain: "session", action: "join", activityId: activity.id,
+    });
+    if (!result.ok) note.textContent = "refused: " + result.error;
+  });
+  li.append(button);
+  return li;
+}));
+</script>
+</body>
+</html>

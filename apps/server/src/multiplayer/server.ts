@@ -8,6 +8,7 @@ import { PALACE_ROOM_NAME } from "@600b/multiplayer";
 
 import { PalaceRoom } from "./PalaceRoom.js";
 import { MatchmakingHttpGuard } from "./httpGuard.js";
+import { InMemoryRaidLedger, type RaidLedger } from "./raidLedger.js";
 
 const DEFAULT_MULTIPLAYER_HOST = "127.0.0.1";
 const DEFAULT_MULTIPLAYER_PORT = 2567;
@@ -20,6 +21,8 @@ export interface MultiplayerConfig {
   port: number;
   allowedOrigins: ReadonlySet<string>;
   trustedProxyHops: number;
+  /** Demo-stage baseline added to recorded raid completions (docs/design/demo-loop-and-zap-light.md). */
+  raidCompletionsSeed: number;
 }
 
 /** Load and validate the independently bound multiplayer listener configuration. */
@@ -31,6 +34,7 @@ export function loadMultiplayerConfig(env: NodeJS.ProcessEnv = process.env): Mul
     port: parsePort(env.MULTIPLAYER_PORT),
     allowedOrigins: parseExactOrigins(env.MULTIPLAYER_ORIGINS),
     trustedProxyHops: parseTrustedProxyHops(env.MULTIPLAYER_TRUST_PROXY_HOPS),
+    raidCompletionsSeed: parseRaidCompletionsSeed(env.RAID_COMPLETIONS_SEED),
   };
 }
 
@@ -43,9 +47,12 @@ export class MultiplayerServer {
   #listening = false;
   #shutdownPromise: Promise<void> | undefined;
 
-  constructor(config: MultiplayerConfig) {
+  constructor(config: MultiplayerConfig, dependencies: { raidLedger?: RaidLedger } = {}) {
     this.config = config;
     PalaceRoom.configureAllowedOrigins(config.allowedOrigins);
+    PalaceRoom.configureRaidLedger(
+      dependencies.raidLedger ?? new InMemoryRaidLedger(config.raidCompletionsSeed),
+    );
     configureMatchmakerCors(config.allowedOrigins);
     this.matchmakingHttpGuard = new MatchmakingHttpGuard(
       config.allowedOrigins,
@@ -135,6 +142,15 @@ function parsePort(value: string | undefined): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65_535) {
     throw new Error("MULTIPLAYER_PORT must be an integer between 0 and 65535.");
+  }
+  return parsed;
+}
+
+function parseRaidCompletionsSeed(value: string | undefined): number {
+  if (value === undefined || value.trim() === "") return 0;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 1_000_000) {
+    throw new Error("RAID_COMPLETIONS_SEED must be an integer between 0 and 1000000.");
   }
   return parsed;
 }
