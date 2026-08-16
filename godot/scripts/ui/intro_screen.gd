@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Full-screen intro video followed by the canonical family-slapstick bite/Kerni/Zapburg cards.
+## Full-screen intro video followed by the canonical family-slapstick bite/Kerni/Locktard cards.
 ## Video skip lands on the cards; missing media falls through to the same cards. Shown once per launch.
 ## Headless-safe: with no display the intro resolves immediately.
 
@@ -19,7 +19,7 @@ const STORY_CARDS := [
 		"line": "\"Builder offline. Cause: three millimetres of blood.\" Suggestion only.",
 	},
 	{
-		"kicker": "ZAPBURG",
+		"kicker": "LOCKTARD STREET",
 		"caption": "Thirty-six sockets. No owner. One unfinished spaceship.",
 		"line": "\"We're not a cult. We're culture.\" Build one small part. Place it. Invite someone.",
 	},

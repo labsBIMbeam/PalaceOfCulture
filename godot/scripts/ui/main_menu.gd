@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Title screen, cypherpunk-dark: approved Zapburg keyart under a calm
+## Title screen, cypherpunk-dark: approved Locktard Street keyart under a calm
 ## "600" matrix rain (port of the web MatrixField — column groups of 6-0-0 sweep
 ## on, hold, then fade), a typography-led center column (massive Cinzel wordmark,
 ## mono terminal home rows, gold hover, glow only on focus) and a
