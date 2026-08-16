@@ -57,6 +57,12 @@ Werkstattgasse aktiv. Home und Palace HQ bleiben in diesem Slice lokale Flächen
 4. **Reverse-Proxy / Routing** — `/api/*` → Node-Server, alles andere → statisches `dist/`,
    damit der Client same-origin bleibt (kein CORS).
 
+### Option B: nsite + FIPS-Mesh (kein eigener Webserver für die Statik)
+
+Dieselbe App lässt sich alternativ als **nsite** ausliefern (kind-34128 auf Relays, Blobs auf
+Blossom) und erreicht den Spielserver zur Laufzeit über `?server=` — inklusive lokalem
+FIPS-Port-Forward. Vollständige Anleitung: [`NSITE-FIPS.md`](NSITE-FIPS.md).
+
 ### Empfohlenes Setup (öffentlich im Internet, eigener VPS)
 
 Ein **einzelner kleiner Linux-VPS** trägt alles — passt zu „boring on purpose / one app,

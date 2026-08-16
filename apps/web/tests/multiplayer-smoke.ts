@@ -16,6 +16,7 @@ import {
   jitteredRetryDelayMs,
   leaveCodeAllowsFreshJoin,
   movementSendIsBackpressured,
+  multiplayerUrlFromSearch,
   reconnectDelayMs,
   reconnectFailureAllowsFreshJoin,
   resolveMultiplayerUrl,
@@ -47,6 +48,58 @@ assert.throws(
 assert.equal(
   resolveMultiplayerUrl("https://rooms.example", false, "http://palace.example"),
   "https://rooms.example",
+);
+// Loopback is a potentially trustworthy origin: an HTTPS page (an nsite gateway) may reach a
+// local FIPS port-forward over plain HTTP — but only loopback, never a routable mesh address.
+assert.equal(
+  resolveMultiplayerUrl("http://localhost:2567", false, "https://npub1x.nsite.example"),
+  "http://localhost:2567",
+);
+assert.equal(
+  resolveMultiplayerUrl("http://127.0.0.1:2567", false, "https://npub1x.nsite.example"),
+  "http://127.0.0.1:2567",
+);
+assert.throws(
+  () => resolveMultiplayerUrl("http://[fd97::1]:2567", false, "https://npub1x.nsite.example"),
+  /cannot downgrade/,
+);
+
+// The `?server=` runtime choice: same validation as the baked URL, and an invalid or hostile
+// value falls back to the default instead of taking the street down.
+assert.equal(
+  multiplayerUrlFromSearch(
+    "?server=https%3A%2F%2Fzapburg.com",
+    false,
+    "https://npub1x.nsite.example",
+  ),
+  "https://zapburg.com",
+);
+assert.equal(
+  multiplayerUrlFromSearch(
+    "?join=street&server=http://localhost:2567",
+    false,
+    "https://npub1x.nsite.example",
+  ),
+  "http://localhost:2567",
+);
+assert.equal(multiplayerUrlFromSearch("?join=street", false, "https://palace.example"), null);
+assert.equal(multiplayerUrlFromSearch("", false, "https://palace.example"), null);
+assert.equal(
+  multiplayerUrlFromSearch("?server=http://evil.example", false, "https://npub1x.nsite.example"),
+  null,
+  "a plaintext non-loopback override from an HTTPS page is dropped, not honoured",
+);
+assert.equal(
+  multiplayerUrlFromSearch("?server=ws://rooms.example", false, "https://palace.example"),
+  null,
+);
+assert.equal(
+  multiplayerUrlFromSearch(
+    "?server=https://user:pw@rooms.example",
+    false,
+    "https://palace.example",
+  ),
+  null,
 );
 
 assert.deepEqual(
