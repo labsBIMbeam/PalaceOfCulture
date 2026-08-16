@@ -8,6 +8,7 @@ import {
   PalaceRoomState,
   type PlaceShipModuleMessage,
   type PositionCorrection,
+  RAID_COMPLETE_MESSAGE,
   ZAP_FLASH_MESSAGE,
   parseMovementMessage,
   parsePalaceJoinOptions,
@@ -67,6 +68,9 @@ export type MultiplayerViewState = {
   status: MultiplayerStatus;
   players: RemotePlayerSnapshot[];
   shipModules: ShipModuleSnapshot[];
+  /** All-time completed raid runs (server-counted). Held across reconnect blips — the plaza
+   *  foundation is append-only architecture and must never visibly un-build. */
+  completedRaids: number;
   localSessionId?: string;
   detail?: string;
 };
@@ -106,6 +110,7 @@ export const OFFLINE_MULTIPLAYER_STATE: MultiplayerViewState = {
   status: "offline",
   players: [],
   shipModules: [],
+  completedRaids: 0,
 };
 
 /** Resolve the HTTP matchmaking endpoint while rejecting non-web and credential-bearing URLs. */
@@ -467,6 +472,15 @@ export class PalaceMultiplayerTransport {
     }
   }
 
+  /** Report that this session's raid run reached CO-CREATE. The claim carries no data — the
+   *  server re-verifies every fact against its own state before the foundation counter moves. */
+  reportRaidComplete(): boolean {
+    const room = this.room;
+    if (!room || this.viewState.status !== "connected") return false;
+    room.send(RAID_COMPLETE_MESSAGE, {});
+    return true;
+  }
+
   /** Consume at most one authoritative snap request; ordinary state patches never populate it. */
   consumeCorrection(): PositionCorrection | null {
     const correction = this.pendingCorrection;
@@ -688,6 +702,7 @@ export class PalaceMultiplayerTransport {
         status: "connected",
         players: snapshotRemotePlayers(state, room.sessionId),
         shipModules: snapshotShipModules(state),
+        completedRaids: state.completedRaids,
         localSessionId: room.sessionId,
       });
     };
@@ -792,8 +807,16 @@ export class PalaceMultiplayerTransport {
     }, delay);
   }
 
-  private publish(state: MultiplayerViewState): void {
-    this.viewState = state;
-    for (const listener of this.listeners) listener(state);
+  /** Callers omit `completedRaids` outside the connected snapshot; the last authoritative count
+   *  sticks, so a reconnect blip never renders the foundation shrinking back. */
+  private publish(
+    state: Omit<MultiplayerViewState, "completedRaids"> & { completedRaids?: number },
+  ): void {
+    const next: MultiplayerViewState = {
+      ...state,
+      completedRaids: state.completedRaids ?? this.viewState.completedRaids,
+    };
+    this.viewState = next;
+    for (const listener of this.listeners) listener(next);
   }
 }
