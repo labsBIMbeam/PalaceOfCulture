@@ -8,10 +8,13 @@ import {
   PalaceRoomState,
   type PlaceShipModuleMessage,
   type PositionCorrection,
+  ZAP_FLASH_MESSAGE,
   parseMovementMessage,
   parsePalaceJoinOptions,
   parsePlaceShipModuleMessage,
   parsePositionCorrection,
+  parseZapFlashBroadcast,
+  parseZapFlashMessage,
 } from "@600b/multiplayer";
 import {
   Client,
@@ -22,6 +25,7 @@ import {
   type Room,
 } from "@colyseus/sdk";
 import type { SchemaConstructor } from "@colyseus/sdk/serializer/SchemaSerializer";
+import { recordZapFlash } from "./zapLight";
 
 const DEV_MULTIPLAYER_URL = "http://127.0.0.1:2567";
 const MOVEMENT_INTERVAL_MS = 100;
@@ -451,6 +455,18 @@ export class PalaceMultiplayerTransport {
     }
   }
 
+  /** Report a CONFIRMED zap so the street can light up — cosmetic broadcast, never money truth. */
+  sendZapFlash(targetSessionId: string): boolean {
+    const room = this.room;
+    if (!room || this.viewState.status !== "connected") return false;
+    try {
+      room.send(ZAP_FLASH_MESSAGE, parseZapFlashMessage({ targetSessionId }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Consume at most one authoritative snap request; ordinary state patches never populate it. */
   consumeCorrection(): PositionCorrection | null {
     const correction = this.pendingCorrection;
@@ -721,6 +737,14 @@ export class PalaceMultiplayerTransport {
         // Ignore malformed correction messages; only the strict shared protocol is actionable.
       }
     });
+    const detachZapFlash = room.onMessage<unknown>(ZAP_FLASH_MESSAGE, (payload) => {
+      if (this.disposed || this.room !== room) return;
+      try {
+        recordZapFlash(parseZapFlashBroadcast(payload).sessionId);
+      } catch {
+        // Malformed light stays dark — only validated broadcasts brighten anything.
+      }
+    });
 
     room.onStateChange(updatePlayers);
     room.onDrop(onDrop);
@@ -734,6 +758,7 @@ export class PalaceMultiplayerTransport {
       room.onError.remove(onError);
       room.onLeave.remove(onLeave);
       detachCorrection();
+      detachZapFlash();
     };
   }
 

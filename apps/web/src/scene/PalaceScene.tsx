@@ -19,6 +19,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import * as THREE from "three";
 import { type BrushSize, homeBuild } from "../builder/buildState";
@@ -37,6 +38,7 @@ import {
   getMultiplayerUrl,
   horizontalYawFromQuaternion,
 } from "../net/multiplayer";
+import { glowStrength, subscribeZapLight, zapCounterLabel, zapLightVersion } from "../net/zapLight";
 import { BuilderHud } from "../ui/BuilderHud";
 import { ChatPanel } from "../ui/ChatPanel";
 import { DecorPicker } from "../ui/DecorPicker";
@@ -506,6 +508,9 @@ function RemotePlayerMarker({
   labelStack: number;
 }) {
   const group = useRef<THREE.Group>(null);
+  const glowRef = useRef<THREE.PointLight>(null);
+  // Re-render on zap flashes so the nameplate counter appears even while everyone stands still.
+  useSyncExternalStore(subscribeZapLight, zapLightVersion, zapLightVersion);
   const target = useMemo(
     () => new THREE.Vector3(player.x, player.y - 0.9, player.z),
     [player.x, player.y, player.z],
@@ -527,6 +532,8 @@ function RemotePlayerMarker({
     const alpha = 1 - Math.exp(-10 * Math.min(delta, 0.1));
     node.position.lerp(target, alpha);
     node.rotation.y = dampAngle(node.rotation.y, player.rotationY, alpha);
+    // Zap lantern glow: the receiver visibly carries the light for 21 minutes.
+    if (glowRef.current) glowRef.current.intensity = glowStrength(player.sessionId) * 2.8;
   });
 
   return (
@@ -553,6 +560,8 @@ function RemotePlayerMarker({
         <ringGeometry args={[0.36, 0.48, 24]} />
         <meshBasicMaterial color={color} opacity={opacity * 0.75} transparent />
       </mesh>
+      {/* Received-zap lantern glow (intensity driven per frame; 0 = dark, costs nothing). */}
+      <pointLight color="#f7931a" distance={7} intensity={0} position={[0, 1.7, 0]} ref={glowRef} />
       <Html center position={[0, 2.08 + labelStack * 0.32, 0]} style={{ pointerEvents: "none" }}>
         <span
           className={
@@ -562,6 +571,9 @@ function RemotePlayerMarker({
           }
         >
           {player.handle}
+          {zapCounterLabel(player.sessionId) ? (
+            <em className="remote-player-zaps">{zapCounterLabel(player.sessionId)}</em>
+          ) : null}
         </span>
       </Html>
     </group>
@@ -826,6 +838,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   // ever supplies the handle (ADR 0009). The panel hosts the sandboxed zap napplet.
   const [nearPlayer, setNearPlayer] = useState<RemotePlayerSnapshot | null>(null);
   const [zapHandle, setZapHandle] = useState<string | null>(null);
+  const zapSessionRef = useRef<string | null>(null);
   const zappableNeighbor = nearPlayer && zapRecipientFor(nearPlayer.handle) ? nearPlayer : null;
   const zappableRef = useRef<RemotePlayerSnapshot | null>(null);
   zappableRef.current = zappableNeighbor;
@@ -935,8 +948,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       if (zapOpenRef.current) return; // the zap panel owns the keyboard until it closes
       if (posedRef.current) getUp();
       else if (nearPoseRef.current) enterPose(nearPoseRef.current);
-      else if (zappableRef.current) setZapHandle(zappableRef.current.handle);
-      else if (activeRef.current) activateInteract(activeRef.current);
+      else if (zappableRef.current) {
+        zapSessionRef.current = zappableRef.current.sessionId;
+        setZapHandle(zappableRef.current.handle);
+      } else if (activeRef.current) activateInteract(activeRef.current);
     };
     window.addEventListener("keydown", onInteractKey);
     return () => {
@@ -1419,7 +1434,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : mode === "walk" && zappableNeighbor && !zapHandle ? (
         <button
           className="interact-prompt interact-prompt-zap"
-          onClick={() => setZapHandle(zappableNeighbor.handle)}
+          onClick={() => {
+            zapSessionRef.current = zappableNeighbor.sessionId;
+            setZapHandle(zappableNeighbor.handle);
+          }}
           type="button"
         >
           <span className="interact-key">E</span>⚡ Zap {zappableNeighbor.handle} · 21 sats
@@ -1442,7 +1460,16 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
           </button>
         </div>
       ) : null}
-      {zapHandle ? <ZapNappletPanel handle={zapHandle} onClose={() => setZapHandle(null)} /> : null}
+      {zapHandle ? (
+        <ZapNappletPanel
+          handle={zapHandle}
+          onClose={() => setZapHandle(null)}
+          onZapPaid={() => {
+            const session = zapSessionRef.current;
+            if (session) multiplayerTransportRef.current?.sendZapFlash(session);
+          }}
+        />
+      ) : null}
       {tcgOpen ? <TcgTablePanel onClose={() => setTcgOpen(false)} /> : null}
       {mode === "decorate" ? (
         <DecorPicker

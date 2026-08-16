@@ -8,8 +8,10 @@
  */
 
 import { useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { lampBoost } from "../net/zapLight";
 import { Enclosure, GATE_ARCH } from "./Enclosure";
 import { KerniFamiliar } from "./KerniFamiliar";
 import { LampPost } from "./LampPost";
@@ -361,6 +363,12 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
       }),
     [],
   );
+  // Zaps light the street — literally: recent zap activity brightens every lantern in the
+  // string (deterministic 21-min window, design lock in demo-loop-and-zap-light.md).
+  // NOTHING else may drive this value.
+  useFrame(() => {
+    lanternMat.emissiveIntensity = 1.6 * (1 + lampBoost() * 1.4);
+  });
   useLayoutEffect(() => {
     const cable = cableRef.current;
     const lantern = lanternRef.current;
