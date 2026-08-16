@@ -24,6 +24,7 @@ import {
 } from "react";
 import * as THREE from "three";
 import { type BrushSize, homeBuild } from "../builder/buildState";
+import { isDemoBuild } from "../builder/economy";
 import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
@@ -1110,7 +1111,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const builderTargets = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
-    if (world !== "street" || phase1RelayState.status !== "accepted") {
+    // Mainnet keeps phase 1's deliberate gate: the live room opens once the relay run is
+    // accepted. The demo build (VITE_DEMO=1, the stage configuration) connects immediately —
+    // the show needs "walk in, two online" without an onboarding prerequisite.
+    const streetGatedByPhase1 = phase1RelayState.status !== "accepted" && !isDemoBuild();
+    if (world !== "street" || streetGatedByPhase1) {
       multiplayerTransportRef.current = null;
       setMultiplayerSession({ transport: null });
       return;

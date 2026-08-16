@@ -113,6 +113,11 @@ export const OFFLINE_MULTIPLAYER_STATE: MultiplayerViewState = {
   completedRaids: 0,
 };
 
+/** Browsers treat loopback as a potentially trustworthy origin, so an HTTPS page may call it
+ *  over plain HTTP — the seam a local FIPS port-forward walks through (same rule as the mesh
+ *  relay's loopback confinement in nostrConfig). */
+const LOOPBACK_MULTIPLAYER_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 /** Resolve the HTTP matchmaking endpoint while rejecting non-web and credential-bearing URLs. */
 export function resolveMultiplayerUrl(
   configured: unknown,
@@ -146,7 +151,11 @@ export function resolveMultiplayerUrl(
     } catch {
       throw new Error("The current page origin is invalid");
     }
-    if (pageUrl.protocol === "https:" && url.protocol !== "https:") {
+    if (
+      pageUrl.protocol === "https:" &&
+      url.protocol !== "https:" &&
+      !LOOPBACK_MULTIPLAYER_HOSTNAMES.has(url.hostname)
+    ) {
       throw new Error("VITE_MULTIPLAYER_URL cannot downgrade an HTTPS page to HTTP");
     }
   }
@@ -155,11 +164,45 @@ export function resolveMultiplayerUrl(
   return url.toString().replace(/\/$/, "");
 }
 
-/** Runtime endpoint: localhost in development, current origin behind the production reverse proxy. */
+/**
+ * Optional runtime game-server choice via `?server=` — the seam that lets ONE static bundle be
+ * served from anywhere without a same-origin backend (an nsite gateway, a FIPS mesh host) and
+ * still reach a real room server: the baked default stays zapburg, a link with `?server=` picks
+ * another host, `?server=http://localhost:2567` walks a local FIPS port-forward. The override
+ * passes the exact same validation as the baked URL, and an invalid value falls back to the
+ * default instead of taking the street down — a broken link must never be a denial of service.
+ * The choice is visible in the address bar and never persisted.
+ */
+export function multiplayerUrlFromSearch(
+  search: string,
+  dev: boolean,
+  currentOrigin?: string,
+): string | null {
+  let requested: string | null;
+  try {
+    requested = new URLSearchParams(search).get("server");
+  } catch {
+    return null;
+  }
+  if (!requested?.trim()) return null;
+  try {
+    return resolveMultiplayerUrl(requested, dev, currentOrigin);
+  } catch {
+    return null;
+  }
+}
+
+/** Runtime endpoint: `?server=` override first, then localhost in development, then the current
+ *  origin behind the production reverse proxy. */
 export function getMultiplayerUrl(): string {
   const env = import.meta.env;
   const origin = typeof window === "undefined" ? undefined : window.location.origin;
-  return resolveMultiplayerUrl(env?.VITE_MULTIPLAYER_URL, env?.DEV === true, origin);
+  const dev = env?.DEV === true;
+  if (typeof window !== "undefined") {
+    const override = multiplayerUrlFromSearch(window.location.search, dev, origin);
+    if (override) return override;
+  }
+  return resolveMultiplayerUrl(env?.VITE_MULTIPLAYER_URL, dev, origin);
 }
 
 /** Deterministic capped exponential backoff, exported for transport tests. */
