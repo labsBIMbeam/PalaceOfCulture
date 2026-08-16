@@ -28,9 +28,6 @@ import { timelocks } from "../frontend/data";
 import { lockProgress } from "../frontend/growth";
 import { Icon } from "../frontend/icons";
 import type { Character, EngineTarget } from "../frontend/types";
-import { TcgTablePanel } from "../napplet/TcgTablePanel";
-import { ZapNappletPanel } from "../napplet/ZapNappletPanel";
-import { zapRecipientFor } from "../napplet/zapDirectory";
 import {
   type Phase1InviteState,
   buildMeaningverseInvite,
@@ -54,6 +51,9 @@ import {
   reducePhase1Relay,
   reduceRelayHandoff,
 } from "../meaningverse/phase1Relay";
+import { TcgTablePanel } from "../napplet/TcgTablePanel";
+import { ZapNappletPanel } from "../napplet/ZapNappletPanel";
+import { zapRecipientFor } from "../napplet/zapDirectory";
 import {
   type MultiplayerViewState,
   OFFLINE_MULTIPLAYER_STATE,
