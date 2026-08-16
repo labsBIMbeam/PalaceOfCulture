@@ -28,6 +28,8 @@ export interface CastEntry {
   rotationY: number;
   /** Lead: four teaching lines. Crew: one comment. */
   lines: string[];
+  /** Staging: hold the sit pose on a crate instead of standing idle (max 1–2 per crew). */
+  pose?: "sit";
 }
 
 /** Face `from` toward `to` (same convention as the plaza benches). */
@@ -76,6 +78,7 @@ function at(
   z: number,
   lines: string[],
   lookAt?: [number, number],
+  pose?: "sit",
 ): CastEntry {
   return {
     member,
@@ -84,6 +87,7 @@ function at(
     position: [x, 0, z],
     rotationY: facing([x, z], lookAt ?? STATION_AT[crew]),
     lines,
+    ...(pose ? { pose } : {}),
   };
 }
 
@@ -112,9 +116,16 @@ export const STREET_CAST: ReadonlyArray<CastEntry> = [
   at("gadaj", "signal", "crew", -7.0, 34.5, [
     "I forge antennas. Sparks included, permission not required.",
   ]),
-  at("tobo", "signal", "crew", -10.5, 42.0, [
-    "Lost? I route people, not packets. Who do you need?",
-  ]),
+  at(
+    "tobo",
+    "signal",
+    "crew",
+    -10.5,
+    42.0,
+    ["Lost? I route people, not packets. Who do you need?"],
+    undefined,
+    "sit",
+  ),
   at("aj", "signal", "crew", -5.5, 35.0, ["Everything here is connected. My job is the 'is'."]),
   at("essex", "signal", "crew", -12.5, 36.5, [
     "Publish it or it didn't happen. Sign it or it wasn't you.",
@@ -140,9 +151,16 @@ export const STREET_CAST: ReadonlyArray<CastEntry> = [
   ]),
   at("tal", "bitcoin", "crew", 13.0, 59.5, ["I map nodes. X marks everywhere, honestly."]),
   at("p", "bitcoin", "crew", 11.5, 61.5, ["Fewer rules. Better kept."]),
-  at("BlackCoffee", "bitcoin", "crew", 9.0, 61.0, [
-    "The street never sleeps. Neither does the relay. We take shifts.",
-  ]),
+  at(
+    "BlackCoffee",
+    "bitcoin",
+    "crew",
+    9.0,
+    61.0,
+    ["The street never sleeps. Neither does the relay. We take shifts."],
+    undefined,
+    "sit", // the Night Operator is mid-shift
+  ),
   at("darren", "bitcoin", "crew", 12.5, 57.2, [
     "First one through the fog leaves footprints for everyone.",
   ]),
@@ -171,7 +189,16 @@ export const STREET_CAST: ReadonlyArray<CastEntry> = [
   at("nind", "keys", "crew", -10.5, 72.5, [
     "Every good system looks boring from the outside. That's how you know it works.",
   ]),
-  at("bk", "keys", "crew", -7.5, 71.5, ["If it's useful twice, it's infrastructure."]),
+  at(
+    "bk",
+    "keys",
+    "crew",
+    -7.5,
+    71.5,
+    ["If it's useful twice, it's infrastructure."],
+    undefined,
+    "sit",
+  ),
   at("flx", "keys", "crew", -9.0, 65.5, [
     "I break things on purpose so the street doesn't break by accident.",
   ]),
@@ -191,9 +218,16 @@ export const STREET_CAST: ReadonlyArray<CastEntry> = [
     ],
     [-14, 80],
   ),
-  at("leon", "power", "crew", -26.0, 85.0, [
-    "Show me your scrap pile and I'll show you your next machine.",
-  ]),
+  at(
+    "leon",
+    "power",
+    "crew",
+    -26.0,
+    85.0,
+    ["Show me your scrap pile and I'll show you your next machine."],
+    undefined,
+    "sit", // scouting the scrap pile from on top of it
+  ),
   at("snick", "power", "crew", -25.5, 89.0, [
     "Every tool on this street was somebody's weekend. Make one.",
   ]),
@@ -220,9 +254,16 @@ export const STREET_CAST: ReadonlyArray<CastEntry> = [
     ],
     [8, 84],
   ),
-  at("morgs", "timelock", "crew", 18.0, 89.5, [
-    "Every block placed here is a sentence. What's your first line?",
-  ]),
+  at(
+    "morgs",
+    "timelock",
+    "crew",
+    18.0,
+    89.5,
+    ["Every block placed here is a sentence. What's your first line?"],
+    undefined,
+    "sit", // the Story Mapper writes sitting down
+  ),
   at("mtoshi", "timelock", "crew", 17.5, 93.0, [
     "Communities grow like orchards: slow, then all at once.",
   ]),

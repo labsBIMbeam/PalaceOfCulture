@@ -5,7 +5,7 @@
 // level so this test needs no GL context.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CREW_STATIONS, KERNI_BRIDGE_LINES, STREET_CAST } from "../src/scene/streetCast";
@@ -103,6 +103,25 @@ for (let i = 0; i < STREET_CAST.length; i++) {
   }
 }
 
+// --- voice: every canon line ships its generated take (tooling/street-cast-vo) ----------------
+const voDir = resolve(webRoot, "public/vo/cast");
+const takeOf = (stem: string): number => statSync(resolve(voDir, `${stem}.mp3`)).size;
+for (const entry of STREET_CAST) {
+  entry.lines.forEach((_line, index) => {
+    const stem = `${entry.member.toLowerCase()}-${index + 1}`;
+    assert.ok(takeOf(stem) > 1000, `${stem}.mp3 is a real take`);
+  });
+}
+KERNI_BRIDGE_LINES.forEach((_line, index) => {
+  assert.ok(takeOf(`kerni-${index + 1}`) > 1000, `kerni-${index + 1}.mp3 is a real take`);
+});
+
+// --- staging: sitters are rare (1–2 per crew, per the script's staging notes) -----------------
+for (const [crew, list] of crews) {
+  const sitters = list.filter((entry) => entry.pose === "sit").length;
+  assert.ok(sitters <= 2, `${crew} keeps the cluster mostly standing (${sitters} sitting)`);
+}
+
 // --- wiring: interactables carry the cast, the world mounts it, the dialog steps --------------
 const interactablesSource = readFileSync(resolve(webRoot, "src/scene/interactables.ts"), "utf8");
 assert.ok(
@@ -122,5 +141,6 @@ assert.ok(
   sceneSource.includes("dialog.lines[dialog.index]"),
   "the dialog renders the current line",
 );
+assert.ok(sceneSource.includes("/vo/cast/"), "the dialog speaks its generated line");
 
 console.log("STREET CAST SMOKE TESTS GREEN");

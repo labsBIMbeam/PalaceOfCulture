@@ -14,6 +14,28 @@ const MEMBER_BY_NAME = new Map(MEMBERS.map((member) => [member.name, member]));
 
 const STEEL = "#2a2c31";
 const TIMBER = "#6b4a2e";
+/** Seat height the shared sit clip was authored for (chair-height crate). */
+const CRATE_SEAT = 0.45;
+
+/** Deterministic per-name phase offset (seconds) so the crowd never idles in lockstep. */
+function idleOffset(name: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 1000) / 100; // 0.00 … 9.99 s
+}
+
+/** The sitter's crate — plain street timber, no markings. */
+function Crate() {
+  return (
+    <mesh castShadow position={[0, CRATE_SEAT / 2, 0]}>
+      <boxGeometry args={[0.62, CRATE_SEAT, 0.62]} />
+      <meshStandardMaterial color={TIMBER} roughness={0.85} />
+    </mesh>
+  );
+}
 
 /** Signal â€” a guyed antenna mast with two crossbars and a violet tip light. */
 function AntennaMast({ accent }: { accent: string }) {
@@ -149,8 +171,14 @@ export function StreetCastView() {
         if (!member) return null;
         return (
           <group key={entry.member} position={entry.position} rotation-y={entry.rotationY}>
+            {entry.pose === "sit" ? <Crate /> : null}
             <Suspense fallback={null}>
-              <AvatarView config={member.avatar} locomotion={false} />
+              <AvatarView
+                animationOffset={idleOffset(entry.member)}
+                config={member.avatar}
+                locomotion={false}
+                pose={entry.pose}
+              />
             </Suspense>
           </group>
         );

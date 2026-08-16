@@ -66,6 +66,7 @@ export function AvatarView({
   locomotion = true,
   pose,
   scanning,
+  animationOffset,
 }: {
   config: AvatarConfig;
   bodyRef?: RefObject<RapierRigidBody | null>;
@@ -74,15 +75,19 @@ export function AvatarView({
   pose?: "sit" | "sleep";
   /** Build/scan context: the Builder pilot's toggleable eye scan-beams (see `scanBeamsActive`). */
   scanning?: boolean;
+  /** Crowd desync: phase-shift the starting clip (see RiggedAvatar). */
+  animationOffset?: number;
 }) {
   const url = config.modelUrl || presetUrl(config);
   if (!url) return <CharacterModel config={config} />;
-  // Imported models carry their locomotion + pose clips in extra GLBs; skip them for a static preview.
-  const clipUrls = locomotion ? findImport(config.modelUrl)?.clipUrls : undefined;
+  // Imported models carry their locomotion + pose clips in extra GLBs; a static preview skips
+  // them — unless a pose is held, whose clip lives in exactly those files.
+  const clipUrls = locomotion || pose ? findImport(config.modelUrl)?.clipUrls : undefined;
   return (
     <AvatarAssetBoundary fallback={<CharacterModel config={config} />} key={url}>
       <Suspense fallback={null}>
         <RiggedAvatar
+          animationOffset={animationOffset}
           bodyRef={bodyRef}
           clipUrls={clipUrls}
           config={config}

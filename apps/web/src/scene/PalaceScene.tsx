@@ -847,6 +847,20 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
 
+  // Voice: each cast line ships as generated speech under /vo/cast (tooling/street-cast-vo).
+  // Media stays decorative — a missing file simply plays nothing, the text is the canon.
+  const dialogSpeaker = dialog?.speaker ?? null;
+  const dialogIndex = dialog?.index ?? 0;
+  useEffect(() => {
+    if (!dialogSpeaker) return;
+    const audio = new Audio(`/vo/cast/${dialogSpeaker.toLowerCase()}-${dialogIndex + 1}.mp3`);
+    audio.volume = 0.9;
+    audio.play().catch(() => {});
+    return () => {
+      audio.pause();
+    };
+  }, [dialogSpeaker, dialogIndex]);
+
   // Zap-on-meet: the nearest remote player in range whose handle maps to a roster lightning
   // identity (zapDirectory) may be zapped 21 sats. Identity stays out-of-band — the room only
   // ever supplies the handle (ADR 0009). The panel hosts the sandboxed zap napplet.
