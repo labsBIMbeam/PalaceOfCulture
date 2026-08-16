@@ -420,18 +420,30 @@ export function BuilderWorld({
         ))}
       </group>
       {/* Ramp shapes (roof wedges + stairs): one thin ramp slab per cell, oriented by the
-          quarter-turn. The outer RigidBody carries the yaw so the inner x-tilt composes cleanly. */}
-      {rampEntries.map(({ cell, rot }) => (
-        <RigidBody
-          colliders={false}
-          key={`ramp-${cell.join(",")}`}
-          position={[cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5]}
-          rotation={[0, (rot * Math.PI) / 2, 0]}
-          type="fixed"
-        >
-          <CuboidCollider args={[0.5, 0.04, 0.72]} rotation={[-Math.PI / 4, 0, 0]} />
-        </RigidBody>
-      ))}
+          quarter-turn. The outer RigidBody carries the yaw so the inner x-tilt composes cleanly.
+          Stairs get a LONGER ramp that crests ~0.2 m past the top seam: a cell-exact ramp ends
+          level with the landing block's top, so the capsule's front hits that block's vertical
+          face before the ramp has lifted the capsule's bottom above it — the walk-up stalls at
+          the seam. Cresting over it carries the capsule onto the landing. Roofs keep the exact
+          span (nothing solid follows a roof edge, and an overshoot would poke through ridges). */}
+      {rampEntries.map(({ cell, rot, id }) => {
+        const stairs = getObject(id)?.shape === "stairs";
+        return (
+          <RigidBody
+            colliders={false}
+            key={`ramp-${cell.join(",")}`}
+            position={[cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5]}
+            rotation={[0, (rot * Math.PI) / 2, 0]}
+            type="fixed"
+          >
+            <CuboidCollider
+              args={[0.5, 0.04, stairs ? 0.85 : 0.72]}
+              position={stairs ? [0, 0.1, 0.1] : [0, 0, 0]}
+              rotation={[-Math.PI / 4, 0, 0]}
+            />
+          </RigidBody>
+        );
+      })}
       {/* Fences: a thin solid wall per cell, turned with the fence. */}
       {fenceEntries.map(({ cell, rot }) => (
         <RigidBody
