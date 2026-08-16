@@ -41,15 +41,22 @@ function Crate() {
   );
 }
 
-// Ambient wander: crew members pace small seeded loops around their spot, pause, look around —
-// and when the player walks up they stop and turn to face them. Leads and sitters hold their
-// staging; the interact zone stays at the authored spot (radius 2.6 covers the whole loop).
+// Ambient life: crew members pace seeded loops around their spot — turn first, then walk with
+// accel/decel ramps (the clip rate follows real speed, so no foot-sliding), sometimes visiting
+// a crewmate and standing with them a while. When the player walks up they finish the thought,
+// turn over (staggered, not in unison) and face them — and lose interest again if nothing
+// happens. Leads attend in place; sitters hold the crate. The interact zone stays at the
+// authored spot (radius 2.6 covers the whole loop).
 const WANDER_RADIUS = 2.1;
-const WANDER_SPEED = 1.15; // m/s — an unhurried street pace
-const ATTEND_RADIUS = 4.0;
+const ACCEL = 2.4; // m/s²
+const TURN_RATE = 2.6; // rad/s while standing; slightly quicker mid-walk
 const STATION_XZ = Object.fromEntries(
   CREW_STATIONS.map((station) => [station.id, station.position]),
 ) as Record<CrewStation["id"], [number, number]>;
+const CREWMATES = new Map<string, CastEntry[]>();
+for (const entry of STREET_CAST) {
+  CREWMATES.set(entry.crew, [...(CREWMATES.get(entry.crew) ?? []), entry]);
+}
 
 function seedOf(name: string): number {
   let h = 2166136261;
@@ -58,6 +65,25 @@ function seedOf(name: string): number {
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+function playerPos(): [number, number, number] | undefined {
+  return (window as unknown as Record<string, unknown>).__playerPos as
+    | [number, number, number]
+    | undefined;
+}
+
+/** Shortest signed angle from the group's yaw to `to`. */
+function yawError(g: THREE.Group, to: number): number {
+  return ((to - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+}
+
+/** Constant-rate turn with a soft landing; returns the remaining error. */
+function turnToward(g: THREE.Group, to: number, rate: number, delta: number): number {
+  const err = yawError(g, to);
+  const step = Math.min(Math.abs(err), rate * delta * (0.35 + Math.abs(err)));
+  g.rotation.y += Math.sign(err) * step;
+  return yawError(g, to);
 }
 
 function WanderingMember({
@@ -69,13 +95,26 @@ function WanderingMember({
 }) {
   const group = useRef<THREE.Group>(null);
   const [gait, setGait] = useState<"idle" | "walk">("idle");
-  const state = useRef({
-    rng: mulberry32(seedOf(entry.member)),
-    mode: "pause" as "pause" | "walk" | "attend",
-    wait: 2 + idleOffset(entry.member) * 0.8, // staggered first steps across the crowd
-    target: [entry.position[0], entry.position[2]] as [number, number],
-    yaw: entry.rotationY,
-  });
+  const speedRef = useRef(0);
+  const state = useRef(
+    (() => {
+      const rng = mulberry32(seedOf(entry.member));
+      return {
+        rng,
+        mode: "pause" as "pause" | "turn" | "walk" | "attend",
+        wait: 2 + idleOffset(entry.member) * 0.8, // staggered first steps across the crowd
+        target: [entry.position[0], entry.position[2]] as [number, number],
+        faceAfter: null as number | null, // yaw to settle into on arrival (visiting a mate)
+        // personality, seeded once: pace, personal space, reaction lag, attention span
+        walkSpeed: 0.9 + rng() * 0.45,
+        attendRadius: 2.6 + rng() * 1.2,
+        reactDelay: 0.1 + rng() * 0.4,
+        reactIn: 0,
+        interest: 0,
+        lastPlayer: [0, 0] as [number, number],
+      };
+    })(),
+  );
 
   useFrame((_, delta) => {
     const g = group.current;
@@ -84,28 +123,60 @@ function WanderingMember({
     const px = g.position.x;
     const pz = g.position.z;
 
-    // Attentive pause: someone walked up — stop pacing and face them (the read-only probe
-    // WalkSystems publishes; absent outside walk mode, which simply keeps the wander running).
-    const player = (window as unknown as Record<string, unknown>).__playerPos as
-      | [number, number, number]
-      | undefined;
-    if (player) {
-      const toPlayer = Math.hypot(player[0] - px, player[2] - pz);
-      if (toPlayer < ATTEND_RADIUS) {
-        s.mode = "attend";
-        s.yaw = Math.atan2(player[0] - px, player[2] - pz);
-      } else if (s.mode === "attend") {
+    const player = playerPos();
+    const near = player ? Math.hypot(player[0] - px, player[2] - pz) < s.attendRadius : false;
+    if (near && player) {
+      const moved = Math.hypot(player[0] - s.lastPlayer[0], player[2] - s.lastPlayer[1]) > 0.5;
+      if (moved) {
+        s.interest = 7 + s.rng() * 5;
+        s.lastPlayer = [player[0], player[2]];
+      }
+      if (s.mode !== "attend") {
+        s.reactIn -= delta;
+        if (s.reactIn <= 0 && s.interest <= 0) s.interest = 7 + s.rng() * 5;
+        if (s.reactIn <= 0 && s.interest > 0) s.mode = "attend";
+      }
+    } else {
+      s.reactIn = s.reactDelay;
+      if (s.mode === "attend") {
         s.mode = "pause";
         s.wait = 1 + s.rng() * 3;
       }
     }
 
-    if (s.mode === "attend" || s.mode === "pause") {
+    if (s.mode === "attend") {
+      s.interest -= delta;
+      speedRef.current = Math.max(0, speedRef.current - ACCEL * delta);
       if (gait !== "idle") setGait("idle");
-      if (s.mode === "pause") {
-        s.wait -= delta;
-        if (s.wait <= 0) {
-          const station = STATION_XZ[entry.crew];
+      if (player) turnToward(g, Math.atan2(player[0] - px, player[2] - pz), TURN_RATE, delta);
+      if (s.interest <= 0) {
+        s.mode = "pause"; // politely drift back to their own business
+        s.wait = 2 + s.rng() * 4;
+      }
+    } else if (s.mode === "pause") {
+      speedRef.current = Math.max(0, speedRef.current - ACCEL * delta);
+      if (gait !== "idle") setGait("idle");
+      if (s.faceAfter !== null) turnToward(g, s.faceAfter, TURN_RATE * 0.8, delta);
+      s.wait -= delta;
+      if (s.wait <= 0) {
+        const station = STATION_XZ[entry.crew];
+        const mates = (CREWMATES.get(entry.crew) ?? []).filter((m) => m.member !== entry.member);
+        s.faceAfter = null;
+        // a third of the time: walk over to a crewmate and stand with them a moment
+        if (mates.length > 0 && s.rng() < 0.34) {
+          const mate = mates[Math.floor(s.rng() * mates.length)];
+          if (mate) {
+            const dx = mate.position[0] - entry.position[0];
+            const dz = mate.position[2] - entry.position[2];
+            const d = Math.max(Math.hypot(dx, dz), 1e-6);
+            const stop = 1.15 + s.rng() * 0.3;
+            s.target = [mate.position[0] - (dx / d) * stop, mate.position[2] - (dz / d) * stop];
+            s.faceAfter = Math.atan2(
+              mate.position[0] - s.target[0],
+              mate.position[2] - s.target[1],
+            );
+          }
+        } else {
           for (let tries = 0; tries < 8; tries++) {
             const angle = s.rng() * Math.PI * 2;
             const radius = 0.6 + s.rng() * WANDER_RADIUS;
@@ -115,29 +186,40 @@ function WanderingMember({
             s.target = [tx, tz];
             break;
           }
-          s.mode = "walk";
-          setGait("walk");
         }
+        s.mode = "turn";
       }
+    } else if (s.mode === "turn") {
+      // face where you're going before the first step
+      speedRef.current = Math.max(0, speedRef.current - ACCEL * delta);
+      if (gait !== "idle") setGait("idle");
+      const want = Math.atan2(s.target[0] - px, s.target[1] - pz);
+      if (Math.abs(turnToward(g, want, TURN_RATE, delta)) < 0.3) s.mode = "walk";
     } else {
       const dx = s.target[0] - px;
       const dz = s.target[1] - pz;
       const dist = Math.hypot(dx, dz);
-      if (dist < 0.08) {
+      // ease out: start braking at the stopping distance for the current speed
+      const brake = (speedRef.current * speedRef.current) / (2 * ACCEL);
+      const wantSpeed =
+        dist <= brake ? Math.max(0.18, Math.sqrt(2 * ACCEL * dist) * 0.8) : s.walkSpeed;
+      speedRef.current = Math.min(
+        wantSpeed,
+        speedRef.current + ACCEL * delta * (speedRef.current < wantSpeed ? 1 : -1),
+      );
+      if (dist < 0.1) {
         s.mode = "pause";
-        s.wait = 3 + s.rng() * 6;
+        s.wait = s.faceAfter !== null ? 6 + s.rng() * 6 : 3 + s.rng() * 6;
+        speedRef.current = 0;
         setGait("idle");
       } else {
-        const step = Math.min(dist, WANDER_SPEED * delta);
+        if (gait !== "walk" && speedRef.current > 0.12) setGait("walk");
+        const step = Math.min(dist, speedRef.current * delta);
         g.position.x += (dx / dist) * step;
         g.position.z += (dz / dist) * step;
-        s.yaw = Math.atan2(dx, dz);
+        turnToward(g, Math.atan2(dx, dz), TURN_RATE * 1.5, delta);
       }
     }
-
-    // smooth the turn — no snapping heads
-    const turn = ((s.yaw - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-    g.rotation.y += turn * Math.min(1, delta * 6);
   });
 
   return (
@@ -147,7 +229,57 @@ function WanderingMember({
           animationOffset={idleOffset(entry.member)}
           config={config}
           gaitOverride={gait}
-          gaitSpeed={WANDER_SPEED}
+          gaitSpeed={state.current.walkSpeed}
+          locomotion={false}
+          speedRef={speedRef}
+        />
+      </Suspense>
+    </group>
+  );
+}
+
+/** Leads hold their post but still turn to a visitor — and settle back afterwards. */
+function AttendingMember({
+  entry,
+  config,
+}: {
+  entry: CastEntry;
+  config: (typeof MEMBERS)[number]["avatar"];
+}) {
+  const group = useRef<THREE.Group>(null);
+  const seeded = useRef(mulberry32(seedOf(entry.member)));
+  const reactIn = useRef(0.1 + seeded.current() * 0.3);
+
+  useFrame((_, delta) => {
+    const g = group.current;
+    if (!g) return;
+    const player = playerPos();
+    const near = player
+      ? Math.hypot(player[0] - g.position.x, player[2] - g.position.z) < 3.6
+      : false;
+    if (near && player) {
+      reactIn.current -= delta;
+      if (reactIn.current <= 0) {
+        turnToward(
+          g,
+          Math.atan2(player[0] - g.position.x, player[2] - g.position.z),
+          TURN_RATE,
+          delta,
+        );
+      }
+    } else {
+      reactIn.current = 0.1;
+      turnToward(g, entry.rotationY, TURN_RATE * 0.6, delta);
+    }
+  });
+
+  return (
+    <group position={entry.position} ref={group} rotation-y={entry.rotationY}>
+      <Suspense fallback={null}>
+        <AvatarView
+          animationOffset={idleOffset(entry.member)}
+          config={config}
+          gaitOverride="idle"
           locomotion={false}
         />
       </Suspense>
@@ -287,9 +419,12 @@ export function StreetCastView() {
       {STREET_CAST.map((entry) => {
         const member = MEMBER_BY_NAME.get(entry.member);
         if (!member) return null;
-        // Crew on their feet wanders; leads anchor their station and sitters keep the crate.
+        // Crew on their feet wanders; leads attend their station; sitters keep the crate.
         if (entry.role === "crew" && !entry.pose) {
           return <WanderingMember config={member.avatar} entry={entry} key={entry.member} />;
+        }
+        if (entry.role === "lead") {
+          return <AttendingMember config={member.avatar} entry={entry} key={entry.member} />;
         }
         return (
           <group key={entry.member} position={entry.position} rotation-y={entry.rotationY}>

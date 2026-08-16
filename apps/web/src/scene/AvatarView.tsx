@@ -69,6 +69,7 @@ export function AvatarView({
   animationOffset,
   gaitOverride,
   gaitSpeed,
+  speedRef,
 }: {
   config: AvatarConfig;
   bodyRef?: RefObject<RapierRigidBody | null>;
@@ -83,6 +84,8 @@ export function AvatarView({
   gaitOverride?: "idle" | "walk";
   /** Ground speed (m/s) the forced walk should read as. */
   gaitSpeed?: number;
+  /** Live speed ref for accel/decel ramps (see RiggedAvatar). */
+  speedRef?: RefObject<number>;
 }) {
   const url = config.modelUrl || presetUrl(config);
   if (!url) return <CharacterModel config={config} />;
@@ -101,6 +104,7 @@ export function AvatarView({
           gaitSpeed={gaitSpeed}
           pose={pose}
           scanning={scanning}
+          speedRef={speedRef}
           url={url}
         />
       </Suspense>

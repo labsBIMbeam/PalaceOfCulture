@@ -151,6 +151,7 @@ export function RiggedAvatar({
   animationOffset = 0,
   gaitOverride,
   gaitSpeed,
+  speedRef,
 }: {
   url: string;
   config: AvatarConfig;
@@ -167,6 +168,8 @@ export function RiggedAvatar({
   gaitOverride?: "idle" | "walk";
   /** Ground speed (m/s) the forced walk should read as — scales the clip so feet don't slide. */
   gaitSpeed?: number;
+  /** Live speed (m/s) for the forced walk — a ref so accel/decel ramps never re-render. */
+  speedRef?: RefObject<number>;
 }) {
   const group = useRef<THREE.Group>(null);
   const anisotropy = useThree((state) => Math.min(8, state.gl.capabilities.getMaxAnisotropy()));
@@ -285,7 +288,8 @@ export function RiggedAvatar({
         if (gaitOverride !== gait.current) playGait(gaitOverride);
         const action = current.current;
         if (action && gaitOverride === "walk") {
-          action.setEffectiveTimeScale(THREE.MathUtils.clamp((gaitSpeed ?? 2.2) / 2.2, 0.6, 1.6));
+          const speed = speedRef?.current ?? gaitSpeed ?? 2.2;
+          action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 2.2, 0.5, 1.6));
         }
         // Same foot-plant as below: the wander system owns the body position, so the clip's
         // hip translation must stay pinned or the mesh fights the drive.
