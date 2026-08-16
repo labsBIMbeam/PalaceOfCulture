@@ -5386,6 +5386,17 @@ input.compose-input::placeholder {
   line-height: 1.35;
 }
 
+/* The live foundation counter — community work becoming architecture, in gold. */
+.moc-raid small.moc-foundation {
+  margin-top: 4px;
+  color: #e8c56a;
+}
+
+.moc-raid small.moc-foundation b {
+  color: #ffd98a;
+  font-variant-numeric: tabular-nums;
+}
+
 .moc-raid > strong {
   color: #ffe9c4;
   font-size: 10px;

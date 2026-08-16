@@ -27,6 +27,11 @@ import type {
   ShipModuleSnapshot,
 } from "../net/multiplayer";
 import { connectedParticipantCount } from "../net/multiplayer";
+import {
+  FOUNDATION_COURSE_COUNT,
+  RAID_FULL_GROWTH_COMPLETIONS,
+  visibleFoundationCourses,
+} from "../scene/foundationGrowth";
 import { SHIP_ROLE_COLORS } from "../scene/shipBerths";
 
 const ROLES: Array<{ id: ShipModuleRole; label: string }> = [
@@ -94,6 +99,15 @@ export function MeaningPath({
     if (focusNonce > 0) labelInput.current?.select();
   }, [focusNonce]);
 
+  // The moment this run reaches CO-CREATE, report it once — the server re-verifies against its
+  // own state and the plaza foundation advances for everyone (community work becomes architecture).
+  const raidReported = useRef(false);
+  useEffect(() => {
+    if (!raidComplete || raidReported.current) return;
+    if (!transport || multiplayer.status !== "connected") return;
+    raidReported.current = transport.reportRaidComplete();
+  }, [raidComplete, transport, multiplayer.status]);
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const clean = label.trim();
@@ -156,6 +170,11 @@ export function MeaningPath({
         <p>{raidComplete ? "Two live sessions changed the same street." : FIRST_RAID.premise}</p>
         <strong>V4V · bring what you can</strong>
         <small>{FIRST_RAID.v4v}</small>
+        <small className="moc-foundation">
+          Plaza foundation: <b>{multiplayer.completedRaids}</b>/{RAID_FULL_GROWTH_COMPLETIONS} raid
+          runs · course {visibleFoundationCourses(multiplayer.completedRaids)}/
+          {FOUNDATION_COURSE_COUNT}
+        </small>
       </section>
 
       <ol aria-label="creation path" className="moc-steps">

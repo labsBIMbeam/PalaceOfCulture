@@ -1202,7 +1202,9 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 />
               </RigidBody>
               {/* solid collision for the street's buildings + tree trunks (visuals are outside Physics) */}
-              {world === "street" ? <StreetColliders /> : null}
+              {world === "street" ? (
+                <StreetColliders completedRaids={multiplayerView.completedRaids} />
+              ) : null}
               {world === "home" ? (
                 <>
                   <mesh receiveShadow rotation-x={-Math.PI / 2}>
@@ -1297,7 +1299,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                 street ground collider inside Physics above). */}
             {world === "street" ? (
               <>
-                <StreetWorld />
+                <StreetWorld completedRaids={multiplayerView.completedRaids} />
                 <MeaningShip
                   localSessionId={multiplayerView.localSessionId}
                   modules={multiplayerView.shipModules}

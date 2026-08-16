@@ -18,6 +18,7 @@ import {
   POSITION_CORRECTION_MESSAGE,
   PalaceRoomState,
   type PositionCorrection,
+  RAID_COMPLETE_MESSAGE,
   parsePositionCorrection,
 } from "@600b/multiplayer";
 
@@ -42,16 +43,19 @@ test("multiplayer configuration is local and exact by default", () => {
   assert.equal(defaults.port, 2567);
   assert.equal(defaults.allowedOrigins.size, 0);
   assert.equal(defaults.trustedProxyHops, 0);
+  assert.equal(defaults.raidCompletionsSeed, 0);
 
   const configured = loadMultiplayerConfig({
     MULTIPLAYER_HOST: "::1",
     MULTIPLAYER_ORIGINS: `${ALLOWED_ORIGIN}, http://localhost:5173`,
     MULTIPLAYER_PORT: "0",
     MULTIPLAYER_TRUST_PROXY_HOPS: "2",
+    RAID_COMPLETIONS_SEED: "109",
   });
   assert.equal(configured.host, "::1");
   assert.equal(configured.port, 0);
   assert.equal(configured.trustedProxyHops, 2);
+  assert.equal(configured.raidCompletionsSeed, 109);
   assert.deepEqual([...configured.allowedOrigins], [ALLOWED_ORIGIN, "http://localhost:5173"]);
 });
 
@@ -75,6 +79,14 @@ test("multiplayer configuration rejects wildcard, path, credentials, and invalid
   assert.throws(
     () => loadMultiplayerConfig({ MULTIPLAYER_TRUST_PROXY_HOPS: "11" }),
     /integer between 0 and 10/,
+  );
+  assert.throws(
+    () => loadMultiplayerConfig({ RAID_COMPLETIONS_SEED: "-1" }),
+    /RAID_COMPLETIONS_SEED/,
+  );
+  assert.throws(
+    () => loadMultiplayerConfig({ RAID_COMPLETIONS_SEED: "10.5" }),
+    /RAID_COMPLETIONS_SEED/,
   );
 });
 
@@ -132,6 +144,7 @@ test("real clients share one authoritative public Street room", async (context) 
     port: 0,
     allowedOrigins: new Set([ALLOWED_ORIGIN]),
     trustedProxyHops: 1,
+    raidCompletionsSeed: 104,
   });
   let stopped = false;
   context.after(async () => {
@@ -268,6 +281,12 @@ test("real clients share one authoritative public Street room", async (context) 
   assertPresenceAtSpawn(aliceRoom, aliceRoom.sessionId, "alice");
   assertPresenceAtSpawn(aliceRoom, bobRoom.sessionId, "bob");
 
+  // The foundation baseline is the demo seed; a claim before any placement must not move it.
+  assert.equal(aliceRoom.state.completedRaids, 104);
+  aliceRoom.send(RAID_COMPLETE_MESSAGE, {});
+  await delay(100);
+  assert.equal(aliceRoom.state.completedRaids, 104, "no module placed, no completed raid");
+
   aliceRoom.send(PLACE_SHIP_MODULE_MESSAGE, {
     moduleId: "alice-keel",
     label: "A dancefloor needs a keel",
@@ -291,6 +310,11 @@ test("real clients share one authoritative public Street room", async (context) 
   await delay(100);
   assert.equal(bobRoom.state.shipModules.size, 1, "one person receives one live workshop module");
 
+  // One author alone is not co-creation — the raid run has not reached CO-CREATE yet.
+  aliceRoom.send(RAID_COMPLETE_MESSAGE, {});
+  await delay(100);
+  assert.equal(aliceRoom.state.completedRaids, 104, "solo placement is not co-creation");
+
   bobRoom.send(PLACE_SHIP_MODULE_MESSAGE, {
     moduleId: "bob-signal",
     label: "Music for the long crossing",
@@ -304,6 +328,21 @@ test("real clients share one authoritative public Street room", async (context) 
   assert.equal(bobModule.slot, 2);
   assert.equal(bobModule.authorHandle, "bob");
   assert.equal(bobModule.role, "signal");
+
+  // CO-CREATE holds now (two authors, both live). Forged payloads never count; a verified claim
+  // advances every client's counter; each session's run counts exactly once.
+  bobRoom.send(RAID_COMPLETE_MESSAGE, { forged: true });
+  await delay(100);
+  assert.equal(aliceRoom.state.completedRaids, 104, "unknown fields are rejected, not counted");
+  bobRoom.send(RAID_COMPLETE_MESSAGE, {});
+  await waitFor(
+    () => aliceRoom.state.completedRaids === 105 && bobRoom.state.completedRaids === 105,
+  );
+  bobRoom.send(RAID_COMPLETE_MESSAGE, {});
+  aliceRoom.send(RAID_COMPLETE_MESSAGE, {});
+  await waitFor(() => aliceRoom.state.completedRaids === 106);
+  await delay(150);
+  assert.equal(bobRoom.state.completedRaids, 106, "a session's run counts exactly once");
 
   // Presence is intentionally non-colliding: both players may occupy the exact same point.
   const sharedPoint = { x: PALACE_SPAWN.x + 1, y: PALACE_SPAWN.y, z: PALACE_SPAWN.z };
