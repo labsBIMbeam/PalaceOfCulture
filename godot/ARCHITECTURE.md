@@ -23,6 +23,7 @@ coral `#e8735a` (single accent). Toon low-poly: StandardMaterial3D, flat colors,
 | theme | `scripts/ui/ui_theme.gd` (shared Theme/stylebox/font factory, static funcs) |
 | social ui | `scripts/ui/chat_panel.gd`, `scripts/ui/voice_dock.gd`, `scripts/ui/media_player.gd` |
 | net seams | `scripts/net/chat_transport.gd`, `scripts/net/voice_transport.gd`, `scripts/net/media_catalog.gd` |
+| napplets | `scripts/net/napplet_runtime.gd`, `scripts/net/napplet_catalog.gd`, `scripts/ui/napplet_panel.gd`, `web/napplet-host.js` |
 | meaningverse | `scripts/moc/moc_loop.gd`, `moc_demo.gd`, `leviathan_assembly.gd`, `kerni_world_agent.gd`, `kerni_live_client.gd`, `kerni_3d.gd` |
 | world | `scripts/main.gd`, `scripts/world/home_world.gd`, `scripts/world/palace_world.gd`, `tests/smoke.gd` |
 
@@ -176,7 +177,7 @@ ink, panel, panel_ink, panel_strong, border, border_strong, text, body, muted, g
 gold_bright, cream, coral, teal_light — `ink` is the near-black menu backdrop tier).
 Never mutate a stylebox obtained from `theme()`; build fresh ones.
 
-Layer map: HUD + voice dock 10, chat panel 12, media player 15, craft menu 20, main menu 30
+Layer map: HUD + voice dock 10, chat panel 12, media player 15, napplet panel 18, craft menu 20, main menu 30
 (in MENU space main.gd lifts the media player to 31 so Palace Radio draws above the menu).
 Screen estate: material rows top-left, mode button top-right, hotbar bottom-center, chat
 dock bottom-left (380×300 — clears the hotbar at the 1280-wide logical canvas), voice pill
@@ -231,6 +232,53 @@ swapping in the real backend never touches UI code.
   for V4V splits; Nostr kind 31337/32123 for music), live → NIP-53 `kind:30311`
   subscriptions (HLS stream URL, `current_participants` = listeners). Boost button →
   NIP-57 zaps to `value_recipient`.
+
+## Napplet runtime (`scripts/net/napplet_*.gd`, `web/napplet-host.js`) — web export only
+
+A napplet is a sandboxed Nostr iframe app (NIP-5D): one self-contained
+`index.html` a runtime loads into `iframe sandbox="allow-scripts"` with **no**
+`allow-same-origin`. It gets an opaque origin and no ambient browser authority —
+no `fetch`, no socket, no storage, no signer — and asks the host for everything
+over postMessage. This is ADR 0008's "arcade games are untrusted adapters", one
+notch stricter: a napplet has no origin to allowlist because it has no network.
+
+Godot has no HTML engine, so the host lives in the **web-export page**
+(`web/napplet-host.js`, installed through `JavaScriptBridge`). Off the web export
+`NappletRuntime.available()` is false and `open()` reports `unavailable`; nothing
+crashes, the panel says why. A desktop runtime would need an embedded webview and
+is a separate decision.
+
+Authority split: the napplet asks and renders; the host owns relay sockets,
+external bytes, scoped storage, policy and theme; **NIP-07 owns the key**. Every
+signature is delegated to the browser extension, which prompts the user — neither
+GDScript nor the host ever holds a private key, and the napplet never sees
+`window.nostr`.
+
+```gdscript
+runtime.available() -> bool          # web export with a usable browser
+runtime.signer_available() -> bool   # a NIP-07 extension is present
+runtime.open(id: String, rect: Rect2i) -> bool   # allowlisted ids only
+runtime.close() -> void
+runtime.set_rect(rect: Rect2i) -> void
+runtime.set_theme(bg: Color, text: Color, primary: Color) -> void
+signal state_changed(state)  # {status, napplet, error, signer}
+```
+
+`napplet_catalog.gd` is a **pinned allowlist**, not relay discovery: the host
+refuses to mount an artifact whose SHA-256 does not match the entry, so updating
+a napplet requires a deliberate hash change. Relay hints from a napplet are
+candidates; the pinned relay list is policy.
+
+`napplet_panel.gd` reserves the rectangle and reports it — Godot draws the chrome,
+the browser draws the napplet inside it. A cross-origin iframe cannot be rendered
+to a texture, so a napplet is a full-pane overlay and **cannot** be mapped onto a
+surface in the 3D world; world input is blocked while it is open.
+
+Two gaps to close before third-party napplets are allowed in: the injected
+prelude is ours rather than the published `@napplet/shim` (swap it and re-run
+`@napplet/conformance` against the pair), and the host does not verify event
+signatures, which needs a schnorr implementation in the page. The pinned
+allowlist is what keeps both acceptable for now.
 
 ## Worlds
 

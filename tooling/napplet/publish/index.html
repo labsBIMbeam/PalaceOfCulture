@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publish a napplet — NIP-07</title>
+<style>
+  :root { --bg:#0a0705; --fg:#efe6d2; --gold:#e7b23c; --line:#2c261e; --surface:#151109;
+          --ok:#23806f; --bad:#e8735a; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px}
+  main{max-width:820px;margin:0 auto;display:grid;gap:16px}
+  h1{font-size:19px;margin:0;color:var(--gold);letter-spacing:.03em}
+  p.lede{margin:0;color:#8c8477}
+  section{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--surface)}
+  h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8c8477;margin:0 0 10px}
+  label{display:block;font-size:12px;color:#8c8477;margin:8px 0 4px}
+  input,textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;
+       background:var(--bg);color:inherit;font:inherit}
+  textarea{min-height:120px;font-family:ui-monospace,monospace;font-size:12px}
+  button{min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:8px;
+       background:var(--bg);color:inherit;font:inherit;cursor:pointer}
+  button.go{background:var(--gold);border-color:var(--gold);color:var(--bg);font-weight:650}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .mono{font-family:ui-monospace,monospace;font-size:12px;overflow-wrap:anywhere}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .muted{color:#8c8477}
+  ul{margin:8px 0 0;padding-left:18px} li{margin:2px 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Publish a napplet</h1>
+  <p class="lede">
+    Signs a NIP-5A manifest with your NIP-07 extension and publishes it to relays.
+    The key never leaves the extension — this page only ever hands it an unsigned
+    event, exactly the way memes.600.wtf signs its NIP-98 uploads.
+  </p>
+
+  <section>
+    <h2>1 · Artifact</h2>
+    <div class="row">
+      <input type="file" id="file" accept=".html,text/html">
+      <span class="muted">or</span>
+      <input type="text" id="url" placeholder="http://127.0.0.1:4300/" style="flex:1;min-width:180px">
+      <button id="fetchBtn">Load URL</button>
+    </div>
+    <p id="artifact" class="mono muted">No artifact loaded.</p>
+  </section>
+
+  <section>
+    <h2>2 · Upload the bytes (Blossom)</h2>
+    <p class="muted" style="margin:0 0 8px">
+      The manifest only names a hash — a runtime still has to fetch the file.
+      Blossom is content-addressed, so once the blob is on a server any runtime
+      can resolve it by that hash.
+    </p>
+    <label for="blossom">blossom servers</label>
+    <input type="text" id="blossom" value="https://blossom.bimcvp.com">
+    <div class="row" style="margin-top:10px">
+      <button id="upload" disabled>Sign and upload</button>
+      <button id="mirror" disabled>Mirror to the rest</button>
+      <button id="serverList" disabled>Publish server list (10063)</button>
+    </div>
+    <p class="muted" style="margin:6px 0 0;font-size:12px">
+      Mirror uses BUD-04: each server pulls the blob from the first one itself,
+      so nothing is re-uploaded. Redundancy matters — if the only host holding
+      your blob goes down, the napplet stops resolving everywhere.
+    </p>
+    <p class="muted" style="margin:8px 0 0;font-size:12px">
+      The server list is how a shell discovers <em>which</em> Blossom host holds
+      your blobs — the manifest carries a hash, never a location. Without it a
+      runtime may have the hash and still not know where to look.
+    </p>
+    <div id="uplog" class="mono" style="margin-top:8px"></div>
+  </section>
+
+  <section>
+    <h2>3 · Manifest</h2>
+    <div class="row">
+      <div style="flex:1;min-width:160px">
+        <label for="dtag">d-tag (napplet type)</label>
+        <input type="text" id="dtag" value="palace-map">
+      </div>
+      <div style="flex:1;min-width:160px">
+        <label for="requires">requires (comma separated, may be empty)</label>
+        <input type="text" id="requires" value="">
+      </div>
+    </div>
+    <div class="row">
+      <div style="flex:1;min-width:160px">
+        <label for="title">title</label>
+        <input type="text" id="title" placeholder="read from the artifact's &lt;title&gt;">
+      </div>
+      <div style="flex:2;min-width:200px">
+        <label for="description">description</label>
+        <input type="text" id="description" placeholder="shown in the app store listing">
+      </div>
+    </div>
+    <label for="relays">relays</label>
+    <!-- damus refused the connection and nostr.band timed out on the last run;
+         these three accepted or are known-permissive for addressable events. -->
+    <input type="text" id="relays"
+           value="wss://nos.lol, wss://relay.primal.net, wss://offchain.pub, wss://nostr.mom">
+    <label for="preview">unsigned event</label>
+    <textarea id="preview" readonly>load an artifact first</textarea>
+  </section>
+
+  <section>
+    <h2>4 · Sign &amp; publish the manifest</h2>
+    <div class="row">
+      <button id="connect">Connect NIP-07</button>
+      <span id="who" class="mono muted">not connected</span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="publish" class="go" disabled>Sign and publish</button>
+      <button id="signOnly" disabled>Sign only (no publish)</button>
+      <button id="broadcast" disabled>Broadcast my events</button>
+    </div>
+    <p class="muted" style="margin:6px 0 0;font-size:12px">
+      Broadcast re-sends events you already signed (manifests and server list) to
+      every relay above. No new signature — an event carries its own, so any
+      relay can accept the identical bytes.
+    </p>
+    <div id="log" class="mono" style="margin-top:10px"></div>
+  </section>
+
+  <section>
+    <h2>5 · Delete old manifests (NIP-09)</h2>
+    <p class="muted" style="margin:0 0 8px;font-size:12px">
+      A deletion is a <em>request</em>, not a guarantee: relays are free to ignore
+      it, and copies already fetched stay fetched. It also cannot be undone — so
+      list only what you are certain about.
+    </p>
+    <label for="deleteList">naddr or coordinate, one per line</label>
+    <textarea id="deleteList" style="min-height:80px"
+              placeholder="naddr1… or 35129:&lt;pubkey&gt;:&lt;d-tag&gt;"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="deleteBtn" disabled>Sign and request deletion</button>
+      <span id="deletePreview" class="muted mono"></span>
+    </div>
+    <div id="dellog" class="mono" style="margin-top:8px"></div>
+  </section>
+</main>
+
+<script type="module">
+/*
+ * Everything here is deliberately dependency-free so it can be opened from disk
+ * or any static server. The only privileged operation is signEvent, which the
+ * extension performs and prompts for.
+ */
+const $ = (id) => document.getElementById(id);
+const log = (msg, cls = "") => {
+  const line = document.createElement("div");
+  line.className = cls;
+  line.textContent = msg;
+  $("log").append(line);
+};
+
+/*
+ * The bytes are the source of truth, not decoded text: the hash in the manifest
+ * must be the hash of exactly what gets uploaded, and a text round-trip can
+ * drift on a BOM or any non-UTF-8 byte.
+ */
+let artifact = null; // { bytes: Uint8Array, hash: string, name: string }
+let pubkey = null;
+
+async function sha256Of(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(text) {
+  return sha256Of(new TextEncoder().encode(text));
+}
+
+/* ---- bech32, for the shareable naddr ---------------------------------- */
+const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+const polymod = (v) => { let c = 1; for (const x of v) { const t = c >> 25;
+  c = ((c & 0x1ffffff) << 5) ^ x; for (let i = 0; i < 5; i++) if ((t >> i) & 1) c ^= GEN[i]; } return c; };
+const expand = (h) => [...[...h].map((c) => c.charCodeAt(0) >> 5), 0, ...[...h].map((c) => c.charCodeAt(0) & 31)];
+function bech32(hrp, words) {
+  const mod = polymod([...expand(hrp), ...words, 0, 0, 0, 0, 0, 0]) ^ 1;
+  const cs = []; for (let i = 0; i < 6; i++) cs.push((mod >> (5 * (5 - i))) & 31);
+  return `${hrp}1${[...words, ...cs].map((w) => CHARSET[w]).join("")}`;
+}
+function convert(data) { let acc = 0, bits = 0; const out = [];
+  for (const v of data) { acc = (acc << 8) | v; bits += 8;
+    while (bits >= 5) { bits -= 5; out.push((acc >> bits) & 31); } }
+  if (bits) out.push((acc << (5 - bits)) & 31); return out; }
+const hexBytes = (h) => h.match(/../g).map((b) => parseInt(b, 16));
+
+/** Decode an naddr back to its `kind:pubkey:d` coordinate, or null if invalid. */
+function decodeNaddr(value) {
+  const s = value.trim();
+  if (!s.startsWith("naddr1")) return null;
+  const pos = s.lastIndexOf("1");
+  const words = [...s.slice(pos + 1)].map((c) => CHARSET.indexOf(c)).slice(0, -6);
+  if (words.length === 0 || words.some((w) => w < 0)) return null;
+  let acc = 0, bits = 0; const bytes = [];
+  for (const w of words) {
+    acc = (acc << 5) | w; bits += 5;
+    while (bits >= 8) { bits -= 8; bytes.push((acc >> bits) & 255); }
+  }
+  const tlv = {};
+  for (let i = 0; i < bytes.length; ) {
+    const type = bytes[i], len = bytes[i + 1];
+    tlv[type] = bytes.slice(i + 2, i + 2 + len);
+    i += 2 + len;
+  }
+  if (!tlv[0] || !tlv[2] || !tlv[3]) return null;
+  const kind = (tlv[3][0] << 24) | (tlv[3][1] << 16) | (tlv[3][2] << 8) | tlv[3][3];
+  const pk = tlv[2].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${kind}:${pk}:${new TextDecoder().decode(new Uint8Array(tlv[0]))}`;
+}
+
+/** Every line of the delete box, normalised to coordinates. */
+function deletionTargets() {
+  return $("deleteList").value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => (line.startsWith("naddr1") ? decodeNaddr(line) : line))
+    .filter((coord) => coord && /^\d+:[0-9a-f]{64}:/.test(coord));
+}
+function naddr(kind, pk, identifier) {
+  const id = [...new TextEncoder().encode(identifier)];
+  const k = [(kind >> 24) & 255, (kind >> 16) & 255, (kind >> 8) & 255, kind & 255];
+  const tlv = [0, id.length, ...id, 2, 32, ...hexBytes(pk), 3, 4, ...k];
+  return bech32("naddr", convert(tlv));
+}
+
+/* ---- manifest ---------------------------------------------------------- */
+async function buildEvent() {
+  if (!artifact) return null;
+  const fileHash = artifact.hash;
+  // The aggregate must match @napplet/vite-plugin exactly or a runtime will
+  // reject the manifest: one `"<hash> <path>\n"` line per file, sorted, joined,
+  // then sha256. Verified byte-for-byte against the plugin's own sidecar.
+  const paths = [["/index.html", fileHash]];
+  const lines = paths.map(([p, hash]) => `${hash} ${p}\n`).sort();
+  const aggregate = await sha256Hex(lines.join(""));
+  const requires = $("requires").value.split(",").map((s) => s.trim()).filter(Boolean);
+  const title = $("title").value.trim();
+  const description = $("description").value.trim();
+  return {
+    kind: 35129,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+      ["d", $("dtag").value.trim()],
+      ["path", "/index.html", fileHash],
+      ["x", aggregate, "aggregate"],
+      // Without these an app store has nothing to show but the d-tag and a
+      // placeholder. The napplet CLI reads them out of the built HTML; this
+      // does the same, and lets you override.
+      ...(title ? [["title", title]] : []),
+      ...(description ? [["description", description]] : []),
+      ...requires.map((r) => ["requires", r]),
+    ],
+    content: "",
+  };
+}
+
+async function refresh() {
+  const event = await buildEvent();
+  $("preview").value = event ? JSON.stringify(event, null, 2) : "load an artifact first";
+  $("publish").disabled = !(event && pubkey);
+  $("signOnly").disabled = !(event && pubkey);
+  $("upload").disabled = !(artifact && pubkey);
+  $("mirror").disabled = !(artifact && pubkey);
+  // These need no artifact — only a signer.
+  $("serverList").disabled = !pubkey;
+  $("broadcast").disabled = !pubkey;
+  refreshDeletePreview();
+}
+
+async function setArtifact(buffer, source) {
+  const bytes = new Uint8Array(buffer);
+  artifact = { bytes, hash: await sha256Of(bytes), name: source };
+  $("artifact").className = "mono";
+  $("artifact").textContent =
+    `${source} · ${(bytes.length / 1024).toFixed(1)} KB · sha256 ${artifact.hash}`;
+
+  // Prefill title/description from the artifact itself, the way the CLI does —
+  // only when empty, so a manual override is never clobbered.
+  try {
+    const html = new TextDecoder().decode(bytes);
+    const docTitle = /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
+    const meta = /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i.exec(html)?.[1];
+    if (docTitle && !$("title").value) $("title").value = docTitle;
+    if (meta && !$("description").value) $("description").value = meta;
+  } catch {
+    /* not decodable as text — leave the fields alone */
+  }
+  refresh();
+}
+
+$("file").addEventListener("change", async (e) => {
+  const f = e.target.files?.[0];
+  if (f) await setArtifact(await f.arrayBuffer(), f.name);
+});
+
+$("fetchBtn").addEventListener("click", async () => {
+  try {
+    const r = await fetch($("url").value);
+    if (!r.ok) throw new Error(`status ${r.status}`);
+    await setArtifact(await r.arrayBuffer(), $("url").value);
+  } catch (err) { log(`fetch failed: ${err.message}`, "bad"); }
+});
+
+for (const id of ["dtag", "requires", "title", "description"]) {
+  $(id).addEventListener("input", refresh);
+}
+
+/**
+ * Wait for the extension to inject `window.nostr`.
+ *
+ * Chrome injects synchronously, so a plain check works there. Firefox
+ * extensions (nos2x-fox, Alby) inject from a content script that can land after
+ * a module script has already run — a one-shot check then reports "no extension"
+ * on a browser that has one. Poll briefly instead.
+ */
+function waitForNostr(timeoutMs = 3000) {
+  if (window.nostr) return Promise.resolve(window.nostr);
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const tick = setInterval(() => {
+      if (window.nostr) { clearInterval(tick); resolve(window.nostr); return; }
+      if (Date.now() - started > timeoutMs) { clearInterval(tick); resolve(null); }
+    }, 100);
+  });
+}
+
+/** Ensure a signer, with an error that says which of the two problems it is. */
+async function signer() {
+  const nostr = await waitForNostr();
+  if (!nostr) {
+    throw new Error(
+      "No NIP-07 extension detected. Install Alby or nos2x-fox, and make sure it is " +
+        "enabled for this site — Firefox extensions are per-site by default.",
+    );
+  }
+  return nostr;
+}
+
+$("connect").addEventListener("click", async () => {
+  try {
+    const nostr = await signer();
+    pubkey = await nostr.getPublicKey();
+    $("who").textContent = pubkey;
+    $("who").className = "mono ok";
+    refresh();
+  } catch (err) {
+    // A rejection here is the extension's permission prompt being declined,
+    // which is a different fix from not having one at all.
+    const denied = /denied|reject|refus/i.test(err.message ?? "");
+    log(
+      denied
+        ? "The extension declined. Approve this site in its permissions and retry."
+        : `connect failed: ${err.message}`,
+      "bad",
+    );
+  }
+});
+
+async function sign() {
+  const nostr = await signer();
+  const unsigned = await buildEvent();
+  log("requesting signature…");
+  const signed = await nostr.signEvent(unsigned);
+  log(`signed · id ${signed.id}`, "ok");
+  return signed;
+}
+
+/** Publish to one relay and resolve with its OK verdict. */
+function publishTo(url, event) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (msg, ok) => { if (!settled) { settled = true; resolve({ url, ok, msg }); try { ws.close(); } catch {} } };
+    const ws = new WebSocket(url);
+    const timer = setTimeout(() => done("timeout", false), 8000);
+    ws.onopen = () => ws.send(JSON.stringify(["EVENT", event]));
+    ws.onmessage = (m) => {
+      const f = JSON.parse(m.data);
+      if (f[0] === "OK" && f[1] === event.id) { clearTimeout(timer); done(f[3] || (f[2] ? "accepted" : "rejected"), f[2]); }
+    };
+    ws.onerror = () => { clearTimeout(timer); done("connection error", false); };
+  });
+}
+
+/* ---- Blossom upload (BUD-02) ------------------------------------------- */
+
+const uplog = (msg, cls = "") => {
+  const line = document.createElement("div");
+  line.className = cls;
+  line.textContent = msg;
+  $("uplog").append(line);
+};
+
+/**
+ * Upload the artifact to one Blossom server.
+ *
+ * Auth is a kind-24242 event signed by the extension and base64'd into the
+ * Authorization header — the same shape as the NIP-98 upload on memes.600.wtf,
+ * with Blossom's own kind and tags.
+ */
+async function uploadTo(server, auth) {
+  const base = server.replace(/\/+$/, "");
+  /*
+   * Deliberately NOT text/html. Blossom servers routinely refuse HTML — serving
+   * arbitrary HTML from their domain is an XSS and phishing vector — and
+   * blossom.bimcvp.com answers 415 for it. The blob is content-addressed, so the
+   * stored MIME is metadata: a NIP-5D runtime fetches by hash and injects the
+   * bytes into a sandboxed srcdoc, never relying on the server's type.
+   */
+  const response = await fetch(`${base}/upload`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Nostr ${btoa(JSON.stringify(auth))}`,
+      "Content-Type": "application/octet-stream",
+    },
+    body: artifact.bytes,
+  });
+  if (!response.ok) {
+    const reason = response.headers.get("X-Reason") || (await response.text().catch(() => ""));
+    throw new Error(`${response.status} ${reason.slice(0, 120)}`);
+  }
+  return response.json();
+}
+
+$("upload").addEventListener("click", async () => {
+  $("uplog").replaceChildren();
+  const servers = $("blossom").value.split(",").map((s) => s.trim()).filter(Boolean);
+  if (servers.length === 0) { uplog("no servers listed", "bad"); return; }
+
+  try {
+    const nostr = await signer();
+    // One signature covers every server: the auth is bound to the blob hash,
+    // not to a host.
+    const auth = await nostr.signEvent({
+      kind: 24242,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ["t", "upload"],
+        ["x", artifact.hash],
+        ["expiration", String(Math.floor(Date.now() / 1000) + 300)],
+      ],
+      content: "Upload napplet artifact",
+    });
+    uplog(`signed upload auth for ${artifact.hash.slice(0, 16)}…`);
+
+    for (const server of servers) {
+      try {
+        const blob = await uploadTo(server, auth);
+        // A server that returns a different hash rewrote the bytes; that blob
+        // would fail manifest verification, so treat it as a failure.
+        if (blob.sha256 && blob.sha256 !== artifact.hash) {
+          uplog(`✗ ${server} — returned a different hash (${blob.sha256.slice(0, 16)}…)`, "bad");
+          continue;
+        }
+        uplog(`✓ ${server} — ${blob.url ?? "stored"}`, "ok");
+      } catch (err) {
+        uplog(`✗ ${server} — ${err.message}`, "bad");
+      }
+    }
+  } catch (err) {
+    uplog(`upload failed: ${err.message}`, "bad");
+  }
+});
+
+/**
+ * BUD-04 mirror: ask each other server to pull the blob from the first one.
+ * One signature, no re-upload, and the blob ends up on several hosts so a
+ * single outage cannot make the napplet unresolvable.
+ */
+$("mirror").addEventListener("click", async () => {
+  $("uplog").replaceChildren();
+  const servers = $("blossom").value.split(",").map((s) => s.replace(/\/+$/, "").trim()).filter(Boolean);
+  if (servers.length < 2) { uplog("list at least two servers to mirror between", "bad"); return; }
+
+  const [source, ...targets] = servers;
+  const sourceUrl = `${source}/${artifact.hash}`;
+  try {
+    const nostr = await signer();
+    const auth = await nostr.signEvent({
+      kind: 24242,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ["t", "upload"],
+        ["x", artifact.hash],
+        ["expiration", String(Math.floor(Date.now() / 1000) + 300)],
+      ],
+      content: "Mirror napplet artifact",
+    });
+    uplog(`mirroring ${artifact.hash.slice(0, 16)}… from ${source}`);
+
+    for (const target of targets) {
+      try {
+        const r = await fetch(`${target}/mirror`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Nostr ${btoa(JSON.stringify(auth))}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url: sourceUrl }),
+        });
+        if (!r.ok) {
+          const reason = r.headers.get("X-Reason") || (await r.text().catch(() => ""));
+          throw new Error(`${r.status} ${reason.slice(0, 100)}`);
+        }
+        const blob = await r.json().catch(() => ({}));
+        if (blob.sha256 && blob.sha256 !== artifact.hash) {
+          uplog(`✗ ${target} — returned a different hash`, "bad");
+          continue;
+        }
+        uplog(`✓ ${target} — ${blob.url ?? "mirrored"}`, "ok");
+      } catch (err) {
+        uplog(`✗ ${target} — ${err.message}`, "bad");
+      }
+    }
+  } catch (err) {
+    uplog(`mirror failed: ${err.message}`, "bad");
+  }
+});
+
+/**
+ * BUD-03 user server list. A NIP-5A manifest names a hash, never a host, so a
+ * shell needs this to know where the author keeps blobs.
+ */
+$("serverList").addEventListener("click", async () => {
+  try {
+    const nostr = await signer();
+    const servers = $("blossom").value.split(",").map((s) => s.trim()).filter(Boolean);
+    if (servers.length === 0) { uplog("no servers listed", "bad"); return; }
+    const event = await nostr.signEvent({
+      kind: 10063,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: servers.map((s) => ["server", s.replace(/\/+$/, "")]),
+      content: "",
+    });
+    uplog(`signed server list · ${servers.length} server(s)`);
+    const relays = $("relays").value.split(",").map((s) => s.trim()).filter(Boolean);
+    const results = await Promise.all(relays.map((r) => publishTo(r, event)));
+    for (const r of results) uplog(`${r.ok ? "✓" : "✗"} ${r.url} — ${r.msg}`, r.ok ? "ok" : "bad");
+  } catch (err) {
+    uplog(`server list failed: ${err.message}`, "bad");
+  }
+});
+
+/** Read events matching a filter from a set of relays, deduped by id. */
+function fetchEvents(relays, filter, timeoutMs = 6000) {
+  return new Promise((resolve) => {
+    const found = new Map();
+    let closed = 0;
+    const done = () => resolve([...found.values()]);
+    const timer = setTimeout(done, timeoutMs);
+    for (const url of relays) {
+      let ws;
+      try { ws = new WebSocket(url); } catch { closed += 1; continue; }
+      ws.onopen = () => ws.send(JSON.stringify(["REQ", "b", filter]));
+      ws.onmessage = (m) => {
+        const f = JSON.parse(m.data);
+        if (f[0] === "EVENT") found.set(f[2].id, f[2]);
+        if (f[0] === "EOSE") {
+          try { ws.close(); } catch {}
+          if (++closed === relays.length) { clearTimeout(timer); done(); }
+        }
+      };
+      ws.onerror = () => { if (++closed === relays.length) { clearTimeout(timer); done(); } };
+    }
+  });
+}
+
+/**
+ * Re-send events this pubkey already signed to every listed relay. Signatures
+ * travel with the event, so rebroadcasting needs no extension prompt — and it is
+ * how you widen reach after a relay refused or timed out.
+ */
+$("broadcast").addEventListener("click", async () => {
+  try {
+    const relays = $("relays").value.split(",").map((s) => s.trim()).filter(Boolean);
+    // Read from a wide set so we pick up events any single relay may have missed.
+    const sources = [...new Set([...relays, "wss://nos.lol", "wss://relay.nostr.band"])];
+    log(`reading existing events for ${pubkey.slice(0, 12)}…`);
+    const events = await fetchEvents(sources, { kinds: [35129, 10063], authors: [pubkey] });
+    if (events.length === 0) { log("nothing found to broadcast", "bad"); return; }
+    log(`found ${events.length} event(s): ${events.map((e) => e.tags.find((t) => t[0] === "d")?.[1] ?? `kind ${e.kind}`).join(", ")}`);
+
+    for (const event of events) {
+      const label = event.tags.find((t) => t[0] === "d")?.[1] ?? `kind ${event.kind}`;
+      const results = await Promise.all(relays.map((r) => publishTo(r, event)));
+      const ok = results.filter((r) => r.ok).length;
+      log(`${ok > 0 ? "✓" : "✗"} ${label} — ${ok}/${relays.length} relays`, ok > 0 ? "ok" : "bad");
+      for (const r of results.filter((x) => !x.ok)) log(`    ✗ ${r.url} — ${r.msg}`, "bad");
+    }
+  } catch (err) {
+    log(`broadcast failed: ${err.message}`, "bad");
+  }
+});
+
+/* ---- NIP-09 deletion ---------------------------------------------------- */
+
+const dellog = (msg, cls = "") => {
+  const line = document.createElement("div");
+  line.className = cls;
+  line.textContent = msg;
+  $("dellog").append(line);
+};
+
+function refreshDeletePreview() {
+  const targets = deletionTargets();
+  const dtags = targets.map((c) => c.split(":").slice(2).join(":"));
+  $("deletePreview").textContent = targets.length
+    ? `will request deletion of: ${dtags.join(", ")}`
+    : "";
+  // Gate only on having something to delete. Requiring a connected signer here
+  // made the button depend on the order you clicked things in — paste first and
+  // it stayed dead. The signer is resolved when you actually press it.
+  $("deleteBtn").disabled = targets.length === 0;
+}
+
+$("deleteList").addEventListener("input", refreshDeletePreview);
+
+$("deleteBtn").addEventListener("click", async () => {
+  $("dellog").replaceChildren();
+  const targets = deletionTargets();
+  if (targets.length === 0) { dellog("nothing to delete", "bad"); return; }
+
+  try {
+    const nostr = await signer();
+    // Resolve the key here rather than requiring Connect to have been pressed
+    // first — this is the only place the answer is actually needed.
+    pubkey ??= await nostr.getPublicKey();
+    if (!pubkey) { dellog("could not read a public key from the extension", "bad"); return; }
+    $("who").textContent = pubkey;
+    $("who").className = "mono ok";
+
+    // Refuse coordinates signed by a different key: relays would ignore the
+    // request anyway, and silently dropping them is worse than saying so.
+    const foreign = targets.filter((c) => c.split(":")[1] !== pubkey);
+    if (foreign.length > 0) {
+      dellog(`not yours, skipping ${foreign.length} coordinate(s)`, "bad");
+    }
+    const mine = targets.filter((c) => c.split(":")[1] === pubkey);
+    if (mine.length === 0) { dellog("none of those were signed by your key", "bad"); return; }
+
+    const event = await nostr.signEvent({
+      kind: 5,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ...mine.map((coord) => ["a", coord]),
+        // NIP-09 asks for the kind alongside, so a relay can act without
+        // resolving each coordinate first.
+        ...[...new Set(mine.map((c) => c.split(":")[0]))].map((k) => ["k", k]),
+      ],
+      content: "superseded duplicate napplet manifest",
+    });
+    dellog(`signed deletion request · ${mine.length} coordinate(s)`);
+
+    const relays = $("relays").value.split(",").map((s) => s.trim()).filter(Boolean);
+    const results = await Promise.all(relays.map((r) => publishTo(r, event)));
+    for (const r of results) dellog(`${r.ok ? "✓" : "✗"} ${r.url} — ${r.msg}`, r.ok ? "ok" : "bad");
+    dellog("relays may ignore this; already-cached copies persist", "muted");
+  } catch (err) {
+    dellog(`deletion failed: ${err.message}`, "bad");
+  }
+});
+
+$("signOnly").addEventListener("click", async () => {
+  try { const s = await sign(); $("preview").value = JSON.stringify(s, null, 2); }
+  catch (err) { log(`sign failed: ${err.message}`, "bad"); }
+});
+
+$("publish").addEventListener("click", async () => {
+  try {
+    const signed = await sign();
+    const relays = $("relays").value.split(",").map((s) => s.trim()).filter(Boolean);
+    log(`publishing to ${relays.length} relay(s)…`);
+    const results = await Promise.all(relays.map((r) => publishTo(r, signed)));
+    for (const r of results) log(`${r.ok ? "✓" : "✗"} ${r.url} — ${r.msg}`, r.ok ? "ok" : "bad");
+    if (results.some((r) => r.ok)) {
+      const addr = naddr(35129, signed.pubkey, $("dtag").value.trim());
+      log(`coordinate  35129:${signed.pubkey}:${$("dtag").value.trim()}`);
+      log(`naddr       ${addr}`, "ok");
+    }
+  } catch (err) { log(`publish failed: ${err.message}`, "bad"); }
+});
+</script>
+</body>
+</html>

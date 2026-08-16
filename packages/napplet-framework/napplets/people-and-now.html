@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>People &amp; Now</title>
+<style>
+  :root { --palace-bg:#0a0705; --palace-fg:#efe6d2; --palace-primary:#e7b23c;
+    --palace-muted:color-mix(in srgb,var(--palace-fg) 55%,var(--palace-bg));
+    --palace-line:color-mix(in srgb,var(--palace-fg) 20%,var(--palace-bg));
+    --palace-surface:color-mix(in srgb,var(--palace-fg) 7%,var(--palace-bg)); }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--palace-bg);
+    color:var(--palace-fg);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  body{padding:8px} h2{margin:0 0 6px;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--palace-muted)}
+  ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;overflow-y:auto}
+  li{display:flex;gap:6px;align-items:center;padding:4px 6px;border:1px solid var(--palace-line);
+    border-radius:6px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .here{background:#23806f} .away{background:#6b6459} .in-session{background:var(--palace-primary)}
+  .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  button{font:inherit;color:inherit;background:var(--palace-surface);
+    border:1px solid var(--palace-line);border-radius:6px;padding:0 6px;min-height:26px;cursor:pointer}
+  .muted{color:var(--palace-muted)}
+</style>
+</head>
+<body>
+<h2>People &amp; Now</h2>
+<ul id="roster"></ul>
+<p class="muted" id="note">Presence is ephemeral (ADR 0006).</p>
+<script>
+// People & Now — real presence with one-click Invite. Presence is ephemeral, so
+// this panel renders whatever the shell last saw and never caches it.
+const roster = document.getElementById("roster");
+const note = document.getElementById("note");
+let inSession = false;
+
+window.palace.on("session", (session) => { inSession = session.sessionId !== null; });
+
+window.palace.on("presence", (presence) => {
+  roster.replaceChildren(...presence.peers.map((peer) => {
+    const li = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = "dot " + peer.status;
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = peer.handle;
+    li.append(dot, name);
+    if (inSession) {
+      const invite = document.createElement("button");
+      invite.textContent = "Invite";
+      invite.addEventListener("click", async () => {
+        const result = await window.palace.intent({
+          domain: "session", action: "invite", pubkey: peer.pubkey,
+        });
+        note.textContent = result.ok ? "Invited " + peer.handle : "refused: " + result.error;
+      });
+      li.append(invite);
+    }
+    return li;
+  }));
+});
+</script>
+</body>
+</html>
