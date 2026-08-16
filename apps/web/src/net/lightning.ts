@@ -4,7 +4,7 @@
 // OS wallet picks up. Zaps add a signed NIP-57 request so receipts (kind 9735) land on the note
 // and the feed ranking (net/social.ts) picks them up. We never touch keys or custody sats.
 
-import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKNip07Signer, type NDKSigner } from "@nostr-dev-kit/ndk";
 import { REAL_PAYMENTS_ENABLED } from "../config/safety";
 import { RELAYS, getNdk, queryEvents } from "./nostr";
 
@@ -164,6 +164,77 @@ export async function fetchZapAddress(pubkey: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** NIP-57 profile-zap tags: `p` only — a person, not a note, so there is never an `e` tag. */
+export function zapRequestTags(
+  recipientPubkey: string,
+  sats: number,
+  relays: readonly string[] = RELAYS,
+): string[][] {
+  return [
+    ["relays", ...relays],
+    ["amount", String(sats * 1000)],
+    ["p", recipientPubkey],
+  ];
+}
+
+/** NIP-07 (window.nostr) when the browser has it — the player's OWN key — else the app signer. */
+function preferredSigner(): NDKSigner | null {
+  if ((window as { nostr?: unknown }).nostr) return new NDKNip07Signer(1000);
+  return getNdk().signer ?? null;
+}
+
+export interface ProfileZapResult extends PayResult {
+  /** true when a signed 9734 rode along (receipt-capable zap, not just an LNURL payment). */
+  zapRequestSent: boolean;
+  /** The lightning address the invoice actually came from. */
+  recipient?: string;
+}
+
+/**
+ * NIP-57 zap on a PERSON: resolve the lightning address (kind-0 lud16 when a pubkey is known,
+ * else the passed address, e.g. the roster NIP-05 which shares the lud16 shape), attach a
+ * signed 9734 when the endpoint speaks zaps AND a signer exists, then invoice → wallet.
+ * Every rung degrades: no pubkey → plain LNURL-pay; no signer → plain LNURL-pay; no WebLN →
+ * invoice + `lightning:` fallback for a QR/OS wallet. The receipt (9735) is the LN service's job.
+ */
+export async function zapProfile(
+  target: { address: string; pubkey?: string },
+  sats: number,
+  comment = "",
+): Promise<ProfileZapResult> {
+  const fromProfile = target.pubkey ? await fetchZapAddress(target.pubkey) : null;
+  const recipient = fromProfile ?? target.address;
+  const endpoint = await fetchPayEndpoint(recipient);
+  if (!endpoint) {
+    return { paid: false, zapRequestSent: false, error: `no pay endpoint for ${recipient}` };
+  }
+
+  let zapRequest: string | undefined;
+  if (endpoint.allowsNostr && target.pubkey) {
+    const signer = preferredSigner();
+    if (signer) {
+      try {
+        const event = new NDKEvent(getNdk());
+        event.kind = 9734;
+        event.content = comment;
+        event.tags = zapRequestTags(target.pubkey, sats);
+        await event.sign(signer);
+        zapRequest = JSON.stringify(await event.toNostrEvent());
+      } catch {
+        // Signing refused/timed out (locked extension) — degrade to plain LNURL-pay.
+        zapRequest = undefined;
+      }
+    }
+  }
+
+  const invoice = await requestInvoice(endpoint, sats, { comment, zapRequest });
+  if (!invoice) {
+    return { paid: false, zapRequestSent: false, recipient, error: "no invoice from callback" };
+  }
+  const result = await payInvoice(invoice);
+  return { ...result, zapRequestSent: Boolean(zapRequest), recipient };
 }
 
 /**
