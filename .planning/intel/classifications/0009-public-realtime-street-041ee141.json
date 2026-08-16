@@ -1,0 +1,20 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/adr/0009-public-realtime-street.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR 0009 — Public realtime moves from HQ to Werkstattgasse",
+  "summary": "Moves the first unauthenticated Colyseus room from Palace HQ to Werkstattgasse while retaining bounded, ephemeral, server-authoritative presence and movement.",
+  "scope": [
+    "Werkstattgasse",
+    "public realtime",
+    "Colyseus room",
+    "movement",
+    "presence",
+    "ship modules"
+  ],
+  "cross_refs": ["0006-colyseus-authoritative-realtime-boundary.md"],
+  "locked": true,
+  "precedence": 0,
+  "notes": ""
+}

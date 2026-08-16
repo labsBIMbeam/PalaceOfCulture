@@ -355,6 +355,19 @@ assert.ok(
   "the creation panel's open state lives in the scene so mode switches never reset it",
 );
 
+// Entering the street no longer connects the old room on sight. The live multiplayer surface is
+// gated on the accepted Phase-1 relay, so solitude before activation is a structural guarantee.
+assert.match(
+  palaceScene,
+  /world === "street" && phase1RelayState\.status === "accepted" \? \(\s*<MultiplayerLayer/,
+  "MultiplayerLayer must mount only in the street behind an accepted relay",
+);
+assert.equal(
+  (palaceScene.match(/<MultiplayerLayer/g) ?? []).length,
+  1,
+  "one MultiplayerLayer mount site only, so the accepted-relay gate cannot be bypassed",
+);
+
 const menuBackgrounds = ["title.webp", "home.webp", "market.webp"];
 for (const filename of menuBackgrounds) {
   const asset = resolve(webRoot, "public/frontend/bg", filename);

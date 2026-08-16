@@ -11,6 +11,7 @@ import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { Component, type ReactNode, Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import type { AssemblyState, PlacementState, SignalLens } from "../meaningverse/phase1Relay";
 import { lampBoost } from "../net/zapLight";
 import { Enclosure, GATE_ARCH } from "./Enclosure";
 import { KerniFamiliar } from "./KerniFamiliar";
@@ -419,9 +420,110 @@ function Garland({ posts }: { posts: [number, number, number][] }) {
   );
 }
 
+function RelayWorkbench({
+  acceptedPlacement,
+  acceptedLens,
+  assembly,
+  placement,
+}: {
+  acceptedPlacement: boolean;
+  acceptedLens: SignalLens | null;
+  assembly: AssemblyState;
+  placement: PlacementState;
+}) {
+  const seated = new Set(assembly.seatedParts);
+  const carried = assembly.carriedPart;
+  const parts = [
+    { id: "foot", color: "#b56d3d", position: [-1.2, 0.52, 0] as [number, number, number] },
+    { id: "coil", color: "#d9d0c2", position: [0, 0.68, 0] as [number, number, number] },
+    { id: "aperture", color: "#f3b64d", position: [1.2, 0.58, 0] as [number, number, number] },
+  ] as const;
+  return (
+    <group name="RelayWorkbench" position={[-27.5, 0, 91.2]}>
+      <mesh castShadow receiveShadow position={[0, 0.42, 0]}>
+        <boxGeometry args={[4.6, 0.22, 1.6]} />
+        <meshStandardMaterial color="#4e3427" roughness={0.92} />
+      </mesh>
+      {parts.map((part) => (
+        <group key={part.id} name={`relay-${part.id}`} position={part.position}>
+          <mesh receiveShadow position={[0, -0.22, 0]}>
+            <torusGeometry args={[0.32, 0.035, 8, 20]} />
+            <meshStandardMaterial color={seated.has(part.id) ? "#49c6b2" : "#6f5c4c"} />
+          </mesh>
+          <mesh
+            castShadow
+            position={[0, seated.has(part.id) ? 0.22 : 0.58, 0]}
+            visible={!seated.has(part.id) || carried === part.id}
+          >
+            {part.id === "coil" ? (
+              <torusGeometry args={[0.24, 0.09, 12, 24]} />
+            ) : (
+              <cylinderGeometry args={[0.2, 0.26, 0.32, 12]} />
+            )}
+            <meshStandardMaterial
+              color={part.color}
+              emissive={part.id === "aperture" ? "#8b4b10" : "#000000"}
+              emissiveIntensity={acceptedPlacement ? 0.8 : 0}
+            />
+          </mesh>
+        </group>
+      ))}
+      <group name="z1-relay-socket" position={[0, 0.62, 0.62]}>
+        <mesh receiveShadow>
+          <cylinderGeometry args={[0.42, 0.42, 0.08, 16]} />
+          <meshStandardMaterial
+            color={acceptedPlacement ? "#e7b23c" : "#8f7964"}
+            emissive={acceptedPlacement ? "#8b4b10" : "#000000"}
+            emissiveIntensity={acceptedPlacement ? 1.2 : 0}
+          />
+        </mesh>
+        {acceptedPlacement ? (
+          <pointLight color="#ffbf55" distance={1.4} intensity={0.45} position={[0, 0.34, 0]} />
+        ) : null}
+      </group>
+      {acceptedLens ? (
+        <group name="signal-lens" position={[0, 1.18, 0.62]}>
+          <mesh rotation-x={Math.PI / 2}>
+            <torusGeometry args={[0.28, 0.055, 10, 24]} />
+            <meshStandardMaterial color="#5cd8ff" emissive="#15546a" emissiveIntensity={0.9} />
+          </mesh>
+          <pointLight color="#5cd8ff" distance={1.1} intensity={0.22} />
+        </group>
+      ) : null}
+      <mesh name="relay-status-plate" position={[0, 0.8, -0.72]}>
+        <boxGeometry args={[2.8, 0.16, 0.05]} />
+        <meshStandardMaterial color={placement.status === "accepted" ? "#d8a944" : "#6f5c4c"} />
+      </mesh>
+    </group>
+  );
+}
+
 /** Locktard Street beta sandbox: gate → staged approach → round plaza with Palace teaser,
  *  workshop yard on the west ring, all held by the palisade + forest. */
-export function StreetWorld({ completedRaids = 0 }: { completedRaids?: number }) {
+export function StreetWorld({
+  acceptedPlacement = false,
+  acceptedLens = null,
+  assembly = { status: "parts_0", seatedParts: [], carriedPart: null },
+  placement = { status: "idle", socketId: null, attemptId: null, acceptedSocketId: null },
+  presenceAccepted = false,
+  reducedEffects = false,
+  completedRaids = 0,
+}: {
+  /** Presentation-only: the app-owned placement fact has been accepted. */
+  acceptedPlacement?: boolean;
+  /** Presentation-only: one additive lens from reducer-authorized accepted evidence. */
+  acceptedLens?: SignalLens | null;
+  /** Presentation-only projection of the bounded assembly reducer state. */
+  assembly?: AssemblyState;
+  /** Presentation-only projection of the bounded placement reducer state. */
+  placement?: PlacementState;
+  /** Presentation-only: settled presence improves local legibility. */
+  presenceAccepted?: boolean;
+  /** Presentation-only effects preference. */
+  reducedEffects?: boolean;
+  /** All-time completed raid runs (server-counted) — drives the plaza foundation drum. */
+  completedRaids?: number;
+}) {
   const dirt = useMemo(dirtTexture, []);
   const path = useMemo(pathTexture, []);
   const rimLamps = useMemo(rimLampPositions, []);
@@ -482,10 +584,22 @@ export function StreetWorld({ completedRaids = 0 }: { completedRaids?: number })
       {/* Kerni, the floating workshop familiar — hovers at the yard edge, no collider by canon */}
       <PropBoundary>
         <Suspense fallback={null}>
-          <KerniFamiliar position={[-27.5, 0, 93]} rotationY={-2.16} />
+          <KerniFamiliar
+            acceptedPlacement={acceptedPlacement}
+            presenceAccepted={presenceAccepted}
+            position={[-27.5, 0, 93]}
+            reducedEffects={reducedEffects}
+            rotationY={-2.16}
+          />
         </Suspense>
       </PropBoundary>
 
+      <RelayWorkbench
+        acceptedPlacement={acceptedPlacement}
+        acceptedLens={acceptedLens}
+        assembly={assembly}
+        placement={placement}
+      />
       {/* the mentor crews — all 31 members at the five affinity stations (streetCast.ts) */}
       <PropBoundary>
         <StreetCastView />

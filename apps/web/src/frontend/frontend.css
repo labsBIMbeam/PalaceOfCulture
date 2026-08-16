@@ -2796,6 +2796,7 @@ input.compose-input::placeholder {
   position: fixed;
   inset: 0;
   z-index: 100;
+  overflow-x: hidden;
   background: #efe6d2;
 }
 
@@ -5684,6 +5685,245 @@ input.compose-input::placeholder {
 
   .moc-path__head h2 {
     font-size: 18px;
+  }
+}
+
+/* --- Phase 1: fictional Wire intrusion, never a network feed --- */
+.phase1-wire-reopen {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 8;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid rgba(156, 138, 100, 0.46);
+  border-radius: 10px;
+  background: rgba(18, 12, 7, 0.76);
+  color: var(--muted);
+  font: 700 12px var(--display);
+  cursor: pointer;
+}
+
+:where(dialog).phase1-wire,
+:where(dialog).phase1-kerni-dialogue,
+:where(dialog).phase1-invite {
+  position: static;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.phase1-wire {
+  position: absolute;
+  top: 88px;
+  right: 24px;
+  bottom: 24px;
+  z-index: 8;
+  display: flex;
+  width: min(384px, calc(100vw - 48px));
+  max-height: calc(100dvh - 112px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(231, 178, 60, 0.42);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(42, 24, 16, 0.96), rgba(18, 12, 7, 0.98));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(12px);
+}
+
+.phase1-wire__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(231, 178, 60, 0.18);
+}
+
+.phase1-wire__head h2 {
+  max-width: 250px;
+  margin: 3px 0 0;
+  color: var(--text);
+  font: 700 20px / 1.25 var(--display);
+  letter-spacing: 0.04em;
+}
+
+.phase1-wire__kicker,
+.phase1-wire__card h3 {
+  margin: 0;
+  color: var(--gold);
+  font: 700 12px / 1.35 var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.phase1-wire__mark {
+  color: var(--gold-bright);
+  font: 700 28px / 1 var(--display);
+}
+
+.phase1-wire__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding: 12px;
+  overscroll-behavior: contain;
+}
+
+.phase1-wire__card {
+  flex: none;
+  padding: 13px;
+  border: 1px solid rgba(231, 178, 60, 0.16);
+  border-radius: 12px;
+  background: rgba(40, 27, 17, 0.58);
+}
+
+.phase1-wire__card p {
+  margin: 8px 0 0;
+  color: var(--body);
+  font: 400 14px / 1.55 var(--copy);
+  overflow-wrap: anywhere;
+}
+
+.phase1-wire__foot {
+  padding: 12px;
+  border-top: 1px solid rgba(231, 178, 60, 0.18);
+}
+
+.phase1-wire__dismiss {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--gold-bright);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #23140d;
+  font: 700 15px var(--display);
+  cursor: pointer;
+}
+
+.phase1-wire button:focus-visible,
+.phase1-wire-reopen:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 3px;
+}
+
+@media (max-width: 680px) {
+  .phase1-wire {
+    right: 12px;
+    width: calc(100vw - 24px);
+  }
+
+  .phase1-wire-reopen {
+    right: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phase1-wire,
+  .phase1-wire-reopen {
+    transition: none;
+  }
+}
+
+/* Phase-1 invite consent: a contained modal that reflows and scrolls inside itself at 200% zoom,
+   never widening the page. Targets stay at the 44px minimum and keep the shared focus outline. */
+.phase1-invite {
+  max-width: min(420px, calc(100vw - 48px));
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.phase1-invite p,
+.phase1-invite h2,
+.phase1-invite textarea {
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.phase1-invite textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+.phase1-invite button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.phase1-invite button:focus-visible,
+.phase1-invite textarea:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 3px;
+}
+
+.phase1-presence-status {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  z-index: 7;
+  max-width: min(420px, calc(100vw - 48px));
+  padding: 9px 13px;
+  border: 1px solid rgba(231, 178, 60, 0.35);
+  border-radius: 999px;
+  background: rgba(18, 12, 7, 0.78);
+  color: var(--body);
+  font: 600 12px / 1.4 var(--copy);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.phase1-signed-pulse-path {
+  animation: phase1-signed-pulse 900ms ease-out both;
+  outline: 2px solid #5cd8ff;
+  outline-offset: 4px;
+}
+
+.phase1-signed-pulse-path--static {
+  animation: none;
+  outline: 2px solid #5cd8ff;
+}
+
+@keyframes phase1-signed-pulse {
+  0% {
+    opacity: 0.72;
+    filter: brightness(1.25);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+.phase1-attribution {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;
+}
+
+.phase1-subtitle {
+  max-width: 46ch;
+  margin: 4px 0 0;
+  color: var(--body);
+  font: 400 14px / 1.55 var(--copy);
+  overflow-wrap: anywhere;
+}
+
+/* The static equivalent must target the class the scene renders, or the guarantee is dead. */
+@media (prefers-reduced-motion: reduce) {
+  .phase1-signed-pulse-path {
+    animation: none;
+    outline: 2px solid #5cd8ff;
   }
 }
 

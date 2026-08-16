@@ -1,0 +1,79 @@
+docs:
+  - path: docs/adr/0001-stack-and-runtime-topology.md
+    type: ADR
+  - path: docs/adr/0002-chat-and-voice-transport.md
+    type: ADR
+  - path: docs/adr/0003-character-data-and-avatar-builder.md
+    type: ADR
+  - path: docs/adr/0004-media-value-live-open-standards.md
+    type: ADR
+  - path: docs/adr/0005-voice-backends-hivetalk.md
+    type: ADR
+  - path: docs/adr/0006-colyseus-authoritative-realtime-boundary.md
+    type: ADR
+    precedence: 10
+  - path: docs/adr/0007-desktop-web-and-separate-mobile-apps.md
+    type: ADR
+  - path: docs/adr/0008-guild-lenses-and-palace-core.md
+    type: ADR
+  - path: docs/adr/0009-public-realtime-street.md
+    type: ADR
+    precedence: 0
+  - path: docs/adr/README.md
+    type: DOC
+
+  - path: docs/AVATAR-PIPELINE.md
+    type: SPEC
+  - path: docs/CITADEL-INTEGRATION.md
+    type: SPEC
+  - path: docs/FRONTEND-HANDOVER.md
+    type: DOC
+  - path: docs/GAME-LOOP.md
+    type: PRD
+  - path: docs/GUILD-ECONOMY.md
+    type: SPEC
+  - path: docs/HOME-TOWN.md
+    type: PRD
+  - path: docs/PALACE-CORE.md
+    type: SPEC
+  - path: docs/PALACE-INTERFACE-CONCEPTS.md
+    type: PRD
+  - path: docs/REVIT-EXPORT.md
+    type: DOC
+  - path: docs/STREET-HANDOFF.md
+    type: DOC
+    precedence: 50
+  - path: docs/STREET-LEVEL-PLAN.md
+    type: SPEC
+    precedence: 0
+  - path: docs/VERDICHTEN-BRIEF.md
+    type: SPEC
+  - path: docs/assets/intro-kerni-grok.md
+    type: DOC
+  - path: docs/assets/menu-keyart-openai.md
+    type: DOC
+
+  - path: docs/design/enshrouded-building-learning-automation.md
+    type: SPEC
+  - path: docs/design/fertile-boredom-social-art-loop.md
+    type: PRD
+  - path: docs/design/habitat-capability-system.md
+    type: SPEC
+    precedence: 0
+  - path: docs/design/hq-arrival-plaza-art-direction.md
+    type: DOC
+    precedence: 50
+  - path: docs/design/kerni-workshop-companion.md
+    type: SPEC
+  - path: docs/design/locktard-street-playable.md
+    type: SPEC
+    precedence: 0
+  - path: docs/design/moc-intro-tutorial-story.md
+    type: SPEC
+  - path: docs/design/palworld-low-time-preference-crafting.md
+    type: PRD
+  - path: docs/design/private-to-palace-asset-concept.md
+    type: PRD
+  - path: docs/design/private-world-builder-loop.md
+    type: DOC
+    precedence: 50

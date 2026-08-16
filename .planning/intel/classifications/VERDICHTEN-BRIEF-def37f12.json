@@ -1,0 +1,27 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/VERDICHTEN-BRIEF.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Verdichten-Brief — audit the Werkstattgasse street, then compact & beautify",
+  "summary": "Specifies a two-phase audit, compaction, and beautification pass for Werkstattgasse while preserving collider alignment, physics boundaries, mobile performance, and production verification.",
+  "scope": [
+    "Werkstattgasse",
+    "street world",
+    "plaza",
+    "workshop",
+    "colliders",
+    "palisade",
+    "vegetation",
+    "dusk lighting",
+    "mobile performance"
+  ],
+  "cross_refs": [
+    "CLAUDE.md",
+    "docs/adr/0001-stack-and-runtime-topology.md",
+    "docs/STREET-LEVEL-PLAN.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

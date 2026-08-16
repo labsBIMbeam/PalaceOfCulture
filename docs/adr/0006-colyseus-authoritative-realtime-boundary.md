@@ -1,8 +1,9 @@
 # ADR 0006 — Colyseus authoritative realtime boundary
 
-- **Status:** Accepted
+- **Status:** Partially superseded by ADR 0009
 - **Date:** 2026-07-09
 - **Builds on:** [ADR 0001](0001-stack-and-runtime-topology.md)
+- **Retained:** ADR 0009 keeps every boundary below except the initial `hq` world target
 
 ## Context
 

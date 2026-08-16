@@ -1,7 +1,8 @@
 # Enshrouded reference — building is learning, workshops become autonomous
 
-Status: companion reference to `palworld-low-time-preference-crafting.md` for the Tuesday
-2026-07-21 Locktard Street demo and the long-term builder game.
+Status: companion reference for the Tuesday 2026-07-21 Locktard Street demo and the long-term
+builder game. The social-crafting reference links here; this document does not link back so the
+planning dependency graph remains acyclic.
 
 ## Reference boundary
 

@@ -1,0 +1,23 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/CITADEL-INTEGRATION.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Citadel Resources integration — knowledge becomes a playable guild commons",
+  "summary": "Specifies how Citadel Resources exports versioned guild charters, activities, and curations for validated, keyless, provenance-preserving ingestion into the Palace.",
+  "scope": [
+    "Citadel Resources",
+    "Palace Core",
+    "guild charters",
+    "Activities",
+    "provider catalog",
+    "GVCS",
+    "world proxies",
+    "SQLite",
+    "V4V"
+  ],
+  "cross_refs": ["apps/web/public/village/CREDITS.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

@@ -1,0 +1,22 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/PALACE-INTERFACE-CONCEPTS.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Palace interface concepts — four evaluation rounds",
+  "summary": "Evaluates social interface concepts and recommends Palace Prism, Bell Mode, Guild Quarters, Arcane integration, migration order, prototypes, and decision gates.",
+  "scope": [
+    "Palace Prism",
+    "Guild Lens",
+    "Bell Mode",
+    "Guild Quarters",
+    "Session continuity",
+    "PalaceShell",
+    "Arcane Games",
+    "interface prototypes"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

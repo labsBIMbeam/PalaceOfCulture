@@ -1,0 +1,21 @@
+{
+  "source_path": "/home/flx/Nextcloud/workspace/20_PROJECTS/PalaceOfCulture/docs/design/moc-intro-tutorial-story.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "MoC Intro, First Raid, and V4V Story",
+  "summary": "Specifies canonical intro copy, family-safe slapstick, cooperative first-raid checkpoints, voluntary contribution framing, Kerni authority limits, and runtime acceptance criteria.",
+  "scope": [
+    "intro cards",
+    "Kerni",
+    "Locktard Street",
+    "first raid",
+    "Value for Value",
+    "tutorial runtime",
+    "acceptance contract"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
