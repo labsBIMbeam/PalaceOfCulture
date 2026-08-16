@@ -69,7 +69,10 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
           preload="metadata"
           ref={videoRef}
           src="/intro.mp4"
-        />
+        >
+          {/* The film has no dialogue; the captions transcribe its sound design (design doc §Sound). */}
+          <track default kind="captions" label="English" src="/intro.vtt" srcLang="en" />
+        </video>
       )}
       {!showCards ? (
         <div className="intro-controls">
