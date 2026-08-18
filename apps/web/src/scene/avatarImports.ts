@@ -48,6 +48,9 @@ const MEMBER_MODEL_IDS = [
   "arbadacarba",
   "bam",
   "benarc",
+  // bk / tal / mtoshi: raw Meshy meshes bound to the shared skeleton via donor weight
+  // transfer (tooling/scripts/rig_join_character.py) — the cuddy route, scripted.
+  "bk",
   "blackcoffee",
   // cuddy: the join.600.wtf squirrel mesh, bound to the shared skeleton in-session
   // (nearest-bone + smoothed weights; the site mesh ships unrigged) — see PR notes.
@@ -72,6 +75,8 @@ const MEMBER_MODEL_IDS = [
   "sat",
   "shillie",
   "snick",
+  "tal",
+  "mtoshi",
   "tobo",
   "tonichina",
 ] as const;
