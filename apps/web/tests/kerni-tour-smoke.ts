@@ -75,4 +75,22 @@ assert(
   JSON.stringify(kerni?.lines) === JSON.stringify(KERNI_CREW_TOUR.map((step) => step.line)),
 );
 
+// Arrival is scripted: the street's first visit hands the camera to Kerni automatically —
+// once per device behind the arrival key — and the workshop perch keeps the rerun.
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { KERNI_ARRIVAL_SEEN_KEY } from "../src/scene/streetCast";
+
+assert("the arrival key is versioned", KERNI_ARRIVAL_SEEN_KEY === "600b:kerniArrival:v1");
+const sceneSource = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../src/scene/PalaceScene.tsx"),
+  "utf8",
+);
+assert(
+  "arrival starts the tour behind the once-per-device key",
+  sceneSource.includes("KERNI_ARRIVAL_SEEN_KEY") &&
+    /setDialog\(\{\s*speaker: "Kerni",\s*lines: KERNI_CREW_TOUR/.test(sceneSource),
+);
+
 console.log("kerni-tour-smoke: all assertions passed");

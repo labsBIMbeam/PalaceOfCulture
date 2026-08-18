@@ -103,7 +103,7 @@ import { BuilderWorld } from "./homebuilder/BuilderWorld";
 import { MagnetRig } from "./homebuilder/MagnetRig";
 import { INTERACTABLES, type Interactable } from "./interactables";
 import { scanBeamsActive } from "./scanBeams";
-import { KERNI_CREW_TOUR } from "./streetCast";
+import { KERNI_ARRIVAL_SEEN_KEY, KERNI_CREW_TOUR } from "./streetCast";
 import {
   TRAVEL_LABEL,
   TRAVEL_PENDING_TITLE,
@@ -1247,6 +1247,31 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   }, [dialog, touchUi, advanceDialog]);
   // While the tour names a crew, its station beacon pulses (null steps: Kerni to camera).
   const tourCrew = dialog?.tour ? (KERNI_CREW_TOUR[dialog.index]?.crew ?? null) : null;
+  // Arrival on the street is scripted (FLX 2026-08-18): a moment after the world settles,
+  // Kerni takes over and runs the crew tour by himself — once per device, panels folded away
+  // so the street is what you watch. Skipping is one tap; the perch keeps the rerun.
+  useEffect(() => {
+    if (world !== "street" || mode !== "walk") return;
+    try {
+      if (localStorage.getItem(KERNI_ARRIVAL_SEEN_KEY) === "1") return;
+    } catch {
+      return;
+    }
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(KERNI_ARRIVAL_SEEN_KEY, "1");
+      } catch {}
+      setWireOpen(false);
+      setMocOpen(false);
+      setDialog({
+        speaker: "Kerni",
+        lines: KERNI_CREW_TOUR.map((step) => step.line),
+        index: 0,
+        tour: true,
+      });
+    }, 2600);
+    return () => clearTimeout(timer);
+  }, [world, mode]);
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
 
