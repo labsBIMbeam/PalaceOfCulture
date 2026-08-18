@@ -27,14 +27,16 @@ const server = createServer((request, response) => {
   const report = describeRequest(request.socket.remoteAddress, forwardedFor, request.headers);
 
   process.stdout.write(report);
-  response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+  response.writeHead(200, {
+    "content-type": "text/plain; charset=utf-8",
+    "cache-control": "no-store",
+  });
   response.end(report);
 });
 
 server.listen(port, "127.0.0.1", () => {
   process.stdout.write(
-    `[fips] probe listening on http://127.0.0.1:${port} — route an edge path here, then load it\n` +
-      "[fips] Ctrl+C to stop\n\n",
+    `[fips] probe listening on http://127.0.0.1:${port} — route an edge path here, then load it\n[fips] Ctrl+C to stop\n\n`,
   );
 });
 
