@@ -8,11 +8,17 @@
 
 import { useFrame } from "@react-three/fiber";
 import { Suspense, useRef, useState } from "react";
-import type * as THREE from "three";
+import * as THREE from "three";
 import { MEMBERS } from "../ui/members";
 import { AvatarView } from "./AvatarView";
 import { mulberry32 } from "./rand";
-import { CREW_STATIONS, type CastEntry, type CrewStation, STREET_CAST } from "./streetCast";
+import {
+  CREW_STATIONS,
+  type CastEntry,
+  type CrewId,
+  type CrewStation,
+  STREET_CAST,
+} from "./streetCast";
 
 const MEMBER_BY_NAME = new Map(MEMBERS.map((member) => [member.name, member]));
 
@@ -440,6 +446,43 @@ export function StreetCastView() {
           </group>
         );
       })}
+    </group>
+  );
+}
+
+/** The tour spotlight: while Kerni introduces a crew, its station carries a pulsing ring +
+ *  a soft light column in the affinity accent (brand-fixed colors, 600b-design-laws). Pure
+ *  presence-layer VFX — additive, no shadows, no state. */
+export function TourBeacon({ crew }: { crew: CrewId }) {
+  const station = CREW_STATIONS.find((entry) => entry.id === crew);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const columnRef = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    const pulse = 0.72 + Math.sin(clock.elapsedTime * 3.2) * 0.28;
+    if (ringRef.current) {
+      ringRef.current.scale.setScalar(1 + (1 - pulse) * 0.35);
+      (ringRef.current.material as THREE.MeshBasicMaterial).opacity = 0.55 * pulse;
+    }
+    if (columnRef.current) {
+      (columnRef.current.material as THREE.MeshBasicMaterial).opacity = 0.16 * pulse;
+    }
+  });
+  if (!station) return null;
+  return (
+    <group position={[station.position[0], 0, station.position[1]]}>
+      <mesh position={[0, 0.06, 0]} ref={ringRef} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[1.7, 2.15, 40]} />
+        <meshBasicMaterial color={station.accent} depthWrite={false} transparent />
+      </mesh>
+      <mesh position={[0, 3.1, 0]} ref={columnRef}>
+        <cylinderGeometry args={[1.05, 1.45, 6.2, 20, 1, true]} />
+        <meshBasicMaterial
+          color={station.accent}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
     </group>
   );
 }

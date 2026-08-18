@@ -49,6 +49,21 @@ declare module "ecctrl" {
   const Ecctrl: ForwardRefExoticComponent<EcctrlProps & RefAttributes<RapierRigidBody>>;
   export default Ecctrl;
 
+  /** The on-screen mobile joystick (own overlay canvas outside the scene). It feeds the same
+   *  useJoystickControls store the controller reads, so no extra wiring is needed. Declared
+   *  here for the same reason as Ecctrl above — the published types drag library source into
+   *  our strict tsc run. Only the props we use. */
+  export interface EcctrlJoystickProps {
+    /** Number of on-screen action buttons (0 = movement stick only). */
+    buttonNumber?: number;
+    joystickBaseProps?: Record<string, unknown>;
+    joystickStickProps?: Record<string, unknown>;
+    joystickHandleProps?: Record<string, unknown>;
+  }
+  export const EcctrlJoystick: ForwardRefExoticComponent<
+    EcctrlJoystickProps & RefAttributes<HTMLDivElement>
+  >;
+
   // The built-in animation/game store. Names map canonical locomotion states → clip names; the
   // controller sets `curAnimation` to the matching value as the player moves.
   export type AnimationSet = {

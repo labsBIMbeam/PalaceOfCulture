@@ -7,7 +7,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { KERNI_BRIDGE_LINES, STREET_CAST } from "../../apps/web/src/scene/streetCast";
+import { KERNI_CREW_TOUR, STREET_CAST } from "../../apps/web/src/scene/streetCast";
 import { MEMBERS } from "../../apps/web/src/ui/members";
 
 interface VoiceLine {
@@ -29,8 +29,8 @@ const lines: VoiceLine[] = STREET_CAST.flatMap((entry) =>
     text,
   })),
 );
-KERNI_BRIDGE_LINES.forEach((text, index) => {
-  lines.push({ file: `kerni-${index + 1}`, speaker: "Kerni", gender: "familiar", text });
+KERNI_CREW_TOUR.forEach((step, index) => {
+  lines.push({ file: `kerni-${index + 1}`, speaker: "Kerni", gender: "familiar", text: step.line });
 });
 
 const out = resolve(dirname(fileURLToPath(import.meta.url)), "lines.json");
