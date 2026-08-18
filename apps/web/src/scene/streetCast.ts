@@ -285,3 +285,73 @@ export const KERNI_BRIDGE_LINES: ReadonlyArray<string> = [
   "Everything the crews just taught you — Power, Bitcoin, Keys, Signal, Timelock — it's all in the deck.",
   "Sit down, I'll deal. First match is practice: no standing, no stake, just you and me.",
 ];
+
+// --- Kerni's crew tour -----------------------------------------------------------------
+// FLX 2026-08-17: "man redet mit kerni und der rest ist automatisch" — one talk with the
+// raccoon and the whole cast gets introduced. The dialogue advances on its own (the tour is
+// scripted, not stepped), and while a crew is being introduced its station beacon pulses in
+// the affinity color so the player's eyes follow the words. The affinity philosophies stay
+// in the rulebook's words (600b-design-laws §2); station order follows the demo route
+// Spawn → Plaza → Foundation → Market.
+
+export interface KerniTourStep {
+  /** Station to light while this line plays (null: Kerni talking to camera). */
+  crew: CrewId | null;
+  line: string;
+}
+
+export const KERNI_CREW_TOUR: ReadonlyArray<KerniTourStep> = [
+  { crew: null, line: "New face! Perfect timing. Raccoon tour: five crews, one street." },
+  {
+    crew: null,
+    line: "Everything here runs on five moods. Watch the lights — I'll point, you remember.",
+  },
+  {
+    crew: "signal",
+    line: "Purple, by the antenna mast: SIGNAL. That's dni's crew — beacons, invites, hellos.",
+  },
+  {
+    crew: "signal",
+    line: "Signal makes people legible to each other — no platform in the middle. Wave sometime.",
+  },
+  {
+    crew: "bitcoin",
+    line: "Orange hum at the node rack: BITCOIN. michael1011 keeps every block honest.",
+  },
+  {
+    crew: "bitcoin",
+    line: "Patient verification into durable coordination. Verify first, then trust. Works here too.",
+  },
+  {
+    crew: "keys",
+    line: "The pale cabinet: KEYS. benarc keeps nobody's keys — he teaches you to keep your own.",
+  },
+  {
+    crew: "keys",
+    line: "Your keys, your name, your stuff. Nobody can help you lose them, nobody can stop you with them.",
+  },
+  {
+    crew: "power",
+    line: "Gold panels catching the last sun: POWER. proton's crew feeds the street real watts.",
+  },
+  {
+    crew: "power",
+    line: "Energy is honest work — half these lamps burn because somebody routed for it.",
+  },
+  {
+    crew: "timelock",
+    line: "And the teal clock: TIMELOCK. longy thinks in decades and keeps winning.",
+  },
+  {
+    crew: "timelock",
+    line: "Timelock delays the easy move to preserve the stronger move. The plaza foundation grows the same way.",
+  },
+  {
+    crew: null,
+    line: "That's the street. Raid 01 starts at the Leviathan ring — place a part, get answered.",
+  },
+  {
+    crew: null,
+    line: "And when you're ready: cards on the table. First match is practice — just you and me.",
+  },
+];

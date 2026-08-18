@@ -6006,3 +6006,32 @@ input.compose-input::placeholder {
   color: #f7931a;
   font-size: 11px;
 }
+
+/* ---- Touch-first street (html.touch-ui, stamped at boot from pointer:coarse) ----
+   The mobile street is walking + auto-dialogue: desktop chrome (panels, feeds, keyboard
+   hints) disappears, the interact prompt grows to thumb size, and the ecctrl joystick
+   carries movement. The status chip stays — it is presence truth, not a menu. */
+html.touch-ui .moc-path,
+html.touch-ui .moc-path-tab,
+html.touch-ui .chat-panel,
+html.touch-ui .media-player,
+html.touch-ui .phase1-wire,
+html.touch-ui .phase1-wire-reopen,
+html.touch-ui .engine-actions,
+html.touch-ui .fp-hint {
+  display: none !important;
+}
+
+html.touch-ui .interact-key {
+  display: none;
+}
+
+html.touch-ui .interact-prompt {
+  padding: 14px 24px;
+  font-size: 15px;
+}
+
+html.touch-ui .interact-dialog .interact-close {
+  min-height: 44px;
+  min-width: 120px;
+}

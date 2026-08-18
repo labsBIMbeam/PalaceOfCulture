@@ -7,7 +7,7 @@
 
 import { PLAZA_CENTRE, PLAZA_WELL, YOUNG_TREE } from "./Plaza";
 import { WORKSHOP_CENTRE } from "./Workshop";
-import { KERNI_BRIDGE_LINES, STREET_CAST } from "./streetCast";
+import { KERNI_CREW_TOUR, STREET_CAST } from "./streetCast";
 import { SHIP_DOCK } from "./streetLayout";
 
 export type InteractKind = "door" | "npc" | "object";
@@ -35,6 +35,8 @@ export interface Interactable {
   speaker?: string;
   /** NPC dialog: full line sequence (leads step through with Next); wins over `message`. */
   lines?: string[];
+  /** Scripted tour: the dialog advances by itself and each step can light a crew station. */
+  tour?: boolean;
 }
 
 // HQ: spawn is ~[6,4,44]; the growing tree sits at [-7,0,40], the asset shelf at z≈52.
@@ -144,8 +146,9 @@ export const INTERACTABLES: Interactable[] = [
       lines: [...entry.lines],
     }),
   ),
-  // Kerni's bridge speech at the familiar's workshop perch — it points the player at the
-  // table above; the table interactable itself opens the real match.
+  // Kerni's crew tour at the familiar's workshop perch — one talk and the raccoon introduces
+  // every crew, hands-free: the lines advance on their own and the station beacons follow
+  // (FLX 2026-08-17). The tour ends on the same practice-table bridge the old speech carried.
   // (StreetWorld places the familiar at [-27.5, 93]; keep in sync if the perch moves.)
   {
     id: "kerni-bridge",
@@ -154,8 +157,9 @@ export const INTERACTABLES: Interactable[] = [
     radius: 3.4,
     kind: "npc",
     label: "Talk to Kerni",
-    message: KERNI_BRIDGE_LINES[0] ?? "",
+    message: KERNI_CREW_TOUR[0]?.line ?? "",
     speaker: "Kerni",
-    lines: [...KERNI_BRIDGE_LINES],
+    lines: KERNI_CREW_TOUR.map((step) => step.line),
+    tour: true,
   },
 ];

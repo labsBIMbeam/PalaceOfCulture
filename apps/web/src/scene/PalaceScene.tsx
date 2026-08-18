@@ -9,12 +9,13 @@ import {
   RigidBody,
   useRapier,
 } from "@react-three/rapier";
-import Ecctrl from "ecctrl";
+import Ecctrl, { EcctrlJoystick } from "ecctrl";
 import { Leva } from "leva";
 import {
   type MutableRefObject,
   type RefObject,
   Suspense,
+  useCallback,
   useEffect,
   useMemo,
   useReducer,
@@ -83,6 +84,7 @@ import { DecorPicker } from "../ui/DecorPicker";
 import { MeaningPath } from "../ui/MeaningPath";
 import { MediaPlayer } from "../ui/MediaPlayer";
 import { Phase1RelayOverlay } from "../ui/Phase1RelayOverlay";
+import { isCoarsePointer } from "../ui/touch";
 import { AvatarView } from "./AvatarView";
 import { DecorItem } from "./DecorItem";
 import { GrowableObject } from "./GrowableObject";
@@ -91,6 +93,7 @@ import { PalaceTeaser } from "./PalaceTeaser";
 import { streetPoseTargets } from "./Plaza";
 import { GrowingTree, PlotAssets } from "./PlotAssets";
 import { Atmosphere, PostFx } from "./SceneFx";
+import { TourBeacon } from "./StreetCastView";
 import { StreetColliders } from "./StreetColliders";
 import { STREET_GROUND, STREET_SPAWN as STREET_SPAWN_POINT, StreetWorld } from "./StreetWorld";
 import { findImport, importUrl } from "./avatarImports";
@@ -100,6 +103,7 @@ import { BuilderWorld } from "./homebuilder/BuilderWorld";
 import { MagnetRig } from "./homebuilder/MagnetRig";
 import { INTERACTABLES, type Interactable } from "./interactables";
 import { scanBeamsActive } from "./scanBeams";
+import { KERNI_CREW_TOUR } from "./streetCast";
 import {
   TRAVEL_LABEL,
   TRAVEL_PENDING_TITLE,
@@ -1218,15 +1222,31 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     speaker: string | null;
     lines: string[];
     index: number;
+    /** Scripted tours (Kerni's crew intro) advance hands-free and drive the station beacons. */
+    tour?: boolean;
   } | null>(null);
   const dialogRef = useRef<typeof dialog>(null);
   dialogRef.current = dialog;
-  const advanceDialog = () =>
-    setDialog((current) =>
-      current && current.index < current.lines.length - 1
-        ? { ...current, index: current.index + 1 }
-        : null,
-    );
+  const advanceDialog = useCallback(
+    () =>
+      setDialog((current) =>
+        current && current.index < current.lines.length - 1
+          ? { ...current, index: current.index + 1 }
+          : null,
+      ),
+    [],
+  );
+  // Touch keeps dialogue hands-free (the mobile street is walking + auto-dialogue): lines
+  // advance on their own — paced for the generated VO — and the last line closes itself.
+  const touchUi = useMemo(isCoarsePointer, []);
+  useEffect(() => {
+    if (!dialog || !(touchUi || dialog.tour)) return;
+    const last = dialog.index >= dialog.lines.length - 1;
+    const timer = setTimeout(advanceDialog, last ? 7000 : 5500);
+    return () => clearTimeout(timer);
+  }, [dialog, touchUi, advanceDialog]);
+  // While the tour names a crew, its station beacon pulses (null steps: Kerni to camera).
+  const tourCrew = dialog?.tour ? (KERNI_CREW_TOUR[dialog.index]?.crew ?? null) : null;
   const activeRef = useRef<Interactable | null>(null);
   activeRef.current = activeInteract;
 
@@ -1296,7 +1316,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setTcgOpen(true);
     } else {
       const lines = item.lines?.length ? item.lines : [item.message];
-      setDialog({ speaker: item.speaker ?? null, lines, index: 0 });
+      setDialog({ speaker: item.speaker ?? null, lines, index: 0, tour: item.tour === true });
     }
   };
 
@@ -1723,6 +1743,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
                   presenceAccepted={attentivePresence.presenceAccepted}
                   reducedEffects={reducedEffects}
                 />
+                {tourCrew ? <TourBeacon crew={tourCrew} /> : null}
                 <SignedPulseEffect delta={signedPulseDelta} reducedEffects={reducedEffects} />
                 {phase1Complete ? (
                   <MeaningShip
@@ -1905,6 +1926,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
             transport={multiplayerSession.transport}
           />
         </div>
+      ) : null}
+      {touchUi && mode === "walk" && !posed ? (
+        // The on-screen stick IS the mobile street: walk, bump into a mentor, tap the prompt,
+        // let the dialogue run. No action buttons — E lives on the tappable prompt itself.
+        <EcctrlJoystick buttonNumber={0} />
       ) : null}
       {mode === "walk" ? (
         <div className="fp-hint">
