@@ -73,10 +73,17 @@ export const FICTIONAL_WIRE_CARDS: readonly FictionalWireCard[] = [
 
 /**
  * Skip never erases the canon: skipping the decorative video lands on the story cards; only
- * skipping from the cards leaves the intro. The bite, Kerni, and the Street survive every path.
+ * skipping from the cards leaves the intro. FLX 2026-08-18: the film IS the intro — ending or
+ * skipping it walks straight in; the story cards remain the no-media fallback (video error),
+ * so the bite, Kerni, and the Street still survive every path.
  */
 export function introSkipTarget(phase: "video" | "cards"): "cards" | "complete" {
-  return phase === "video" ? "cards" : "complete";
+  return phase === "video" ? "complete" : "complete";
+}
+
+/** A failed video falls back to the canonical story cards — canon never depends on media. */
+export function introErrorTarget(): "cards" {
+  return "cards";
 }
 
 export type TutorialStageId = "enter" | "create" | "place" | "invite" | "co_create";

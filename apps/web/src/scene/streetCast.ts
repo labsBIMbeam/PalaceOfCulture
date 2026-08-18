@@ -300,6 +300,10 @@ export interface KerniTourStep {
   line: string;
 }
 
+/** First arrival on the street is scripted (FLX 2026-08-18): Kerni takes over and runs the
+ *  crew tour by himself. Once per device — the workshop perch keeps the rerun. */
+export const KERNI_ARRIVAL_SEEN_KEY = "600b:kerniArrival:v1";
+
 export const KERNI_CREW_TOUR: ReadonlyArray<KerniTourStep> = [
   { crew: null, line: "New face! Perfect timing. Raccoon tour: five crews, one street." },
   {

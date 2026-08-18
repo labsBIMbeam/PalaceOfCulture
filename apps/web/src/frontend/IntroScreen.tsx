@@ -3,9 +3,9 @@ import { INTRO_CARDS } from "../meaningverse/onboardingStory";
 import { Icon } from "./icons";
 
 /**
- * Skippable intro video followed by three canonical story cards. A video error — and the Skip
- * button itself — goes to the same cards, so the family-slapstick bite, Kerni reveal, and
- * Locktard Street facts never depend on media and cannot be bypassed by the reflexive first tap.
+ * The film IS the intro (FLX 2026-08-18): ending it — or the Skip button — walks straight into
+ * the game. The three canonical story cards remain solely the NO-MEDIA fallback (video error),
+ * so the family-slapstick bite, Kerni reveal, and Locktard Street facts never depend on media.
  * The video carries sound: it plays only after the "Enter MoC" click, so unmuted autoplay is
  * within policy; where a browser still blocks it, clicking the video starts playback.
  */
@@ -21,6 +21,11 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
 
   // Fallback: if a browser blocks unmuted autoplay, clicking the video starts it.
   const resume = () => videoRef.current?.play().catch(() => {});
+
+  const finish = () => {
+    videoRef.current?.pause();
+    onComplete();
+  };
 
   const openCards = () => {
     videoRef.current?.pause();
@@ -59,11 +64,11 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
       ) : (
         // biome-ignore lint/a11y/useKeyWithClickEvents: the Skip button is the keyboard path
         <video
-          aria-label="Decorative Kerni intro with sound. The canonical bite and reveal continue in the story cards. Skip to continue."
+          aria-label="Kerni intro film with sound. Ending or skipping it enters the game; if the film cannot play, the story cards carry the canon."
           autoPlay
           className="intro-video"
           onClick={resume}
-          onEnded={openCards}
+          onEnded={finish}
           onError={openCards}
           playsInline
           preload="metadata"
@@ -76,8 +81,8 @@ export function IntroScreen({ onComplete }: { onComplete: () => void }) {
       )}
       {!showCards ? (
         <div className="intro-controls">
-          <button className="intro-button" onClick={openCards} type="button">
-            Skip video
+          <button className="intro-button" onClick={finish} type="button">
+            Skip intro
             <Icon name="play" size={14} />
           </button>
         </div>

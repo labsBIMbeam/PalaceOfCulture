@@ -29,6 +29,7 @@ import {
   TUTORIAL,
   TUTORIAL_STAGE_LABELS,
   TUTORIAL_STAGE_ORDER,
+  introErrorTarget,
   introSkipTarget,
   tutorialStageFor,
   tutorialStepNumber,
@@ -165,21 +166,25 @@ assert.ok(
   "the culture line must survive runtime copy",
 );
 
-// Video skip never erases the canon. Story cards have no second skip control, so a click racing
-// the video-ended transition cannot leave the intro.
-assert.equal(introSkipTarget("video"), "cards");
+// The film IS the intro (FLX 2026-08-18): ending or skipping it walks straight in. The
+// canonical story cards remain reachable on exactly one path — a video ERROR — so the canon
+// still never depends on media, and the cards keep their single click-through with no second
+// skip control to race.
+assert.equal(introSkipTarget("video"), "complete");
+assert.equal(introSkipTarget("cards"), "complete");
+assert.equal(introErrorTarget(), "cards");
 const introScreenSource = readFileSync(resolve(webRoot, "src/frontend/IntroScreen.tsx"), "utf8");
 assert.ok(
-  introScreenSource.includes("onClick={openCards}"),
-  "the only intro skip control must open the canonical story cards",
+  introScreenSource.includes("onEnded={finish}") && introScreenSource.includes("onClick={finish}"),
+  "the film's end and the skip button must walk straight into the game",
+);
+assert.ok(
+  introScreenSource.includes("onError={openCards}"),
+  "a failed video must still fall back to the canonical story cards",
 );
 assert.ok(
   !introScreenSource.includes('"Skip story"'),
-  "story cards must not reuse the video-skip button and permit a transition-race bypass",
-);
-assert.ok(
-  !introScreenSource.includes("onClick={onComplete}"),
-  "no intro button may exit the intro directly and bypass the story cards",
+  "story cards must not gain a second skip control",
 );
 
 const godotIntroSource = readFileSync(
