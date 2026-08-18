@@ -25,13 +25,14 @@ for (const [name, role] of Object.entries(EXPECTED_ROLES)) {
   assert.equal(member.role, role, `${name} carries the 600.wtf role ${role}`);
 }
 
-// Three of the newest members have no rigged model yet — they wear the shared placeholder.
+// The rig pipeline ran for the last three members (tooling/scripts/rig_join_character.py):
+// everyone in the roster wears their OWN model now — nobody falls back to the placeholder.
 for (const name of ["tal", "bk", "mtoshi"]) {
   const member = MEMBERS.find((m) => m.name === name);
   assert.equal(
     member?.avatar.modelUrl,
-    "/avatar/imported/placeholder.glb",
-    `${name} wears the placeholder until the rig pipeline runs`,
+    `/avatar/imported/${name}.glb`,
+    `${name} wears their own rigged model`,
   );
 }
 // cuddy's squirrel came off the pipeline (site mesh bound to the shared skeleton).
