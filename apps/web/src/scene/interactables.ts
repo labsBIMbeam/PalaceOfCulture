@@ -7,7 +7,7 @@
 
 import { PLAZA_CENTRE, PLAZA_WELL, YOUNG_TREE } from "./Plaza";
 import { WORKSHOP_CENTRE } from "./Workshop";
-import { KERNI_CREW_TOUR, STREET_CAST } from "./streetCast";
+import { KERNI_ARRIVAL_SCRIPT, STREET_CAST } from "./streetCast";
 import { SHIP_DOCK } from "./streetLayout";
 
 export type InteractKind = "door" | "npc" | "object";
@@ -37,6 +37,10 @@ export interface Interactable {
   lines?: string[];
   /** Scripted tour: the dialog advances by itself and each step can light a crew station. */
   tour?: boolean;
+  /** Per-line speaker override (the arrival conversation switches voices mid-dialog). */
+  speakers?: string[];
+  /** Per-line VO file stem under /vo/cast (wins over the speaker-index convention). */
+  voFiles?: string[];
 }
 
 // HQ: spawn is ~[6,4,44]; the growing tree sits at [-7,0,40], the asset shelf at z≈52.
@@ -157,9 +161,11 @@ export const INTERACTABLES: Interactable[] = [
     radius: 3.4,
     kind: "npc",
     label: "Talk to Kerni",
-    message: KERNI_CREW_TOUR[0]?.line ?? "",
+    message: KERNI_ARRIVAL_SCRIPT[0]?.line ?? "",
     speaker: "Kerni",
-    lines: KERNI_CREW_TOUR.map((step) => step.line),
+    lines: KERNI_ARRIVAL_SCRIPT.map((step) => step.line),
+    speakers: KERNI_ARRIVAL_SCRIPT.map((step) => step.speaker),
+    voFiles: KERNI_ARRIVAL_SCRIPT.map((step) => step.vo),
     tour: true,
   },
 ];

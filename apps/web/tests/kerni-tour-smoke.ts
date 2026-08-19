@@ -4,7 +4,14 @@
 // the practice-table bridge. The interactable carries the script verbatim and is marked `tour`.
 
 import { INTERACTABLES } from "../src/scene/interactables";
-import { CREW_STATIONS, type CrewId, KERNI_CREW_TOUR, STREET_CAST } from "../src/scene/streetCast";
+import {
+  type ArrivalStep,
+  CREW_STATIONS,
+  type CrewId,
+  KERNI_ARRIVAL_SCRIPT,
+  KERNI_CREW_TOUR,
+  STREET_CAST,
+} from "../src/scene/streetCast";
 
 function assert(name: string, condition: boolean): void {
   if (!condition) throw new Error(`FAIL: ${name}`);
@@ -67,12 +74,48 @@ for (const crew of ROUTE) {
 console.log("ok: every toured crew has a beacon station");
 
 // The Kerni interactable carries the script verbatim, hands-free.
+// The arrival conversation: Kerni announces, the staged lead answers with their own first
+// cast line, Kerni lands the philosophy. Generated from tour + cast, so drift is impossible.
+assert(
+  "the conversation is the tour plus one lead greeting per crew",
+  KERNI_ARRIVAL_SCRIPT.length === KERNI_CREW_TOUR.length + ROUTE.length,
+);
+for (const crew of ROUTE) {
+  const lead = STREET_CAST.find((entry) => entry.crew === crew && entry.role === "lead");
+  if (!lead) throw new Error(`FAIL: no lead for ${crew}`);
+  const step = KERNI_ARRIVAL_SCRIPT.find((s) => s.speaker === lead.member);
+  if (!step) throw new Error(`FAIL: ${lead.member} never speaks in the arrival`);
+  if (step.line !== lead.lines[0]) {
+    throw new Error(`FAIL: ${lead.member} must speak their own first cast line`);
+  }
+  if (step.vo !== `${lead.member.toLowerCase()}-1`) {
+    throw new Error(`FAIL: ${lead.member}'s VO stem must be their first line`);
+  }
+  const at = KERNI_ARRIVAL_SCRIPT.indexOf(step);
+  const before = KERNI_ARRIVAL_SCRIPT[at - 1];
+  const after = KERNI_ARRIVAL_SCRIPT[at + 1];
+  if (before?.speaker !== "Kerni" || after?.speaker !== "Kerni") {
+    throw new Error(`FAIL: Kerni must frame ${lead.member}'s greeting`);
+  }
+}
+console.log("ok: every crew lead answers inside Kerni's frame, voiced by their own line");
+// Kerni's VO numbering follows the TOUR order (the files tooling/street-cast-vo generated).
+const kerniSteps = KERNI_ARRIVAL_SCRIPT.filter((s: ArrivalStep) => s.speaker === "Kerni");
+assert(
+  "Kerni's VO stems stay aligned with the generated files",
+  kerniSteps.every((s, i) => s.vo === `kerni-${i + 1}`) &&
+    kerniSteps.length === KERNI_CREW_TOUR.length,
+);
+
 const kerni = INTERACTABLES.find((item) => item.id === "kerni-bridge");
 assert("Kerni's perch interactable exists", Boolean(kerni));
 assert("the Kerni talk is a scripted tour", kerni?.tour === true);
 assert(
-  "the interactable carries the tour script verbatim",
-  JSON.stringify(kerni?.lines) === JSON.stringify(KERNI_CREW_TOUR.map((step) => step.line)),
+  "the interactable carries the conversation verbatim",
+  JSON.stringify(kerni?.lines) === JSON.stringify(KERNI_ARRIVAL_SCRIPT.map((s) => s.line)) &&
+    JSON.stringify(kerni?.speakers) ===
+      JSON.stringify(KERNI_ARRIVAL_SCRIPT.map((s) => s.speaker)) &&
+    JSON.stringify(kerni?.voFiles) === JSON.stringify(KERNI_ARRIVAL_SCRIPT.map((s) => s.vo)),
 );
 
 // Arrival is scripted: the street's first visit hands the camera to Kerni automatically —
@@ -88,9 +131,9 @@ const sceneSource = readFileSync(
   "utf8",
 );
 assert(
-  "arrival starts the tour behind the once-per-device key",
+  "arrival starts the conversation behind the once-per-device key",
   sceneSource.includes("KERNI_ARRIVAL_SEEN_KEY") &&
-    /setDialog\(\{\s*speaker: "Kerni",\s*lines: KERNI_CREW_TOUR/.test(sceneSource),
+    /setDialog\(\{\s*speaker: "Kerni",\s*lines: KERNI_ARRIVAL_SCRIPT/.test(sceneSource),
 );
 
 console.log("kerni-tour-smoke: all assertions passed");
