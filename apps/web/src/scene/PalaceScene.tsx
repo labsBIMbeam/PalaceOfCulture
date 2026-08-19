@@ -103,7 +103,7 @@ import { BuilderWorld } from "./homebuilder/BuilderWorld";
 import { MagnetRig } from "./homebuilder/MagnetRig";
 import { INTERACTABLES, type Interactable } from "./interactables";
 import { scanBeamsActive } from "./scanBeams";
-import { KERNI_ARRIVAL_SEEN_KEY, KERNI_CREW_TOUR } from "./streetCast";
+import { KERNI_ARRIVAL_SCRIPT, KERNI_ARRIVAL_SEEN_KEY } from "./streetCast";
 import {
   TRAVEL_LABEL,
   TRAVEL_PENDING_TITLE,
@@ -1224,6 +1224,10 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     index: number;
     /** Scripted tours (Kerni's crew intro) advance hands-free and drive the station beacons. */
     tour?: boolean;
+    /** Per-line speaker (the arrival conversation switches voices mid-dialog). */
+    speakers?: string[];
+    /** Per-line VO stem under /vo/cast (wins over the speaker-index convention). */
+    voFiles?: string[];
   } | null>(null);
   const dialogRef = useRef<typeof dialog>(null);
   dialogRef.current = dialog;
@@ -1246,7 +1250,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
     return () => clearTimeout(timer);
   }, [dialog, touchUi, advanceDialog]);
   // While the tour names a crew, its station beacon pulses (null steps: Kerni to camera).
-  const tourCrew = dialog?.tour ? (KERNI_CREW_TOUR[dialog.index]?.crew ?? null) : null;
+  const tourCrew = dialog?.tour ? (KERNI_ARRIVAL_SCRIPT[dialog.index]?.crew ?? null) : null;
   // Arrival on the street is scripted (FLX 2026-08-18): a moment after the world settles,
   // Kerni takes over and runs the crew tour by himself — once per device, panels folded away
   // so the street is what you watch. Skipping is one tap; the perch keeps the rerun.
@@ -1265,9 +1269,11 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setMocOpen(false);
       setDialog({
         speaker: "Kerni",
-        lines: KERNI_CREW_TOUR.map((step) => step.line),
+        lines: KERNI_ARRIVAL_SCRIPT.map((step) => step.line),
         index: 0,
         tour: true,
+        speakers: KERNI_ARRIVAL_SCRIPT.map((step) => step.speaker),
+        voFiles: KERNI_ARRIVAL_SCRIPT.map((step) => step.vo),
       });
     }, 2600);
     return () => clearTimeout(timer);
@@ -1297,17 +1303,20 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
   };
   // Voice: each cast line ships as generated speech under /vo/cast (tooling/street-cast-vo).
   // Media stays decorative — a missing file simply plays nothing, the text is the canon.
-  const dialogSpeaker = dialog?.speaker ?? null;
   const dialogIndex = dialog?.index ?? 0;
+  const dialogSpeaker = dialog?.speakers?.[dialogIndex] ?? dialog?.speaker ?? null;
+  const dialogVoStem =
+    dialog?.voFiles?.[dialogIndex] ??
+    (dialogSpeaker ? `${dialogSpeaker.toLowerCase()}-${dialogIndex + 1}` : null);
   useEffect(() => {
-    if (!dialogSpeaker) return;
-    const audio = new Audio(`/vo/cast/${dialogSpeaker.toLowerCase()}-${dialogIndex + 1}.mp3`);
+    if (!dialogVoStem) return;
+    const audio = new Audio(`/vo/cast/${dialogVoStem}.mp3`);
     audio.volume = 0.9;
     audio.play().catch(() => {});
     return () => {
       audio.pause();
     };
-  }, [dialogSpeaker, dialogIndex]);
+  }, [dialogVoStem]);
 
   // Zap-on-meet: the nearest remote player in range whose handle maps to a roster lightning
   // identity (zapDirectory) may be zapped 21 sats. Identity stays out-of-band — the room only
@@ -1341,7 +1350,14 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       setTcgOpen(true);
     } else {
       const lines = item.lines?.length ? item.lines : [item.message];
-      setDialog({ speaker: item.speaker ?? null, lines, index: 0, tour: item.tour === true });
+      setDialog({
+        speaker: item.speaker ?? null,
+        lines,
+        index: 0,
+        tour: item.tour === true,
+        speakers: item.speakers,
+        voFiles: item.voFiles,
+      });
     }
   };
 
@@ -2006,7 +2022,7 @@ export function PalaceScene({ target, onExit, character, startInBuild }: PalaceS
       ) : null}
       {dialog ? (
         <div className="interact-dialog">
-          {dialog.speaker ? <strong className="interact-speaker">{dialog.speaker}</strong> : null}
+          {dialogSpeaker ? <strong className="interact-speaker">{dialogSpeaker}</strong> : null}
           <p>{dialog.lines[dialog.index]}</p>
           <button className="interact-close" onClick={advanceDialog} type="button">
             {dialog.index < dialog.lines.length - 1

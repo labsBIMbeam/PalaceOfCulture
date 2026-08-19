@@ -303,7 +303,6 @@ export interface KerniTourStep {
 /** First arrival on the street is scripted (FLX 2026-08-18): Kerni takes over and runs the
  *  crew tour by himself. Once per device — the workshop perch keeps the rerun. */
 export const KERNI_ARRIVAL_SEEN_KEY = "600b:kerniArrival:v1";
-
 export const KERNI_CREW_TOUR: ReadonlyArray<KerniTourStep> = [
   { crew: null, line: "New face! Perfect timing. Raccoon tour: five crews, one street." },
   {
@@ -359,3 +358,46 @@ export const KERNI_CREW_TOUR: ReadonlyArray<KerniTourStep> = [
     line: "And when you're ready: cards on the table. First match is practice — just you and me.",
   },
 ];
+
+// --- the arrival script: Kerni + the members, one conversation ---------------------------
+// FLX 2026-08-19: the guided entry carries the member dialogs too. Kerni announces a crew,
+// its staged LEAD answers with their own first cast line (the greetings were written for
+// exactly this moment), then Kerni lands the affinity philosophy. Generated from the tour
+// and the cast so the script can never drift from either; VO stems resolve to the files
+// tooling/street-cast-vo already generated (kerni-N follows the TOUR index, leads speak
+// their first line = <member>-1).
+
+export interface ArrivalStep {
+  /** Who the dialog header shows and whose voice file plays. */
+  speaker: string;
+  crew: CrewId | null;
+  line: string;
+  /** File stem under /vo/cast (without .mp3). */
+  vo: string;
+}
+
+function leadOf(crew: CrewId): CastEntry | undefined {
+  return STREET_CAST.find((entry) => entry.crew === crew && entry.role === "lead");
+}
+
+export const KERNI_ARRIVAL_SCRIPT: ReadonlyArray<ArrivalStep> = (() => {
+  const steps: ArrivalStep[] = [];
+  const introduced = new Set<CrewId>();
+  KERNI_CREW_TOUR.forEach((step, index) => {
+    steps.push({ speaker: "Kerni", crew: step.crew, line: step.line, vo: `kerni-${index + 1}` });
+    if (step.crew && !introduced.has(step.crew)) {
+      introduced.add(step.crew);
+      const lead = leadOf(step.crew);
+      const greeting = lead?.lines[0];
+      if (lead && greeting) {
+        steps.push({
+          speaker: lead.member,
+          crew: step.crew,
+          line: greeting,
+          vo: `${lead.member.toLowerCase()}-1`,
+        });
+      }
+    }
+  });
+  return steps;
+})();
