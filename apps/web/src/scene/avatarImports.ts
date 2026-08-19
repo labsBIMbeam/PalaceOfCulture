@@ -81,9 +81,11 @@ const MEMBER_MODEL_IDS = [
   "tonichina",
 ] as const;
 
-// The neutral hooded Builder archetype (avatar-builder-pilot v1, locally authored, beam-free core;
-// sha256 592a6a9d…8fcd4). Self-contained: BuilderIdle is baked in, and the shared pose GLB is
-// authored on the member rig, so no clipUrls — foreign clips would misbind on this skeleton.
+// The neutral hooded Builder archetype — THE BUILDER release v1 (600BillionCWO/avatar-exports/
+// the-builder-browsergame/release/v1, FLX-approved: hood + face void + two emissive eyes, no
+// armor/weapons). Assembled by tooling/scripts/build_builder_model.py: idle/walk/run baked into
+// one file (sha256 28a316a8…581f), so still no clipUrls — foreign clips would misbind on this
+// bespoke 24-joint skeleton.
 const BUILDER_IMPORT: AvatarImport = {
   id: "builder",
   label: "Builder",

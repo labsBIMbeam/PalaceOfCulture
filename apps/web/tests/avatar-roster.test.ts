@@ -18,7 +18,8 @@ const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // The approved pilot asset (avatar-builder-pilot v1) — core GLB, no beam geometry.
 const BUILDER_MODEL_URL = "/avatar/imported/builder.glb";
-const BUILDER_MODEL_SHA256 = "592a6a9d81f5910971b3999a80baf238a64b2ff566eb1a5f8cbee1f4a838fcd4";
+// THE BUILDER release v1 (idle/walk/run baked by tooling/scripts/build_builder_model.py).
+const BUILDER_MODEL_SHA256 = "28a316a837bc581f69691bf57e13f6f8366da2fca9fa1d2d013e62bc09f53e79";
 
 // The Builder leads the line-up: a neutral archetype is the default for anyone who is not (yet)
 // a 600.wtf member — youth enter as themselves, not as a recruit wearing someone else's name.
