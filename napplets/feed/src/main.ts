@@ -119,9 +119,17 @@ function render(root: HTMLElement): void {
     el("span", { class: "grow" }),
     status,
   ]);
-  const back = el("button", { class: "pager-step", type: "button", text: "‹" }) as HTMLButtonElement;
+  const back = el("button", {
+    class: "pager-step",
+    type: "button",
+    text: "‹",
+  }) as HTMLButtonElement;
   const mid = el("span", { class: "pager-mid" });
-  const forward = el("button", { class: "pager-step", type: "button", text: "›" }) as HTMLButtonElement;
+  const forward = el("button", {
+    class: "pager-step",
+    type: "button",
+    text: "›",
+  }) as HTMLButtonElement;
   const pager = el("nav", { class: "pager" }, [back, mid, forward]);
   pager.hidden = true;
   clear(root, bar, list, pager);
@@ -156,7 +164,10 @@ function render(root: HTMLElement): void {
     page = Math.min(page, pages - 1);
     const now = Date.now();
     const start = page * NOTES_PER_SCREEN;
-    clear(list, ...notes.slice(start, start + NOTES_PER_SCREEN).map((note) => renderNote(note, now)));
+    clear(
+      list,
+      ...notes.slice(start, start + NOTES_PER_SCREEN).map((note) => renderNote(note, now)),
+    );
     pager.hidden = pages <= 1;
     back.disabled = page === 0;
     forward.disabled = page >= pages - 1;
@@ -197,6 +208,7 @@ function render(root: HTMLElement): void {
 
 boot({
   requires: ["outbox"],
-  unavailable: "This feed reads notes through the shell's outbox service, which this runtime did not provide.",
+  unavailable:
+    "This feed reads notes through the shell's outbox service, which this runtime did not provide.",
   render,
 });

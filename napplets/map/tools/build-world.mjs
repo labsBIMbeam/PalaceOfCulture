@@ -15,8 +15,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SOURCE =
-  process.argv[2] ?? "G:/Github/PalaceOfCulture/godot/assets/world/countries.geojson";
+const SOURCE = process.argv[2] ?? "G:/Github/PalaceOfCulture/godot/assets/world/countries.geojson";
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "world.ts");
 
 /**
@@ -194,8 +193,7 @@ const source = JSON.parse(readFileSync(SOURCE, "utf8"));
 const countries = [];
 
 for (const feature of source.features) {
-  const name =
-    feature.properties.ADMIN ?? feature.properties.SOVEREIGNT ?? feature.properties.NAME;
+  const name = feature.properties.ADMIN ?? feature.properties.SOVEREIGNT ?? feature.properties.NAME;
   if (!name) continue;
   const polygons =
     feature.geometry.type === "Polygon"
@@ -231,9 +229,9 @@ export const WORLD: Country[] = ${JSON.stringify(countries)};
 `;
 
 writeFileSync(OUT, body, "utf8");
+const dropped = wrapped > 0 ? ` (${wrapped} antimeridian ring(s) dropped)` : "";
 process.stdout.write(
-  `world.ts: ${countries.length} countries, ${rings} rings, ${points} points, ` +
-    `${(body.length / 1024).toFixed(1)} KB` +
-    (wrapped > 0 ? ` (${wrapped} antimeridian ring(s) dropped)` : "") +
-    "\n",
+  `world.ts: ${countries.length} countries, ${rings} rings, ${points} points, ${(
+    body.length / 1024
+  ).toFixed(1)} KB${dropped}\n`,
 );
