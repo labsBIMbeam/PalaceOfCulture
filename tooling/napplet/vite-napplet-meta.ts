@@ -5,14 +5,19 @@
  * no longer writes the `napplet-type` and `napplet-requires` metas. Shells that read
  * the artifact itself (the Nappelin Hangar's check:napplets and napplet board) look
  * for them there. This plugin writes both from the same object that configures
- * nip5aManifest(), so the manifest and the file cannot disagree.
+ * nip5aManifest(), so the manifest and the file agree without a hand edit.
+ *
+ * The one allowed difference: a Nappelin host channel (table, totem, leitstand) belongs
+ * in the meta but not in the manifest tags, where other shells would read an unknown
+ * requirement. Such a name goes into the list handed to this plugin only; see
+ * napplets/README.md, "Where each kind of name goes".
  */
 
 /** The identity half of a nip5aManifest() config. */
 export interface NappletIdentity {
   /** The napplet's d-tag. */
   nappletType: string;
-  /** Every NAP domain the code calls, optional ones included. */
+  /** Every domain the code asks the shell for, optional ones included. */
   requires: string[];
 }
 
