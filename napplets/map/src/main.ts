@@ -106,9 +106,10 @@ function ship(onClick: () => void): SVGGElement {
   const mark = svg("image", { x: "-2.6", y: "-2.6", width: "5.2", height: "5.2", class: "mark" });
   mark.setAttribute("href", secLogoUrl);
   group.append(
-    // A generous invisible hit area: the mark is ~5 units wide and moving, and
-    // nobody should have to chase it with the pointer.
-    svg("circle", { cx: "0", cy: "0", r: "5", class: "ship-hit" }),
+    // A generous invisible hit area: the mark is ~5 units wide and moving,
+    // and on the 480x320 Totem panel (1.33 px per map unit) a 44px tap
+    // target needs a radius of 17 units. Nobody chases the ship.
+    svg("circle", { cx: "0", cy: "0", r: "17", class: "ship-hit" }),
     svg("path", { d: "M-3.4,2.4 Q0,3.2 3.4,2.4", class: "wake" }),
     mark,
   );
