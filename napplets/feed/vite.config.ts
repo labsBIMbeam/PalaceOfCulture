@@ -24,7 +24,7 @@ export default defineConfig({
     nip5aManifest({
       ...napplet,
       title: "Feed",
-      description: "A scrolling list of Nostr notes. Opens authors by role, never inline.",
+      description: "Nostr notes, two to a screen. Opens authors by role, never inline.",
       artifactMode: "single-file",
     }),
   ],

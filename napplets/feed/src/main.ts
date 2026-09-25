@@ -1,7 +1,7 @@
 /**
  * Feed napplet — NAAT-FEED.
  *
- * A scrolling list of events by some criteria. That is the whole role: it does
+ * A paged list of events by some criteria, two to a screen. That is the whole role: it does
  * not compose, it does not navigate, and it does not own a profile view. When a
  * reader opens an author, this asks the runtime for whoever handles the
  * `profile` role (NAP-INTENT) rather than growing a profile screen of its own.

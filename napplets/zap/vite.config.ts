@@ -5,10 +5,11 @@ import { nappletMeta } from "../../tooling/napplet/vite-napplet-meta.js";
 
 const napplet = {
   nappletType: "palace-zap",
-  // The NAP domains the code calls: `link` hands the invoice to a wallet and
-  // `theme` follows the shell's palette. The host-specific `zap` channel it pays
-  // through is not a NAP domain, so it is documented in napplets/README.md and
-  // probed at runtime; nothing is a boot-blocker.
+  // Every domain the code asks the shell for: `link` hands the invoice to a wallet
+  // and `theme` follows the shell's palette. The `zap` channel it pays through is a
+  // custom shell object (window.napplet.zap), which stays out of the meta and the
+  // manifest; it is documented in napplets/README.md and probed at runtime. Nothing
+  // is a boot-blocker.
   requires: ["link", "theme"],
 };
 

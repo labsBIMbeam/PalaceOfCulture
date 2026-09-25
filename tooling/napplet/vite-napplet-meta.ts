@@ -11,6 +11,11 @@
  * in the meta but not in the manifest tags, where other shells would read an unknown
  * requirement. Such a name goes into the list handed to this plugin only; see
  * napplets/README.md, "Where each kind of name goes".
+ *
+ * The hook runs `pre`, while the head still ends after <title>: the metas land in the
+ * first 1024 bytes, behind <meta charset>. A normal hook runs after Vite has put the
+ * entry script and stylesheet into the head, and the single-file build then inlines the
+ * whole bundle there, which pushed the metas to the end of the file.
  */
 
 /** The identity half of a nip5aManifest() config. */
@@ -25,13 +30,16 @@ function meta(name: string, content: string) {
   return { tag: "meta", attrs: { name, content }, injectTo: "head" as const };
 }
 
-/** A Vite plugin that appends the napplet-type and napplet-requires metas to the head. */
+/** A Vite plugin that writes the napplet-type and napplet-requires metas into the head. */
 export function nappletMeta(napplet: NappletIdentity) {
   return {
     name: "palace-napplet-meta",
-    transformIndexHtml: () => [
-      meta("napplet-type", napplet.nappletType),
-      meta("napplet-requires", napplet.requires.join(",")),
-    ],
+    transformIndexHtml: {
+      order: "pre" as const,
+      handler: () => [
+        meta("napplet-type", napplet.nappletType),
+        meta("napplet-requires", napplet.requires.join(",")),
+      ],
+    },
   };
 }

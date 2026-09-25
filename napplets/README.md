@@ -17,7 +17,8 @@ goes to `nip5aManifest()` (the `requires` tags of the kind 35129 manifest) and t
 `nappletMeta()` from `tooling/napplet/vite-napplet-meta.ts` (the `napplet-type` and
 `napplet-requires` metas in the built file).
 
-Verify a list against the source, never against the previous list: every `has()` probe and
+Verify a list against the source, never against the previous list: every `has()` probe that
+leads to a call (a probe that only learns a restriction or feeds a display does not count) and
 every kit call (`openLink` is `link`, `bytes` is `resource`, `query` and `subscribe` are
 `outbox`, `profile` is `common`, `read` and `write` are `storage`), plus `theme`, which
 `boot()` always asks for.
@@ -32,7 +33,9 @@ every kit call (`openLink` is `link`, `bytes` is `resource`, `query` and `subscr
 | Custom shell object (`window.napplet.zap`, `palace.*`, `guild`, `nutft`) | no | no: documented below instead |
 
 No napplet here uses an interim domain or a Nappelin host channel yet, so the meta and the
-manifest carry the same list. A napplet that starts to use a host channel adds it to the
+manifest carry the same list. Mind one trap before the first interim domain: `@napplet/vite-plugin`
+0.14.1 drops every name outside its NAP domain list from the manifest tags, so an
+`x-nappelin-*` name would reach the meta but silently miss the manifest. A napplet that starts to use a host channel adds it to the
 list handed to `nappletMeta()` only and keeps it out of the object for `nip5aManifest()`.
 
 ## Custom shell objects
