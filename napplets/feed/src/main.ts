@@ -90,7 +90,7 @@ function renderNote(note: NostrEvent, now: number): HTMLElement {
     el("span", { class: "when", text: relative(note.created_at, now) }),
   ]);
 
-  const body = el("p", { class: "body", text: note.content.slice(0, 1000) });
+  const body = el("p", { class: "body clamp-3", text: note.content.slice(0, 1000) });
   const card = el("article", { class: "card" }, [head, body]);
 
   // Links leave through the shell; a napplet never navigates on its own.
@@ -108,18 +108,46 @@ function renderNote(note: NostrEvent, now: number): HTMLElement {
   return card;
 }
 
+/** Two clamped notes fit one 480x320 screen under the bar and pager. */
+const NOTES_PER_SCREEN = 2;
+
 function render(root: HTMLElement): void {
-  const list = el("div", { class: "scroll" });
+  const list = el("div", { class: "page-view" });
   const status = el("span", { class: "muted", text: "loading…" });
   const bar = el("div", { class: "bar" }, [
     el("h1", { class: "title", text: "Feed" }),
     el("span", { class: "grow" }),
     status,
   ]);
-  clear(root, bar, list);
+  const back = el("button", {
+    class: "pager-step",
+    type: "button",
+    text: "‹",
+  }) as HTMLButtonElement;
+  const mid = el("span", { class: "pager-mid" });
+  const forward = el("button", {
+    class: "pager-step",
+    type: "button",
+    text: "›",
+  }) as HTMLButtonElement;
+  const pager = el("nav", { class: "pager" }, [back, mid, forward]);
+  pager.hidden = true;
+  clear(root, bar, list, pager);
+
+  // The street reads one screen at a time; ‹ › walk it, newest first.
+  let page = 0;
+  back.addEventListener("click", () => {
+    page = Math.max(0, page - 1);
+    paint();
+  });
+  forward.addEventListener("click", () => {
+    page += 1;
+    paint();
+  });
 
   const paint = (): void => {
     if (notes.length === 0) {
+      pager.hidden = true;
       clear(
         list,
         el("div", { class: "notice" }, [
@@ -132,8 +160,25 @@ function render(root: HTMLElement): void {
       );
       return;
     }
+    const pages = Math.max(1, Math.ceil(notes.length / NOTES_PER_SCREEN));
+    page = Math.min(page, pages - 1);
     const now = Date.now();
-    clear(list, ...notes.map((note) => renderNote(note, now)));
+    const start = page * NOTES_PER_SCREEN;
+    clear(
+      list,
+      ...notes.slice(start, start + NOTES_PER_SCREEN).map((note) => renderNote(note, now)),
+    );
+    pager.hidden = pages <= 1;
+    back.disabled = page === 0;
+    forward.disabled = page >= pages - 1;
+    if (pages <= 8) {
+      clear(
+        mid,
+        ...Array.from({ length: pages }, (_, i) => el("i", { class: i === page ? "on" : "" })),
+      );
+    } else {
+      clear(mid, el("span", { text: `${page + 1} / ${pages}` }));
+    }
   };
 
   clear(list, el("div", { class: "skeleton" }), el("div", { class: "skeleton" }));
