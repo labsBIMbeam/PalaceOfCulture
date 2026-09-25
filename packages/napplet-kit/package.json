@@ -19,7 +19,7 @@
     "verify": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@napplet/sdk": "^0.24.4"
+    "@napplet/sdk": "^0.28.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

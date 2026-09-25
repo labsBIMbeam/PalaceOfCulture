@@ -3,7 +3,7 @@
 // resolve, NIP-57 signing (NIP-07 preferred), LNURL fetch, WebLN. The napplet is pure UI.
 //
 // Dev note: the artifact is inlined at build time from napplets/zap/dist — run
-// `pnpm --filter @600b/napplet-zap build` once before `apps/web` dev/build (CI's
+// `pnpm build:napplets` once before `apps/web` dev/build; it builds the kit first (CI's
 // topological `pnpm -r build` orders it automatically via the devDependency).
 
 import { useCallback } from "react";
