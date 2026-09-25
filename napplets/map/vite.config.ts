@@ -1,6 +1,15 @@
 import { nip5aManifest } from "@napplet/vite-plugin";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
+import { nappletMeta } from "../../tooling/napplet/vite-napplet-meta.js";
+
+const napplet = {
+  nappletType: "palace-map",
+  // Every domain the code calls, all of them optional: the map renders with no
+  // NAP domains at all. `resource` loads the ship's meme gallery, `link` opens
+  // the Madeira intro, and `theme` follows the shell's palette.
+  requires: ["link", "resource", "theme"],
+};
 
 export default defineConfig({
   build: {
@@ -13,13 +22,11 @@ export default defineConfig({
   },
   plugins: [
     viteSingleFile(),
+    nappletMeta(napplet),
     nip5aManifest({
-      nappletType: "palace-map",
+      ...napplet,
       title: "We're not a cult. We're culture.",
       description: "One marker on Madeira. The Palace of Culture.",
-      // Nothing is required: the map renders with no NAP domains at all, and
-      // simply follows the shell's palette when NAP-THEME happens to be there.
-      requires: [],
       artifactMode: "single-file",
     }),
   ],
